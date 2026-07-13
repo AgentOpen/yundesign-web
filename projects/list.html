@@ -190,7 +190,7 @@
       }
 
       function filtered() {
-        return MOCK.PROJECTS.filter(p => {
+        return MOCK.scopeProjects(MOCK.PROJECTS).filter(p => {
           if (filter.status && p.status !== filter.status) return false;
           if (filter.type && p.type !== filter.type) return false;
           if (filter.urgency && p.urgency !== filter.urgency) return false;

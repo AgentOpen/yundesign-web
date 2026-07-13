@@ -39,9 +39,10 @@
   };
 
   // ---------- 全站菜单（M9/M10 重点实现，M1-M8 建设中） ----------
+  // roles 缺省 = 全部角色可见；section/item 均可声明 roles 限制
   const NAV = [
     {
-      title: '设计业务 · M1-M8（建设中）', items: [
+      title: '设计业务 · M1-M8（建设中）', roles: ['admin'], items: [
         { icon: 'ruler', label: 'M1 量尺与空间识别', href: '/biz/module.html?m=1', tag: '建设中', dimmed: true },
         { icon: 'palette', label: 'M2 全案方案设计', href: '/biz/module.html?m=2', tag: '建设中', dimmed: true },
         { icon: 'cube', label: 'M3 3D渲染与效果图', href: '/biz/module.html?m=3', tag: '建设中', dimmed: true },
@@ -61,7 +62,7 @@
     },
     {
       title: 'M9 · 项目管理台', items: [
-        { icon: 'tv', label: '运营总览', href: '/projects/overview.html' },
+        { icon: 'tv', label: '运营总览', href: '/projects/overview.html', roles: ['admin', 'deptlead'] },
         { icon: 'folder', label: '项目列表', href: '/projects/list.html' },
         { icon: 'git', label: '版本与溯源', href: '/projects/version.html' },
         { icon: 'file', label: '文件归档', href: '/projects/files.html' }
@@ -69,24 +70,34 @@
     },
     {
       title: 'M10 · 订单与分成', items: [
-        { icon: 'inbox', label: '设计单池', href: '/ops/order-pool.html' },
-        { icon: 'plus', label: '创建设计单', href: '/projects/create.html' },
-        { icon: 'layout', label: '分单看板', href: '/ops/assign-board.html' },
+        { icon: 'inbox', label: '设计单池', href: '/ops/order-pool.html', roles: ['admin', 'deptlead'] },
+        { icon: 'plus', label: '创建设计单', href: '/projects/create.html', roles: ['admin', 'deptlead'] },
+        { icon: 'layout', label: '分单看板', href: '/ops/assign-board.html', roles: ['admin', 'deptlead'] },
         { icon: 'flag', label: '里程碑与进度', href: '/projects/milestone.html' },
-        { icon: 'dollar', label: '定价管理', href: '/ops/pricing.html' },
-        { icon: 'layers', label: '分成规则', href: '/ops/commission-rules.html' },
-        { icon: 'calc', label: '核算与结算', href: '/ops/calc-queue.html' },
-        { icon: 'bar', label: '分成报表', href: '/ops/reports.html' }
+        { icon: 'dollar', label: '定价管理', href: '/ops/pricing.html', roles: ['admin'] },
+        { icon: 'layers', label: '分成规则', href: '/ops/commission-rules.html', roles: ['admin'] },
+        { icon: 'calc', label: '核算与结算', href: '/ops/calc-queue.html', roles: ['admin'] },
+        { icon: 'bar', label: '分成报表', href: '/ops/reports.html', roles: ['admin', 'deptlead'] }
       ]
     },
     {
-      title: '系统管理', items: [
+      title: '系统管理', roles: ['admin'], items: [
         { icon: 'users', label: '用户与权限', href: '/system/users.html' },
         { icon: 'plug', label: '集成配置', href: '/system/integration.html', tag: '建设中', dimmed: true },
         { icon: 'shield', label: '审计日志', href: '/system/audit.html' }
       ]
     }
   ];
+
+  function roleKey() { return (global.MOCK && MOCK.currentRole) ? MOCK.currentRole().key : 'admin'; }
+  function roleAllows(roles) { return !roles || roles.indexOf(roleKey()) >= 0; }
+  function visibleNav() {
+    return NAV.map(sec => {
+      if (!roleAllows(sec.roles)) return null;
+      const items = sec.items.filter(it => roleAllows(it.roles));
+      return items.length ? { title: sec.title, items } : null;
+    }).filter(Boolean);
+  }
 
   // ---------- M1-M8 模块信息（建设中页使用） ----------
   const MODULE_INFO = {
@@ -120,9 +131,27 @@
     return true;
   }
 
+  // ---------- 自动面包屑（依据菜单结构，修复各页错误面包屑）----------
+  function buildBreadcrumb(root) {
+    let match = null, sectionTitle = null;
+    NAV.forEach(sec => sec.items.forEach(it => { if (isCurrent(it.href)) { match = it; sectionTitle = sec.title; } }));
+    if (!match) return null;
+    const home = `<a href="${root}workbench/dashboard.html">工作台</a>`;
+    const sep = `<span class="sep">/</span>`;
+    const secClean = (sectionTitle || '').replace(/（.*?）/g, '').trim();
+    if (secClean === '工作台') return `${home}${sep}<span class="current">${match.label}</span>`;
+    return `${home}${sep}<span>${secClean}</span>${sep}<span class="current">${match.label}</span>`;
+  }
+
   // ---------- 渲染顶栏 ----------
   function renderHeader() {
-    const user = MOCK.CURRENT_USER;
+    const r = MOCK.currentRole();
+    const roleOpts = MOCK.ROLES.map(x => `
+      <div class="role-opt${x.key === r.key ? ' active' : ''}" data-role="${x.key}">
+        <div class="avatar sm" data-color="${colorFrom(x.name)}">${initials(x.name)}</div>
+        <div style="flex:1;min-width:0;"><div class="ro-name">${x.name}</div><div class="ro-title">${x.title}</div></div>
+        ${x.key === r.key ? '<span class="ro-check">✓</span>' : ''}
+      </div>`).join('');
     return `
       <div class="brand">
         <button class="header-mobile-menu header-icon-btn" id="mobile-menu-btn">${ICONS.menu}</button>
@@ -139,12 +168,16 @@
         <button class="header-icon-btn" title="帮助" id="hdr-help">${ICONS.help}</button>
         <div class="header-divider"></div>
         <div class="header-avatar" id="hdr-avatar">
-          <div class="avatar" data-color="3">${initials(user.name)}</div>
+          <div class="avatar" data-color="3">${initials(r.name)}</div>
           <div class="ha-info">
-            <div class="ha-name">${user.name}</div>
-            <div class="ha-role">${user.role}</div>
+            <div class="ha-name">${r.name}</div>
+            <div class="ha-role">${r.title}</div>
           </div>
           <span class="ha-caret">▾</span>
+          <div class="role-dropdown" id="role-dropdown">
+            <div class="rd-head">切换角色（演示权限范围）</div>
+            ${roleOpts}
+          </div>
         </div>
       </div>
     `;
@@ -164,7 +197,7 @@
       </div>
       <nav class="sidebar-nav">
     `;
-    NAV.forEach(section => {
+    visibleNav().forEach(section => {
       html += `<div class="nav-section"><div class="nav-section-title">${section.title}</div>`;
       section.items.forEach(item => {
         const active = isCurrent(item.href);
@@ -224,6 +257,11 @@
 
     document.body.appendChild(wrap);
 
+    // 自动修正面包屑（覆盖各页硬编码的错误面包屑）
+    const bc = pageNode.querySelector('.page-breadcrumb');
+    const bcHtml = buildBreadcrumb(root);
+    if (bc && bcHtml) bc.innerHTML = bcHtml;
+
     bindShellEvents(wrap);
   }
 
@@ -258,8 +296,24 @@
     if (msg) msg.addEventListener('click', () => toast('您有 3 条新消息', 'info'));
     const help = document.getElementById('hdr-help');
     if (help) help.addEventListener('click', () => toast('帮助中心开发中', 'info'));
+    // 角色切换下拉
     const avatar = document.getElementById('hdr-avatar');
-    if (avatar) avatar.addEventListener('click', () => toast(`${MOCK.CURRENT_USER.name} · ${MOCK.CURRENT_USER.role}`, 'info'));
+    const dropdown = document.getElementById('role-dropdown');
+    if (avatar && dropdown) {
+      avatar.addEventListener('click', (e) => { e.stopPropagation(); dropdown.classList.toggle('open'); });
+      dropdown.querySelectorAll('.role-opt').forEach(opt => {
+        opt.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const key = opt.getAttribute('data-role');
+          if (key && MOCK.currentRole().key !== key) {
+            MOCK.setRole(key);
+            sessionStorage.removeItem('yd_nav_scroll');
+            location.reload();
+          }
+        });
+      });
+      document.body.addEventListener('click', () => dropdown.classList.remove('open'));
+    }
     // 快捷键
     document.addEventListener('keydown', (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {

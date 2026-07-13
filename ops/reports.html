@@ -47,76 +47,116 @@
     </div>
     <div class="page-body">
       <div class="tabs" style="background:white;border-radius:8px;margin-bottom:16px;">
-        <div class="tab-item active">📊 运营</div>
-        <div class="tab-item">💰 财务</div>
-        <div class="tab-item">👥 人效</div>
-        <div class="tab-item">🎯 客户</div>
-        <div class="tab-item">💵 分成</div>
+        <div class="tab-item active" data-tab="ops">📊 运营</div>
+        <div class="tab-item" data-tab="fin">💰 财务</div>
+        <div class="tab-item" data-tab="eff">👥 人效</div>
+        <div class="tab-item" data-tab="cust">🎯 客户</div>
+        <div class="tab-item" data-tab="comm">💵 分成</div>
       </div>
 
-      <!-- KPI -->
-      <div class="grid-3">
-        <div class="stat-card"><div class="stat-label">本月项目吞吐量</div><div class="stat-value font-mono">57</div><div class="stat-delta up">▲ 12% 环比</div></div>
-        <div class="stat-card"><div class="stat-label">阶段平均耗时</div><div class="stat-value font-mono">12.4<span class="stat-suffix">天</span></div><div class="stat-delta down">▲ 8% 需关注</div></div>
-        <div class="stat-card"><div class="stat-label">首版通过率</div><div class="stat-value font-mono">68<span class="stat-suffix">%</span></div><div class="stat-delta up">▲ 5% 环比</div></div>
-      </div>
-
-      <!-- Charts -->
-      <div class="grid-2" style="margin-top:16px;">
-        <div class="card">
-          <div class="card-header"><div class="card-title">📈 各阶段耗时 vs 基准（天）</div></div>
-          <div>
-            <div class="chart-h" id="chart-bar"></div>
-            <div class="chart-x">
-              <div>需求收集</div><div>平面</div><div>3D 意向</div><div>全屋 3D</div><div>验收</div>
+      <!-- ===== 运营 ===== -->
+      <div class="rp-panel" id="panel-ops">
+        <div class="grid-3">
+          <div class="stat-card"><div class="stat-label">本月项目吞吐量</div><div class="stat-value font-mono">57</div><div class="stat-delta up">▲ 12% 环比</div></div>
+          <div class="stat-card"><div class="stat-label">阶段平均耗时</div><div class="stat-value font-mono">12.4<span class="stat-suffix">天</span></div><div class="stat-delta down">▲ 8% 需关注</div></div>
+          <div class="stat-card"><div class="stat-label">首版通过率</div><div class="stat-value font-mono">68<span class="stat-suffix">%</span></div><div class="stat-delta up">▲ 5% 环比</div></div>
+        </div>
+        <div class="grid-2" style="margin-top:16px;">
+          <div class="card">
+            <div class="card-header"><div class="card-title">📈 各阶段耗时 vs 基准（天）</div></div>
+            <div>
+              <div class="chart-h" id="chart-bar"></div>
+              <div class="chart-x"><div>需求收集</div><div>平面</div><div>3D 意向</div><div>全屋 3D</div><div>验收</div></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">🎯 项目类型分布</div></div>
+            <div class="card-body" style="display:flex;gap:20px;align-items:center;">
+              <svg viewBox="0 0 200 200" style="width:180px;height:180px;">
+                <circle cx="100" cy="100" r="80" fill="none" stroke="#E5E7EB" stroke-width="24"/>
+                <circle cx="100" cy="100" r="80" fill="none" stroke="#1E4FD8" stroke-width="24" stroke-dasharray="230 502" transform="rotate(-90 100 100)"/>
+                <circle cx="100" cy="100" r="80" fill="none" stroke="#10B981" stroke-width="24" stroke-dasharray="140 502" stroke-dashoffset="-230" transform="rotate(-90 100 100)"/>
+                <circle cx="100" cy="100" r="80" fill="none" stroke="#F59E0B" stroke-width="24" stroke-dasharray="132 502" stroke-dashoffset="-370" transform="rotate(-90 100 100)"/>
+                <text x="100" y="95" text-anchor="middle" font-size="14" fill="#6B7280">合计</text>
+                <text x="100" y="115" text-anchor="middle" font-size="20" font-weight="700" fill="#1F2937">57</text>
+              </svg>
+              <div style="flex:1;">
+                <div class="flex items-center gap-2 mb-3"><span style="width:12px;height:12px;background:#1E4FD8;border-radius:2px;"></span> 家装 <span style="margin-left:auto;font-weight:500;font-family:var(--font-mono);">26 (46%)</span></div>
+                <div class="flex items-center gap-2 mb-3"><span style="width:12px;height:12px;background:#10B981;border-radius:2px;"></span> 别墅 <span style="margin-left:auto;font-weight:500;font-family:var(--font-mono);">16 (28%)</span></div>
+                <div class="flex items-center gap-2 mb-3"><span style="width:12px;height:12px;background:#F59E0B;border-radius:2px;"></span> 工装 <span style="margin-left:auto;font-weight:500;font-family:var(--font-mono);">15 (26%)</span></div>
+              </div>
             </div>
           </div>
         </div>
-        <div class="card">
-          <div class="card-header"><div class="card-title">🎯 项目类型分布</div></div>
-          <div class="card-body" style="display:flex;gap:20px;align-items:center;">
-            <svg viewBox="0 0 200 200" style="width:200px;height:200px;">
-              <circle cx="100" cy="100" r="80" fill="none" stroke="#E5E7EB" stroke-width="24"/>
-              <circle cx="100" cy="100" r="80" fill="none" stroke="#1E4FD8" stroke-width="24" stroke-dasharray="230 502" transform="rotate(-90 100 100)"/>
-              <circle cx="100" cy="100" r="80" fill="none" stroke="#10B981" stroke-width="24" stroke-dasharray="140 502" stroke-dashoffset="-230" transform="rotate(-90 100 100)"/>
-              <circle cx="100" cy="100" r="80" fill="none" stroke="#F59E0B" stroke-width="24" stroke-dasharray="132 502" stroke-dashoffset="-370" transform="rotate(-90 100 100)"/>
-              <text x="100" y="95" text-anchor="middle" font-size="14" fill="#6B7280">合计</text>
-              <text x="100" y="115" text-anchor="middle" font-size="20" font-weight="700" fill="#1F2937">57</text>
-            </svg>
-            <div style="flex:1;">
-              <div class="flex items-center gap-2 mb-3"><span style="width:12px;height:12px;background:#1E4FD8;border-radius:2px;"></span> 家装 <span style="margin-left:auto;font-weight:500;font-family:var(--font-mono);">26 (46%)</span></div>
-              <div class="flex items-center gap-2 mb-3"><span style="width:12px;height:12px;background:#10B981;border-radius:2px;"></span> 别墅 <span style="margin-left:auto;font-weight:500;font-family:var(--font-mono);">16 (28%)</span></div>
-              <div class="flex items-center gap-2 mb-3"><span style="width:12px;height:12px;background:#F59E0B;border-radius:2px;"></span> 工装 <span style="margin-left:auto;font-weight:500;font-family:var(--font-mono);">15 (26%)</span></div>
+      </div>
+
+      <!-- ===== 财务 ===== -->
+      <div class="rp-panel hidden" id="panel-fin">
+        <div class="grid-3">
+          <div class="stat-card"><div class="stat-label">本月设计费收入</div><div class="stat-value font-mono">¥184.6<span class="stat-suffix">万</span></div><div class="stat-delta up">▲ 9% 环比</div></div>
+          <div class="stat-card"><div class="stat-label">回款率</div><div class="stat-value font-mono">86<span class="stat-suffix">%</span></div><div class="stat-delta up">▲ 3% 环比</div></div>
+          <div class="stat-card"><div class="stat-label">平均客单价</div><div class="stat-value font-mono">¥8.9<span class="stat-suffix">万</span></div><div class="stat-delta down">▼ 2% 环比</div></div>
+        </div>
+        <div class="grid-2" style="margin-top:16px;">
+          <div class="card">
+            <div class="card-header"><div class="card-title">📊 各项目类型营收贡献</div></div>
+            <div class="card-body" id="fin-type"></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">💰 应收 / 已回款 / 待核算</div></div>
+            <div class="card-body">
+              <div class="chart-h" id="fin-bar" style="height:200px;"></div>
+              <div class="chart-x"><div>应收</div><div>已回款</div><div>待核算分成</div><div>净收入</div></div>
             </div>
           </div>
         </div>
       </div>
 
-      <div class="grid-2" style="margin-top:16px;">
+      <!-- ===== 人效 ===== -->
+      <div class="rp-panel hidden" id="panel-eff">
         <div class="card">
+          <div class="card-header"><div class="card-title">🏢 各部门人效对比</div></div>
+          <table class="data-table"><thead><tr><th>部门</th><th style="text-align:right;">人数</th><th style="text-align:right;">在途项目</th><th style="text-align:right;">平均负载</th><th style="text-align:right;">平均质量分</th><th>负载分布</th></tr></thead><tbody id="eff-dept"></tbody></table>
+        </div>
+        <div class="card" style="margin-top:16px;">
           <div class="card-header"><div class="card-title">🏆 设计师效率 Top 10</div></div>
-          <table class="data-table rank-table">
-            <thead><tr><th>#</th><th>姓名</th><th>角色</th><th style="text-align:right;">完单</th><th style="text-align:right;">质量分</th></tr></thead>
-            <tbody id="rank"></tbody>
-          </table>
+          <table class="data-table rank-table"><thead><tr><th>#</th><th>姓名</th><th>部门</th><th>角色</th><th style="text-align:right;">完单</th><th style="text-align:right;">质量分</th></tr></thead><tbody id="rank"></tbody></table>
         </div>
-        <div class="card">
-          <div class="card-header"><div class="card-title">📅 6 月度分成趋势</div></div>
-          <div class="line-chart">
-            <svg viewBox="0 0 400 200" style="width:100%;height:100%;">
-              <defs>
-                <linearGradient id="gradient1" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0%" stop-color="#1E4FD8" stop-opacity="0.3"/>
-                  <stop offset="100%" stop-color="#1E4FD8" stop-opacity="0"/>
-                </linearGradient>
-              </defs>
-              <path d="M 20 160 L 90 130 L 160 145 L 230 100 L 300 90 L 370 60 L 370 200 L 20 200 Z" fill="url(#gradient1)"/>
-              <path d="M 20 160 L 90 130 L 160 145 L 230 100 L 300 90 L 370 60" stroke="#1E4FD8" stroke-width="2" fill="none"/>
-              ${[[20, 160], [90, 130], [160, 145], [230, 100], [300, 90], [370, 60]].map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="4" fill="white" stroke="#1E4FD8" stroke-width="2"/>`).join('')}
-              <line x1="20" y1="200" x2="380" y2="200" stroke="#E5E7EB"/>
-            </svg>
-            <div style="display:flex;padding:0 12px;margin-top:-10px;">
-              ${['2月', '3月', '4月', '5月', '6月', '7月'].map(m => `<div style="flex:1;text-align:center;font-size:11px;color:var(--text-secondary);">${m}</div>`).join('')}
+      </div>
+
+      <!-- ===== 客户 ===== -->
+      <div class="rp-panel hidden" id="panel-cust">
+        <div class="grid-3">
+          <div class="stat-card"><div class="stat-label">累计客户</div><div class="stat-value font-mono" id="cust-total">0</div><div class="stat-delta up">▲ 6 新增</div></div>
+          <div class="stat-card"><div class="stat-label">客户满意度</div><div class="stat-value font-mono">4.6<span class="stat-suffix">/5</span></div><div class="stat-delta up">▲ 0.2</div></div>
+          <div class="stat-card"><div class="stat-label">海外客户占比</div><div class="stat-value font-mono" id="cust-oversea">0<span class="stat-suffix">%</span></div><div class="stat-delta up">▲ 8%</div></div>
+        </div>
+        <div class="grid-2" style="margin-top:16px;">
+          <div class="card"><div class="card-header"><div class="card-title">🌏 客户区域分布</div></div><div class="card-body" id="cust-region"></div></div>
+          <div class="card"><div class="card-header"><div class="card-title">👑 重点客户（VIP）</div></div><div class="card-body" style="padding:0;"><table class="data-table"><thead><tr><th>客户</th><th>区域</th><th>等级</th><th style="text-align:right;">项目数</th></tr></thead><tbody id="cust-top"></tbody></table></div></div>
+        </div>
+      </div>
+
+      <!-- ===== 分成 ===== -->
+      <div class="rp-panel hidden" id="panel-comm">
+        <div class="grid-3">
+          <div class="stat-card"><div class="stat-label">本月分成总额</div><div class="stat-value font-mono" id="comm-total">¥0</div><div class="stat-delta up">▲ 11% 环比</div></div>
+          <div class="stat-card"><div class="stat-label">人均分成</div><div class="stat-value font-mono" id="comm-avg">¥0</div><div class="stat-delta up">▲ 4%</div></div>
+          <div class="stat-card"><div class="stat-label">待核算/待审批</div><div class="stat-value font-mono">2<span class="stat-suffix">笔</span></div><div class="stat-delta">进行中</div></div>
+        </div>
+        <div class="grid-2" style="margin-top:16px;">
+          <div class="card"><div class="card-header"><div class="card-title">👥 各角色分成占比</div></div><div class="card-body" id="comm-role"></div></div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">📅 月度分成趋势</div></div>
+            <div class="line-chart">
+              <svg viewBox="0 0 400 200" style="width:100%;height:100%;">
+                <defs><linearGradient id="gradient1" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#1E4FD8" stop-opacity="0.3"/><stop offset="100%" stop-color="#1E4FD8" stop-opacity="0"/></linearGradient></defs>
+                <path d="M 20 160 L 90 130 L 160 145 L 230 100 L 300 90 L 370 60 L 370 200 L 20 200 Z" fill="url(#gradient1)"/>
+                <path d="M 20 160 L 90 130 L 160 145 L 230 100 L 300 90 L 370 60" stroke="#1E4FD8" stroke-width="2" fill="none"/>
+                ${[[20, 160], [90, 130], [160, 145], [230, 100], [300, 90], [370, 60]].map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="4" fill="white" stroke="#1E4FD8" stroke-width="2"/>`).join('')}
+                <line x1="20" y1="200" x2="380" y2="200" stroke="#E5E7EB"/>
+              </svg>
+              <div style="display:flex;padding:0 12px;margin-top:-10px;">${['2月', '3月', '4月', '5月', '6月', '7月'].map(m => `<div style="flex:1;text-align:center;font-size:11px;color:var(--text-secondary);">${m}</div>`).join('')}</div>
             </div>
           </div>
         </div>
@@ -129,40 +169,99 @@
   <script src="../assets/js/shell.js"></script>
   <script>
     (function () {
-      // Bar chart
-      const bars = [
-        { stage: '需求', actual: 3, baseline: 2 },
-        { stage: '平面', actual: 6, baseline: 5 },
-        { stage: '3D意', actual: 4, baseline: 4 },
-        { stage: '全屋3D', actual: 5, baseline: 4 },
-        { stage: '验收', actual: 2, baseline: 3 }
-      ];
-      const maxV = Math.max(...bars.flatMap(b => [b.actual, b.baseline]));
-      const box = document.getElementById('chart-bar');
-      bars.forEach(b => {
-        box.innerHTML += `
-          <div style="flex:1;display:flex;gap:4px;align-items:end;height:100%;">
-            <div class="bar" style="height:${(b.actual / maxV) * 100}%;"><span class="bar-v">${b.actual}</span></div>
-            <div class="bar b2" style="height:${(b.baseline / maxV) * 100}%;"><span class="bar-v">${b.baseline}</span></div>
-          </div>
-        `;
+      // ---- Tab 切换 ----
+      document.querySelectorAll('.tab-item').forEach(t => {
+        t.addEventListener('click', () => {
+          document.querySelectorAll('.tab-item').forEach(x => x.classList.remove('active'));
+          t.classList.add('active');
+          document.querySelectorAll('.rp-panel').forEach(p => p.classList.add('hidden'));
+          document.getElementById('panel-' + t.dataset.tab).classList.remove('hidden');
+        });
       });
 
-      // Rank
-      const tbody = document.getElementById('rank');
-      const sorted = [...MOCK.DESIGNERS].filter(d => d.avgScore > 0).sort((a, b) => b.avgScore - a.avgScore).slice(0, 10);
-      sorted.forEach((d, i) => {
-        const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1;
-        tbody.innerHTML += `
-          <tr>
-            <td>${medal}</td>
-            <td><div style="display:flex;align-items:center;gap:6px;"><div class="avatar sm" data-color="${colorFrom(d.name)}">${initials(d.name)}</div>${d.name}</div></td>
-            <td><span class="tag tag-brand">${d.role} · ${d.level}</span></td>
-            <td style="text-align:right;font-family:var(--font-mono);">${d.activeProjects}</td>
-            <td style="text-align:right;">⭐ ${d.avgScore.toFixed(1)}</td>
-          </tr>
-        `;
+      const money = n => '¥' + (n / 10000).toFixed(1) + '万';
+      const barChart = (el, arr, maxV) => {
+        el.innerHTML = arr.map(b => `<div style="flex:1;display:flex;justify-content:center;align-items:end;height:100%;"><div class="bar ${b.cls || ''}" style="height:${Math.max(4, (b.v / maxV) * 100)}%;width:60%;"><span class="bar-v">${b.label || b.v}</span></div></div>`).join('');
+      };
+
+      // ===== 运营：阶段耗时 =====
+      const bars = [{ v: 3 }, { v: 6 }, { v: 4 }, { v: 5 }, { v: 2 }];
+      const bbase = [2, 5, 4, 4, 3];
+      const maxV = 6;
+      document.getElementById('chart-bar').innerHTML = bars.map((b, i) => `
+        <div style="flex:1;display:flex;gap:4px;align-items:end;height:100%;">
+          <div class="bar" style="height:${(b.v / maxV) * 100}%;"><span class="bar-v">${b.v}</span></div>
+          <div class="bar b2" style="height:${(bbase[i] / maxV) * 100}%;"><span class="bar-v">${bbase[i]}</span></div>
+        </div>`).join('');
+
+      // ===== 财务 =====
+      const typeRev = { 家装: 62, 别墅: 88, 工装: 34 };
+      const trMax = Math.max(...Object.values(typeRev));
+      document.getElementById('fin-type').innerHTML = Object.entries(typeRev).map(([k, v]) => `
+        <div style="margin-bottom:14px;">
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;"><span>${k}</span><span class="font-mono">¥${v}万</span></div>
+          <div class="progress"><div class="progress-bar ${k === '别墅' ? 'success' : k === '工装' ? 'warning' : ''}" style="width:${(v / trMax) * 100}%;"></div></div>
+        </div>`).join('');
+      barChart(document.getElementById('fin-bar'), [{ v: 214, label: '214万' }, { v: 184, label: '184万', cls: 'b2' }, { v: 42, label: '42万' }, { v: 142, label: '142万', cls: 'b2' }], 214);
+
+      // ===== 人效：部门对比 =====
+      const deptBody = document.getElementById('eff-dept');
+      MOCK.DEPARTMENTS.forEach(dep => {
+        const ds = MOCK.DESIGNERS.filter(d => d.dept === dep && ['2D', '3D', '协调员'].includes(d.role));
+        if (!ds.length) return;
+        const avgLoad = Math.round(ds.reduce((s, d) => s + d.capacity, 0) / ds.length);
+        const active = ds.reduce((s, d) => s + d.activeProjects, 0);
+        const avgScore = (ds.reduce((s, d) => s + d.avgScore, 0) / ds.length).toFixed(1);
+        deptBody.innerHTML += `<tr>
+          <td style="font-weight:500;">${dep}</td>
+          <td style="text-align:right;">${ds.length}</td>
+          <td style="text-align:right;">${active}</td>
+          <td style="text-align:right;">${avgLoad}%</td>
+          <td style="text-align:right;">⭐ ${avgScore}</td>
+          <td style="min-width:140px;"><div class="progress"><div class="progress-bar ${avgLoad > 85 ? 'danger' : avgLoad > 70 ? 'warning' : ''}" style="width:${avgLoad}%;"></div></div></td>
+        </tr>`;
       });
+      const rankBody = document.getElementById('rank');
+      [...MOCK.DESIGNERS].filter(d => d.avgScore > 0 && ['2D', '3D', '协调员'].includes(d.role)).sort((a, b) => b.avgScore - a.avgScore).slice(0, 10).forEach((d, i) => {
+        const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1;
+        rankBody.innerHTML += `<tr>
+          <td>${medal}</td>
+          <td><div style="display:flex;align-items:center;gap:6px;"><div class="avatar sm" data-color="${colorFrom(d.name)}">${initials(d.name)}</div>${d.name}</div></td>
+          <td><span class="tag tag-purple">${MOCK.deptShort(d.dept)}</span></td>
+          <td><span class="tag tag-brand">${d.role} · ${d.level}</span></td>
+          <td style="text-align:right;font-family:var(--font-mono);">${d.activeProjects}</td>
+          <td style="text-align:right;">⭐ ${d.avgScore.toFixed(1)}</td>
+        </tr>`;
+      });
+
+      // ===== 客户 =====
+      const custs = MOCK.CUSTOMERS;
+      document.getElementById('cust-total').textContent = custs.length;
+      const oversea = custs.filter(c => !/^[\u4e00-\u9fa5]/.test(c.name) || /Mr\.|Ms\./.test(c.name)).length;
+      document.getElementById('cust-oversea').innerHTML = Math.round(oversea / custs.length * 100) + '<span class="stat-suffix">%</span>';
+      const regionCount = {};
+      MOCK.PROJECTS.forEach(p => { const r = p.region.split('·')[0]; regionCount[r] = (regionCount[r] || 0) + 1; });
+      const rcMax = Math.max(...Object.values(regionCount));
+      document.getElementById('cust-region').innerHTML = Object.entries(regionCount).sort((a, b) => b[1] - a[1]).map(([k, v]) => `
+        <div style="margin-bottom:12px;"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;"><span>${k}</span><span class="font-mono">${v}</span></div>
+        <div class="progress"><div class="progress-bar" style="width:${(v / rcMax) * 100}%;"></div></div></div>`).join('');
+      const custTop = document.getElementById('cust-top');
+      custs.filter(c => c.level === 'VIP').forEach(c => {
+        const pc = MOCK.PROJECTS.filter(p => p.customer === c.id).length;
+        custTop.innerHTML += `<tr><td style="font-weight:500;">${c.name}</td><td class="text-sm">${(c.address || '').split('·')[0]}</td><td><span class="tag tag-warning">VIP</span></td><td style="text-align:right;">${pc}</td></tr>`;
+      });
+
+      // ===== 分成 =====
+      const ds = MOCK.DESIGNERS.filter(d => d.monthCommission > 0);
+      const total = ds.reduce((s, d) => s + d.monthCommission, 0);
+      document.getElementById('comm-total').textContent = money(total);
+      document.getElementById('comm-avg').textContent = money(Math.round(total / ds.length));
+      const byRole = {};
+      ds.forEach(d => { byRole[d.role] = (byRole[d.role] || 0) + d.monthCommission; });
+      const roleColor = { '2D': '', '3D': 'success', '协调员': 'warning' };
+      document.getElementById('comm-role').innerHTML = Object.entries(byRole).map(([k, v]) => `
+        <div style="margin-bottom:14px;"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;"><span>${k === '2D' ? '平面 2D' : k === '3D' ? '3D效果图' : k}</span><span class="font-mono">${money(v)} · ${Math.round(v / total * 100)}%</span></div>
+        <div class="progress"><div class="progress-bar ${roleColor[k] || ''}" style="width:${v / total * 100}%;"></div></div></div>`).join('');
     })();
   </script>
 </body>

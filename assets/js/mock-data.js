@@ -145,14 +145,41 @@
   // ===== 审计日志（动态新增的分单/改派等会写入这里）=====
   const AUDIT_LOGS = [];
 
-  // 用户当前身份（前端可切换）
-  const CURRENT_USER = {
-    id: 'u017',
-    name: '王负责人',
-    role: '设计负责人',
-    roleCode: 'R14',
-    avatar: null
-  };
+  // ===== 角色（右上角可切换，用于演示不同权限/数据范围）=====
+  // scope: all=全平台 / dept=本部门 / self=本人任务与项目 / coord=本人协调项目
+  const ROLES = [
+    { key: 'admin', name: '王负责人', title: '设计负责人（平台）', scope: 'all', dept: null, selfId: 'u017' },
+    { key: 'deptlead', name: '徐东', title: '平面设计二部 · 部门负责人', scope: 'dept', dept: '平面设计二部', selfId: 'u012' },
+    { key: 'designer', name: '张三', title: '海外设计部 · 设计师', scope: 'self', dept: '海外设计部', selfId: 'u001' },
+    { key: 'coord', name: '赵六', title: '协调部 · 协调员', scope: 'coord', dept: '协调部', selfId: 'u004' }
+  ];
+  let _roleKey = 'admin';
+  try { _roleKey = localStorage.getItem('yd_role') || 'admin'; } catch (e) {}
+  function currentRole() { return ROLES.find(r => r.key === _roleKey) || ROLES[0]; }
+  function setRole(k) { _roleKey = k; try { localStorage.setItem('yd_role', k); } catch (e) {} }
+
+  // 兼容旧引用：CURRENT_USER 反映当前角色
+  const CURRENT_USER = { id: 'u017', name: '王负责人', role: '设计负责人', roleCode: 'R14', avatar: null };
+  (function syncUser() { const r = currentRole(); CURRENT_USER.id = r.selfId; CURRENT_USER.name = r.name; CURRENT_USER.role = r.title; })();
+
+  // ===== 数据范围过滤 =====
+  function projectDepts(p) {
+    return [...(p.d2d || []), ...(p.d3d || []), p.coord].filter(Boolean).map(id => (DESIGNERS.find(d => d.id === id) || {}).dept);
+  }
+  function scopeProjects(list) {
+    const r = currentRole(); list = list || PROJECTS;
+    if (r.scope === 'all') return list;
+    if (r.scope === 'dept') return list.filter(p => projectDepts(p).includes(r.dept));
+    if (r.scope === 'self') return list.filter(p => (p.d2d || []).includes(r.selfId) || (p.d3d || []).includes(r.selfId));
+    if (r.scope === 'coord') return list.filter(p => p.coord === r.selfId);
+    return list;
+  }
+  function scopeDesigners(list) {
+    const r = currentRole(); list = list || DESIGNERS.filter(d => ['2D', '3D', '协调员'].includes(d.role));
+    if (r.scope === 'all') return list;
+    if (r.scope === 'dept') return list.filter(d => d.dept === r.dept);
+    return list.filter(d => d.id === r.selfId);
+  }
 
   // ===================== 持久化（localStorage）=====================
   const STATE_VERSION = 3;   // 基础数据结构变更时递增，自动失效旧缓存
@@ -270,6 +297,8 @@
     names: ids => (ids || []).map(id => nameOf(id)).join('、'),
     deptShort: dept => DEPT_SHORT[dept] || dept,
     // 业务动作
-    assignOrder, persist, resetDemo, addLog, nowStr
+    assignOrder, persist, resetDemo, addLog, nowStr,
+    // 角色 & 数据范围
+    ROLES, currentRole, setRole, scopeProjects, scopeDesigners, projectDepts
   };
 })(window);

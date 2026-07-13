@@ -41,6 +41,18 @@
     .eff-card .ec-label { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
 
     .dcard-wall { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+    /* 人效看板：左部门 / 右状态墙 */
+    .hr-layout { display: grid; grid-template-columns: 240px 1fr; gap: 16px; align-items: start; }
+    @media (max-width: 1000px) { .hr-layout { grid-template-columns: 1fr; } }
+    .dept-list { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 8px; box-shadow: var(--shadow-card); }
+    .dept-item { padding: 10px 12px; border-radius: var(--radius-md); cursor: pointer; margin-bottom: 4px; border-left: 3px solid transparent; }
+    .dept-item:hover { background: var(--bg-hover); }
+    .dept-item.active { background: var(--brand-primary-bg); border-left-color: var(--brand-primary); }
+    .dept-item .di-top { display: flex; justify-content: space-between; align-items: center; }
+    .dept-item .di-name { font-weight: 600; font-size: 13px; }
+    .dept-item .di-count { font-size: 12px; color: var(--text-secondary); }
+    .dept-item .di-bar { height: 5px; background: var(--bg-page); border-radius: 3px; overflow: hidden; margin-top: 8px; }
+    .dept-item .di-fill { height: 100%; background: var(--brand-primary); }
     .dcard { border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px; cursor: pointer; transition: var(--transition-fast); background: var(--bg-card); }
     .dcard:hover { border-color: var(--brand-primary); box-shadow: var(--shadow-hover); }
     .dcard .dc-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
@@ -66,6 +78,13 @@
         </div>
         <div class="flex gap-2">
           <span class="text-sm text-secondary" id="ov-clock" style="align-self:center;"></span>
+          <select class="filter-select" id="ov-range" style="height:32px;align-self:center;">
+            <option value="month" selected>本月</option>
+            <option value="lastmonth">上月</option>
+            <option value="quarter">近三月</option>
+            <option value="year">本年</option>
+            <option value="all">全部</option>
+          </select>
           <a href="./list.html" class="btn btn-default">项目列表</a>
           <a href="../ops/order-pool.html" class="btn btn-primary">设计单池</a>
         </div>
@@ -128,21 +147,26 @@
       <div class="tab-panel" id="panel-hr">
         <div class="eff-summary" id="eff-summary"></div>
 
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">设计师状态墙 <span class="text-sm text-secondary" id="eff-count"></span></div>
-            <div class="flex gap-2">
-              <select class="filter-select" id="eff-dept"><option value="">全部部门</option></select>
-              <select class="filter-select" id="eff-role">
-                <option value="">全部角色</option><option>2D</option><option>3D</option><option>协调员</option>
-              </select>
-              <select class="filter-select" id="eff-status">
-                <option value="">全部状态</option><option value="idle">空闲</option><option value="normal">正常</option><option value="busy">饱和</option><option value="over">过载</option>
-              </select>
+        <div class="hr-layout">
+          <!-- 左：部门 -->
+          <div class="dept-list" id="dept-list"></div>
+
+          <!-- 右：设计师状态墙 -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">设计师状态墙 <span class="text-sm text-secondary" id="eff-count"></span></div>
+              <div class="flex gap-2">
+                <select class="filter-select" id="eff-role">
+                  <option value="">全部角色</option><option>2D</option><option>3D</option><option>协调员</option>
+                </select>
+                <select class="filter-select" id="eff-status">
+                  <option value="">全部状态</option><option value="idle">空闲</option><option value="normal">正常</option><option value="busy">饱和</option><option value="over">过载</option>
+                </select>
+              </div>
             </div>
-          </div>
-          <div class="card-body">
-            <div class="dcard-wall" id="dcard-wall"></div>
+            <div class="card-body">
+              <div class="dcard-wall" id="dcard-wall"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -154,9 +178,12 @@
   <script src="../assets/js/shell.js"></script>
   <script>
     (function () {
-      const P = MOCK.PROJECTS;
-      const D = MOCK.DESIGNERS.filter(d => ['2D', '3D', '协调员'].includes(d.role));
+      const ALL_P = MOCK.scopeProjects(MOCK.PROJECTS);          // 角色数据范围
+      const D = MOCK.scopeDesigners();                          // 角色范围内设计师
+      const stages = ['需求收集', '平面确认', '3D意向', '全屋3D', '项目完结'];
       let stageFilter = '';
+      let range = 'month';
+      let P = [];
 
       // ---- Tabs ----
       document.querySelectorAll('.tab-item').forEach(t => {
@@ -176,29 +203,24 @@
       }
       tick(); setInterval(tick, 30000);
 
-      // ---- 项目看板 KPI ----
-      const done = P.filter(p => p.stage === '项目完结').length;
-      const risk = P.filter(p => p.risk !== 'ok' && p.stage !== '项目完结').length;
-      document.getElementById('k-total').textContent = P.length;
-      document.getElementById('k-active').textContent = P.length - done;
-      document.getElementById('k-done').textContent = done;
-      document.getElementById('k-risk').textContent = risk;
+      // ---- 时间区间（演示"今天"= 2026-07-13）----
+      const TODAY = new Date(2026, 6, 13);
+      function rangeBounds(r) {
+        if (r === 'month') return { start: new Date(2026, 6, 1), end: TODAY };
+        if (r === 'lastmonth') return { start: new Date(2026, 5, 1), end: new Date(2026, 5, 30, 23, 59) };
+        if (r === 'quarter') return { start: new Date(2026, 4, 1), end: TODAY };
+        if (r === 'year') return { start: new Date(2026, 0, 1), end: TODAY };
+        return { start: new Date(2000, 0, 1), end: TODAY };
+      }
+      function inRange(p, b) {
+        const c = new Date(p.createdAt.replace(/-/g, '/'));
+        if (c >= b.start && c <= b.end) return true;               // 本区间创建
+        if (p.status !== '已完成' && c < b.start && b.start <= b.end) return true; // 更早开始、至今仍在进行
+        return false;
+      }
+      function currentProjects() { const b = rangeBounds(range); return ALL_P.filter(p => inRange(p, b)); }
 
-      // ---- 流程简图 ----
-      const stages = ['需求收集', '平面确认', '3D意向', '全屋3D', '项目完结'];
-      const flow = document.getElementById('flow-mini');
-      stages.forEach((s, i) => {
-        const cnt = P.filter(p => p.stage === s).length;
-        const span = document.createElement('span');
-        span.className = 'f-step' + (cnt ? ' hot' : '');
-        span.textContent = `${s} (${cnt})`;
-        span.style.cursor = 'pointer';
-        span.addEventListener('click', () => { stageFilter = (stageFilter === s ? '' : s); renderPipe(); });
-        flow.appendChild(span);
-        if (i < stages.length - 1) { const a = document.createElement('span'); a.className = 'f-arrow'; a.textContent = '→'; flow.appendChild(a); }
-      });
-
-      // ---- 项目流水线 ----
+      // ---- 项目看板渲染（随区间刷新）----
       function riskTag(r) {
         return r === 'danger' ? '<span class="tag tag-danger">超期</span>'
           : r === 'warning' ? '<span class="tag tag-warning">预警</span>'
@@ -208,7 +230,7 @@
         const body = document.getElementById('pipe-body');
         const rows = P.filter(p => !stageFilter || p.stage === stageFilter);
         document.getElementById('pipe-filter-label').textContent = stageFilter ? `筛选：${stageFilter}` : '';
-        body.innerHTML = rows.map(p => {
+        body.innerHTML = rows.length ? rows.map(p => {
           const c = MOCK.getCustomer(p.customer);
           const barCls = p.progress >= 100 ? 'success' : p.risk === 'danger' ? 'danger' : p.risk === 'warning' ? 'warning' : '';
           return `<tr style="cursor:pointer;" onclick="location.href='./detail.html?id=${p.id}'">
@@ -219,22 +241,44 @@
             <td style="min-width:120px;"><div class="progress"><div class="progress-bar ${barCls}" style="width:${p.progress}%;"></div></div><div class="text-sm text-secondary" style="margin-top:2px;">${p.progress}%</div></td>
             <td>${riskTag(p.risk)}</td>
           </tr>`;
-        }).join('');
+        }).join('') : `<tr><td colspan="6"><div class="empty"><div class="empty-title">该区间暂无项目</div></div></td></tr>`;
       }
       window.clearStage = () => { stageFilter = ''; renderPipe(); };
-      renderPipe();
 
-      // ---- 阶段分布 funnel ----
       const funnelColors = ['#6366F1', '#3B82F6', '#0EA5E9', '#10B981', '#22C55E'];
-      const maxC = Math.max(...stages.map(s => P.filter(p => p.stage === s).length), 1);
-      document.getElementById('funnel').innerHTML = stages.map((s, i) => {
-        const c = P.filter(p => p.stage === s).length;
-        return `<div class="funnel-row">
-          <div class="fr-label">${s}</div>
-          <div class="fr-track"><div class="fr-fill" style="width:${Math.max(c / maxC * 100, 6)}%;background:${funnelColors[i]};">${c || ''}</div></div>
-          <div class="fr-count">${c}</div>
-        </div>`;
-      }).join('');
+      function renderBoard() {
+        P = currentProjects();
+        // KPI
+        document.getElementById('k-total').textContent = P.length;
+        document.getElementById('k-active').textContent = P.filter(p => p.status === '进行中').length;
+        document.getElementById('k-done').textContent = P.filter(p => p.status === '已交付').length;
+        document.getElementById('k-risk').textContent = P.filter(p => p.risk !== 'ok' && p.status !== '已完成').length;
+        // 流程简图
+        const flow = document.getElementById('flow-mini');
+        flow.innerHTML = '';
+        stages.forEach((s, i) => {
+          const cnt = P.filter(p => p.stage === s).length;
+          const span = document.createElement('span');
+          span.className = 'f-step' + (cnt ? ' hot' : '');
+          span.textContent = `${s} (${cnt})`;
+          span.style.cursor = 'pointer';
+          span.addEventListener('click', () => { stageFilter = (stageFilter === s ? '' : s); renderPipe(); });
+          flow.appendChild(span);
+          if (i < stages.length - 1) { const a = document.createElement('span'); a.className = 'f-arrow'; a.textContent = '→'; flow.appendChild(a); }
+        });
+        // funnel
+        const maxC = Math.max(...stages.map(s => P.filter(p => p.stage === s).length), 1);
+        document.getElementById('funnel').innerHTML = stages.map((s, i) => {
+          const c = P.filter(p => p.stage === s).length;
+          return `<div class="funnel-row"><div class="fr-label">${s}</div>
+            <div class="fr-track"><div class="fr-fill" style="width:${Math.max(c / maxC * 100, 6)}%;background:${funnelColors[i]};">${c || ''}</div></div>
+            <div class="fr-count">${c}</div></div>`;
+        }).join('');
+        stageFilter = '';
+        renderPipe();
+      }
+      document.getElementById('ov-range').addEventListener('change', e => { range = e.target.value; renderBoard(); });
+      renderBoard();
 
       // ---- TOP5 设计师 ----
       const top = [...D].sort((a, b) => b.monthCommission - a.monthCommission).slice(0, 5);
@@ -248,7 +292,7 @@
         </div>`;
       }).join('');
 
-      // ---- 人效看板 ----
+      // ========== 人效看板 ==========
       function statusOf(cap) { return cap < 40 ? 'idle' : cap <= 70 ? 'normal' : cap <= 85 ? 'busy' : 'over'; }
       const statusMeta = {
         idle: { label: '空闲', color: 'var(--success)', bg: 'var(--success-bg)', icon: '🟢' },
@@ -263,30 +307,43 @@
         return `<div class="eff-card"><div class="ec-dot" style="background:${m.bg};">${m.icon}</div><div><div class="ec-num" style="color:${m.color};">${counts[k]}</div><div class="ec-label">${m.label}（${k === 'idle' ? '<40%' : k === 'normal' ? '40-70%' : k === 'busy' ? '70-85%' : '>85%'}）</div></div></div>`;
       }).join('');
 
-      const effDeptSel = document.getElementById('eff-dept');
-      MOCK.DEPARTMENTS.forEach(dp => effDeptSel.insertAdjacentHTML('beforeend', `<option>${dp}</option>`));
-
+      // 左侧部门列表（第一个"全部"，其后为各设计部）
       let effRole = '', effStatus = '', effDept = '';
+      const deptsInScope = MOCK.DEPARTMENTS.filter(dp => D.some(d => d.dept === dp));
+      function renderDeptList() {
+        const list = document.getElementById('dept-list');
+        const items = [{ key: '', name: '全部部门', pool: D }].concat(deptsInScope.map(dp => ({ key: dp, name: dp, pool: D.filter(d => d.dept === dp) })));
+        list.innerHTML = items.map(it => {
+          const avg = it.pool.length ? Math.round(it.pool.reduce((s, d) => s + d.capacity, 0) / it.pool.length) : 0;
+          return `<div class="dept-item ${effDept === it.key ? 'active' : ''}" data-dept="${it.key}">
+            <div class="di-top"><span class="di-name">${it.name}</span><span class="di-count">${it.pool.length} 人</span></div>
+            <div class="di-bar"><div class="di-fill" style="width:${avg}%;background:${avg > 85 ? 'var(--danger)' : avg > 70 ? 'var(--warning)' : 'var(--brand-primary)'};"></div></div>
+            <div class="text-sm text-secondary" style="margin-top:4px;">平均负载 ${avg}%</div>
+          </div>`;
+        }).join('');
+        list.querySelectorAll('.dept-item').forEach(el => el.addEventListener('click', () => { effDept = el.getAttribute('data-dept'); renderDeptList(); renderWall(); }));
+      }
+
       function renderWall() {
         const list = D.filter(d => (!effRole || d.role === effRole) && (!effStatus || statusOf(d.capacity) === effStatus) && (!effDept || d.dept === effDept));
-        document.getElementById('eff-count').textContent = `（${list.length} 人）`;
-        document.getElementById('dcard-wall').innerHTML = list.map(d => {
+        document.getElementById('eff-count').textContent = `（${list.length} 人${effDept ? ' · ' + effDept : ''}）`;
+        document.getElementById('dcard-wall').innerHTML = list.length ? list.map(d => {
           const st = statusOf(d.capacity); const m = statusMeta[st];
           return `<div class="dcard" onclick="toast('${d.name} · ${d.dept} · ${d.role} · 负载 ${d.capacity}%','info')">
             <div class="dc-head">
               <div class="avatar" data-color="${colorFrom(d.name)}">${initials(d.name)}</div>
-              <div><div class="dc-name">${d.name} <span class="tag tag-purple" style="font-size:10px;">${d.dept}</span></div><div class="dc-sub">${d.role} · ${d.level} · ${d.city}</div></div>
+              <div><div class="dc-name">${d.name} <span class="tag tag-purple" style="font-size:10px;">${MOCK.deptShort(d.dept)}</span></div><div class="dc-sub">${d.role} · ${d.level} · ${d.city}</div></div>
               <span class="status-chip" style="background:${m.bg};color:${m.color};">${m.label}</span>
             </div>
             <div class="load-bar"><div class="load-fill" style="width:${d.capacity}%;background:${m.color};"></div></div>
             <div class="text-sm text-secondary" style="display:flex;justify-content:space-between;"><span>负载 ${d.capacity}%</span><span>在途 ${d.activeProjects} 单</span></div>
             <div class="text-sm text-secondary" style="margin-top:4px;">⭐ ${d.avgScore.toFixed(1)} · ${d.skills.slice(0, 2).join('/')}</div>
           </div>`;
-        }).join('');
+        }).join('') : `<div class="empty" style="grid-column:1/-1;"><div class="empty-title">该部门/条件下暂无设计师</div></div>`;
       }
       document.getElementById('eff-role').addEventListener('change', e => { effRole = e.target.value; renderWall(); });
       document.getElementById('eff-status').addEventListener('change', e => { effStatus = e.target.value; renderWall(); });
-      document.getElementById('eff-dept').addEventListener('change', e => { effDept = e.target.value; renderWall(); });
+      renderDeptList();
       renderWall();
     })();
   </script>
