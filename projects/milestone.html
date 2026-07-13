@@ -31,6 +31,15 @@
     .ms-title { font-weight: 600; font-size: 14px; }
     .ms-meta { font-size: 12px; color: var(--text-secondary); margin-top: 3px; }
     .rev-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; background: var(--warning-bg); color: #B4530A; padding: 1px 8px; border-radius: var(--radius-round); }
+    .stars { color: #D1D5DB; font-size: 15px; letter-spacing: 1px; }
+    .stars .on { color: #F59E0B; }
+    .eval-box { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--divider); }
+    .eval-note { font-size: 12px; color: var(--text-secondary); margin-top: 3px; }
+    .star-pick { font-size: 26px; color: #D1D5DB; cursor: pointer; letter-spacing: 4px; }
+    .star-pick span:hover, .star-pick span.hot { color: #F59E0B; }
+    .form-group { margin-bottom: 14px; }
+    .form-input { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 14px; font-family: inherit; background: #fff; box-sizing: border-box; }
+    textarea.form-input { resize: vertical; }
   </style>
 </head>
 <body>
@@ -69,13 +78,67 @@
     </div>
   </div>
 
+  <!-- 质量评价弹窗 -->
+  <div class="modal-mask" id="eval-modal">
+    <div class="modal" style="width:440px;">
+      <div class="modal-header">
+        <div class="modal-title">里程碑质量评价</div>
+        <button class="modal-close" onclick="window.closeEval()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group"><label class="form-label">评价节点</label><div id="ev-node" class="text-sm" style="font-weight:600;"></div></div>
+        <div class="form-group"><label class="form-label">评价对象（设计师）</label><div id="ev-designer" class="text-sm"></div></div>
+        <div class="form-group">
+          <label class="form-label">设计质量评分（1-5 星）</label>
+          <div class="star-pick" id="ev-stars"><span data-v="1">★</span><span data-v="2">★</span><span data-v="3">★</span><span data-v="4">★</span><span data-v="5">★</span></div>
+        </div>
+        <div class="form-group"><label class="form-label">评审意见</label><textarea class="form-input" id="ev-comment" rows="3" placeholder="记录方案亮点与改进建议…"></textarea></div>
+        <div class="hint-box" style="background:var(--brand-primary-bg);color:var(--brand-primary);padding:8px 12px;border-radius:var(--radius-md);font-size:12px;">评分将写入设计师档案，作为分单权重与分成质量系数输入（FR-M10-19）</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-default" onclick="window.closeEval()">取消</button>
+        <button class="btn btn-primary" onclick="window.submitEval()">提交评价</button>
+      </div>
+    </div>
+  </div>
+
   <script src="../assets/js/utils.js"></script>
   <script src="../assets/js/mock-data.js"></script>
   <script src="../assets/js/shell.js"></script>
   <script>
     (function () {
-      const P = MOCK.PROJECTS;
+      const P = MOCK.scopeProjects(MOCK.PROJECTS);
+      if (!P.length) { P.push.apply(P, MOCK.PROJECTS.slice(0, 1)); }
       let cur = getQuery('id') || P[0].id;
+      if (!P.find(p => p.id === cur)) cur = P[0].id;
+
+      function starsHtml(n) { let s = ''; for (let i = 1; i <= 5; i++) s += `<span class="${i <= n ? 'on' : ''}">★</span>`; return `<span class="stars">${s}</span>`; }
+
+      // 评价弹窗状态
+      let evalCtx = null, evalScore = 0;
+      window.openEval = function (msCode, msName) {
+        const p = MOCK.getProject(cur);
+        const did = MOCK.msResponsible(p, msCode);
+        const existing = MOCK.milestoneEval(cur, msCode);
+        evalCtx = { project: cur, msCode, designerId: did };
+        evalScore = existing ? existing.score : 0;
+        document.getElementById('ev-node').textContent = msName;
+        const d = MOCK.getDesigner(did);
+        document.getElementById('ev-designer').innerHTML = d ? `<span class="tag tag-purple">${MOCK.deptShort(d.dept)}</span> ${d.name}` : '—';
+        document.getElementById('ev-comment').value = existing ? existing.comment : '';
+        paintStars();
+        openModal('eval-modal');
+      };
+      window.closeEval = function () { closeModal('eval-modal'); };
+      function paintStars() { document.querySelectorAll('#ev-stars span').forEach(s => s.classList.toggle('hot', +s.dataset.v <= evalScore)); }
+      document.querySelectorAll('#ev-stars span').forEach(s => s.addEventListener('click', () => { evalScore = +s.dataset.v; paintStars(); }));
+      window.submitEval = function () {
+        if (!evalScore) { toast('请先选择评分', 'warning'); return; }
+        MOCK.addMilestoneEval({ project: evalCtx.project, msCode: evalCtx.msCode, designerId: evalCtx.designerId, score: evalScore, comment: document.getElementById('ev-comment').value.trim() });
+        window.closeEval();
+        toast('评价已提交并写入设计师档案', 'success');
+        renderTimeline();
+      };
 
       // 每个项目里程碑进度：按 progress 推导当前步
       const template = MOCK.MILESTONE_TEMPLATE;
@@ -87,6 +150,29 @@
           <div class="progress" style="margin-top:6px;"><div class="progress-bar ${p.risk === 'danger' ? 'danger' : p.risk === 'warning' ? 'warning' : ''}" style="width:${p.progress}%;"></div></div>
         </div>`).join('');
         document.querySelectorAll('.proj-item').forEach(el => el.addEventListener('click', () => { cur = el.dataset.id; renderProjects(); renderTimeline(); }));
+      }
+
+      // 里程碑评价区块（仅对有设计产出且已产出的节点显示）
+      function evalBlock(p, m, i, doneCount) {
+        const did = MOCK.msResponsible(p, m.code);
+        if (!did || i > doneCount) return '';
+        const d = MOCK.getDesigner(did);
+        const ev = MOCK.milestoneEval(p.id, m.code);
+        const can = MOCK.canEvaluate();
+        const target = d ? `<span class="tag tag-purple" style="margin-right:4px;">${MOCK.deptShort(d.dept)}</span>${d.name}` : '';
+        if (ev) {
+          return `<div class="eval-box">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+              <div style="display:flex;align-items:center;gap:8px;">${starsHtml(ev.score)}<span class="text-sm" style="font-weight:600;">${ev.score}.0</span><span class="text-sm text-secondary">评价对象：${target}</span></div>
+              ${can ? `<button class="btn btn-xs btn-text" onclick="window.openEval('${m.code}','${m.name}')">重新评价</button>` : ''}
+            </div>
+            <div class="eval-note">💬 ${ev.comment} <span style="color:var(--text-tertiary);">— ${ev.reviewer} · ${ev.ts}</span></div>
+          </div>`;
+        }
+        return `<div class="eval-box" style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+          <span class="text-sm text-secondary">评价对象：${target}</span>
+          ${can ? `<button class="btn btn-xs btn-primary" onclick="window.openEval('${m.code}','${m.name}')">⭐ 评价</button>` : '<span class="tag tag-warning">待设计总监评价</span>'}
+        </div>`;
       }
 
       function renderTimeline() {
@@ -122,6 +208,7 @@
                 <span class="rev-badge">🔁 设计师修改 ${rev} 次</span>
                 <a href="./version.html?id=${p.id}" class="btn btn-xs btn-text">查看版本溯源</a>
               </div>` : ''}
+              ${evalBlock(p, m, i, doneCount)}
             </div>
           </div>`;
         }).join('');

@@ -130,6 +130,19 @@
     { id: 'cm003', project: 'p005', projectName: '刘宅家装', designer: 'u002', designerName: '李四', role: '平面 2D', designFee: 28000, dueRate: 0.4, dueAmount: 11200, qualityFactor: 1.0, timelinessFactor: 1.0, satisfactionFactor: 1.0, paymentFactor: 1.0, actualAmount: 11200, status: '已审批', calcAt: '2026-07-10 15:00' }
   ];
 
+  // ===== 里程碑质量评价（设计总监/负责人对各节点设计产出评分）=====
+  // score 1-5；关联设计师 designerId，作为分单权重 & 分成质量系数输入
+  const MILESTONE_EVALS = [
+    { id: 'ev001', project: 'p001', msCode: 'ms3', designerId: 'u001', score: 4, comment: '主卧衣柜动线建议再优化，整体布局合理', reviewer: '刘总监', ts: '2026-07-08 16:30' },
+    { id: 'ev002', project: 'p001', msCode: 'ms5', designerId: 'u003', score: 5, comment: '3D 意向风格精准，材质表现到位', reviewer: '刘总监', ts: '2026-07-09 17:10' },
+    { id: 'ev003', project: 'p003', msCode: 'ms3', designerId: 'u012', score: 5, comment: '别墅大宅分区专业，深化图细节完整', reviewer: '刘总监', ts: '2026-07-06 11:20' },
+    { id: 'ev004', project: 'p005', msCode: 'ms5', designerId: 'u005', score: 4, comment: '效果图光影不错，家具选型可更贴合预算', reviewer: '王负责人', ts: '2026-07-09 10:00' },
+    { id: 'ev005', project: 'p008', msCode: 'ms7', designerId: 'u005', score: 5, comment: '全屋 3D 交付质量高，客户满意', reviewer: '刘总监', ts: '2026-07-09 15:30' }
+  ];
+
+  // ===== 设计师个人中心资料（可自定义，持久化）=====
+  const PROFILES = {}; // designerId -> { avatar, displayName, styles:[], bio }
+
   // ===== 里程碑模板 =====
   const MILESTONE_TEMPLATE = [
     { code: 'ms1', name: 'CRM 立项 / 收款', role: 'PM + 财务', deliverable: '收款单' },
@@ -182,7 +195,7 @@
   }
 
   // ===================== 持久化（localStorage）=====================
-  const STATE_VERSION = 3;   // 基础数据结构变更时递增，自动失效旧缓存
+  const STATE_VERSION = 5;   // 基础数据结构变更时递增，自动失效旧缓存
   const LS_KEY = 'yd_demo_state';
 
   function replaceArr(target, src) { if (Array.isArray(src)) { target.length = 0; src.forEach(x => target.push(x)); } }
@@ -191,12 +204,13 @@
     try {
       localStorage.setItem(LS_KEY, JSON.stringify({
         version: STATE_VERSION,
-        DESIGNERS, PROJECTS, DESIGN_ORDERS, MY_TASKS, AUDIT_LOGS
+        DESIGNERS, PROJECTS, DESIGN_ORDERS, MY_TASKS, AUDIT_LOGS, MILESTONE_EVALS, PROFILES, TASK_TIMELINES
       }));
     } catch (e) { /* 隐私模式等忽略 */ }
   }
 
-  (function restore() {
+  // 注意：restore 需在 TASK_TIMELINES 等声明后再执行（见文件末尾 restore() 调用）
+  function restore() {
     try {
       const raw = localStorage.getItem(LS_KEY);
       if (!raw) return;
@@ -207,8 +221,11 @@
       replaceArr(DESIGN_ORDERS, snap.DESIGN_ORDERS);
       replaceArr(MY_TASKS, snap.MY_TASKS);
       replaceArr(AUDIT_LOGS, snap.AUDIT_LOGS);
+      replaceArr(MILESTONE_EVALS, snap.MILESTONE_EVALS);
+      if (snap.PROFILES) { Object.keys(snap.PROFILES).forEach(k => { PROFILES[k] = snap.PROFILES[k]; }); }
+      if (snap.TASK_TIMELINES) { Object.keys(TASK_TIMELINES).forEach(k => delete TASK_TIMELINES[k]); Object.keys(snap.TASK_TIMELINES).forEach(k => { TASK_TIMELINES[k] = snap.TASK_TIMELINES[k]; }); }
     } catch (e) { /* ignore */ }
-  })();
+  }
 
   // ===================== 业务动作 =====================
   const nameOf = id => (DESIGNERS.find(d => d.id === id) || { name: id }).name;
@@ -283,11 +300,177 @@
 
   function resetDemo() { try { localStorage.removeItem(LS_KEY); } catch (e) {} }
 
+  // ===================== 里程碑质量评价 =====================
+  const EVAL_ROLES = ['admin', 'deptlead']; // 设计负责人 / 部门负责人（含总监）可评价
+  function canEvaluate() { return EVAL_ROLES.indexOf(currentRole().key) >= 0; }
+  function milestoneEvals(projectId) { return MILESTONE_EVALS.filter(e => e.project === projectId); }
+  function milestoneEval(projectId, msCode) { return MILESTONE_EVALS.find(e => e.project === projectId && e.msCode === msCode) || null; }
+  function designerEvals(designerId) { return MILESTONE_EVALS.filter(e => e.designerId === designerId); }
+  // 里程碑责任设计师（用于评价对象）
+  function msResponsible(project, msCode) {
+    if (msCode === 'ms3') return (project.d2d || [])[0] || null;
+    if (msCode === 'ms5' || msCode === 'ms7') return (project.d3d || [])[0] || null;
+    if (['ms2', 'ms4', 'ms6', 'ms8'].indexOf(msCode) >= 0) return project.coord || null;
+    return null;
+  }
+  function addMilestoneEval(o) {
+    if (!canEvaluate()) return null;
+    const existing = milestoneEval(o.project, o.msCode);
+    const r = currentRole();
+    if (existing) {
+      existing.score = o.score; existing.comment = o.comment; existing.reviewer = r.name; existing.ts = nowStr();
+      existing.designerId = o.designerId || existing.designerId;
+    } else {
+      MILESTONE_EVALS.unshift({ id: 'ev' + Math.random().toString(36).slice(2, 7), project: o.project, msCode: o.msCode, designerId: o.designerId || null, score: o.score, comment: o.comment, reviewer: r.name, ts: nowStr() });
+    }
+    // 回写设计师平均质量分（作为分成质量系数输入）
+    const dObj = DESIGNERS.find(d => d.id === o.designerId);
+    if (dObj) { const es = designerEvals(o.designerId); dObj.qualityScore = +(es.reduce((s, e) => s + e.score, 0) / es.length).toFixed(2); }
+    const proj = PROJECTS.find(p => p.id === o.project);
+    addLog('质量评价', (proj ? proj.name : o.project) + ' · ' + o.msCode, `${nameOf(o.designerId)} 评分 ${o.score}★：${o.comment || '—'}`);
+    persist();
+    return true;
+  }
+
+  // ===================== 个人中心资料 =====================
+  function getProfile(designerId) {
+    const d = DESIGNERS.find(x => x.id === designerId) || {};
+    const p = PROFILES[designerId] || {};
+    return {
+      avatar: p.avatar || nameOf(designerId).slice(0, 1),
+      displayName: p.displayName || d.name || designerId,
+      styles: p.styles || (d.skills || []).slice(),
+      bio: p.bio || `${d.dept || ''} · ${d.role || ''} · ${d.level || ''}`
+    };
+  }
+  function saveProfile(designerId, data) {
+    PROFILES[designerId] = Object.assign({}, PROFILES[designerId], data);
+    persist();
+  }
+
+  // ===================== 我的任务 · 里程碑/版本时间轴 =====================
+  // 版本字段：reason(为什么新增)/changes(改了什么)/customerReq(客户需求)/deliverables(产出物)
+  //   + requestedBy/requestedAt(客户何时提出) → completedBy/completedAt(设计师何时完成)
+  // 版本状态：pending(客户下发待处理) / accepted(设计师已接受处理中) / done(已产出)
+  let _verSeq = 100;
+  function mkVer(v, status, o) {
+    return Object.assign({ id: 'ver' + (++_verSeq), v: v, status: status, reason: '', changes: '', customerReq: '', requestedBy: '', requestedAt: '', completedBy: '', completedAt: '', deliverables: [] }, o || {});
+  }
+  function defaultMaterials(code) {
+    if (code === 'ms1') return [{ name: '收款单.pdf', type: 'pdf' }];
+    if (code === 'ms2') return [{ name: '需求文档.pdf', type: 'pdf' }, { name: '客户CAD图纸.dwg', type: 'dwg' }, { name: '参考图集.zip', type: 'zip' }];
+    if (code === 'ms4' || code === 'ms6' || code === 'ms8') return [{ name: '客户签认单.pdf', type: 'pdf' }];
+    return [];
+  }
+  // 精编时间轴（张宅 p001，对应演示截图）；其余项目自动生成
+  const TASK_TIMELINES = {
+    p001: [
+      { code: 'ms1', name: 'CRM 立项 / 收款', role: 'PM + 财务', design: false, status: 'done', completedAt: '2026-06-20 10:03', materials: [{ name: '收款单.pdf', type: 'pdf' }], versions: [] },
+      { code: 'ms2', name: '需求收集 & 文档', role: '协调员', design: false, status: 'done', completedAt: '2026-06-22 12:03', materials: [{ name: '需求文档.pdf', type: 'pdf' }, { name: '客户CAD图纸.dwg', type: 'dwg' }, { name: '参考图集.zip', type: 'zip' }], versions: [] },
+      {
+        code: 'ms3', name: '平面布局图', role: '平面设计师', design: true, status: 'done', completedAt: '2026-06-30 14:20', materials: [], versions: [
+          mkVer('V1.0', 'done', { reason: '首版方案', customerReq: '依据需求文档出全屋平面布局', requestedBy: '协调员 赵六', requestedAt: '2026-06-23 09:00', changes: '完成户型分区与家具初排', deliverables: [{ name: '平面布局V1.0.dwg', type: 'dwg' }, { name: '平面说明V1.0.pdf', type: 'pdf' }], completedBy: '张三', completedAt: '2026-06-24 15:00' }),
+          mkVer('V2.0', 'done', { reason: '客户对 V1 分区不满意', customerReq: '客厅与餐厅打通，主卧扩大', requestedBy: '客户 张先生', requestedAt: '2026-06-25 10:20', changes: '户型分区重新调整，打通客餐厅，主卧并入部分次卧', deliverables: [{ name: '平面布局V2.0.dwg', type: 'dwg' }], completedBy: '张三', completedAt: '2026-06-26 18:00' }),
+          mkVer('V3.0', 'done', { reason: '协调员整理 V2 客户反馈', customerReq: '确认打通方案，微调动线', requestedBy: '协调员 赵六', requestedAt: '2026-06-27 10:00', changes: '客厅动线优化', deliverables: [{ name: '平面布局V3.0.dwg', type: 'dwg' }], completedBy: '张三', completedAt: '2026-06-27 19:00' }),
+          mkVer('V3.1', 'done', { reason: '客户微调', customerReq: '客厅沙发朝向调整', requestedBy: '客户 张先生', requestedAt: '2026-06-28 11:00', changes: '客厅沙发朝向调整为面向景观窗', deliverables: [{ name: '平面布局V3.1.dwg', type: 'dwg' }], completedBy: '张三', completedAt: '2026-06-28 18:45' }),
+          mkVer('V3.2', 'done', { reason: '客户批注', customerReq: '主卧衣柜向左移 30cm，书房加一张书桌', requestedBy: '客户 张先生', requestedAt: '2026-06-29 14:00', changes: '主卧衣柜左移 30cm；书房新增书桌 2 处', deliverables: [{ name: '平面布局V3.2.dwg', type: 'dwg' }, { name: '平面效果说明.pdf', type: 'pdf' }], completedBy: '张三', completedAt: '2026-06-30 14:20' })
+        ]
+      },
+      { code: 'ms4', name: '平面客户确认', role: '协调员+客户', design: false, status: 'done', completedAt: '2026-07-02 16:00', materials: [{ name: '平面签认单.pdf', type: 'pdf' }], versions: [] },
+      {
+        code: 'ms5', name: '3D 意向 1-3 空间', role: '3D 设计师', design: true, status: 'active', completedAt: '', materials: [], versions: [
+          mkVer('V1.0', 'done', { reason: '首版 3D 意向', customerReq: '出客厅/主卧/书房 3 个空间 720° 意向', requestedBy: '协调员 赵六', requestedAt: '2026-07-08 10:00', changes: '完成 3 个空间 720° 意向渲染', deliverables: [{ name: '客厅意向720.jpg', type: 'img' }, { name: '主卧意向720.jpg', type: 'img' }, { name: '书房意向.jpg', type: 'img' }], completedBy: '王五', completedAt: '2026-07-09 15:00' }),
+          mkVer('V1.1', 'pending', { customerReq: '客厅电视墙改为大理石，整体灯光调暖', requestedBy: '客户 张先生', requestedAt: '2026-07-11 14:00' })
+        ]
+      },
+      { code: 'ms6', name: '意向客户确认', role: '协调员+客户', design: false, status: 'pending', completedAt: '', materials: [], versions: [] },
+      { code: 'ms7', name: '全屋 3D', role: '3D 设计师', design: true, status: 'pending', completedAt: '', materials: [], versions: [] },
+      { code: 'ms8', name: '最终客户确认', role: '协调员+客户', design: false, status: 'pending', completedAt: '', materials: [], versions: [] }
+    ]
+  };
+
+  function genTimeline(p) {
+    const doneCount = Math.max(1, Math.round((p.progress || 60) / 100 * MILESTONE_TEMPLATE.length));
+    return MILESTONE_TEMPLATE.map((m, i) => {
+      const status = i < doneCount ? 'done' : (i === doneCount ? 'active' : 'pending');
+      const design = ['ms3', 'ms5', 'ms7'].indexOf(m.code) >= 0;
+      const respId = msResponsible(p, m.code);
+      const rname = respId ? nameOf(respId) : '设计师';
+      const dt = `2026-07-${String(6 + i).padStart(2, '0')} 1${i % 6}:00`;
+      const versions = [];
+      if (design && status !== 'pending') {
+        versions.push(mkVer('V1.0', 'done', { reason: '首版方案', customerReq: `依据需求完成「${m.name}」`, requestedBy: '协调员', requestedAt: dt, changes: '完成首版设计产出', deliverables: [{ name: `${m.name}_V1.0.pdf`, type: 'pdf' }], completedBy: rname, completedAt: dt }));
+        if (status === 'done') versions.push(mkVer('V2.0', 'done', { reason: '客户反馈调整', customerReq: '局部细节优化', requestedBy: '客户', requestedAt: dt, changes: '按客户意见调整细节并定稿', deliverables: [{ name: `${m.name}_V2.0.pdf`, type: 'pdf' }], completedBy: rname, completedAt: dt }));
+        if (status === 'active') versions.push(mkVer('V1.1', 'pending', { customerReq: '客户提出新的修改需求（待处理）', requestedBy: '客户', requestedAt: dt }));
+      }
+      return { code: m.code, name: m.name, role: m.role, design: design, status: status, completedAt: status === 'done' ? dt : '', materials: defaultMaterials(m.code), versions: versions };
+    });
+  }
+  function getTaskTimelineFor(pid, proj) { if (!TASK_TIMELINES[pid]) TASK_TIMELINES[pid] = genTimeline(proj); return TASK_TIMELINES[pid]; }
+  function getTaskTimeline(pid) { return TASK_TIMELINES[pid] || []; }
+  function projectByName(name) { return PROJECTS.find(p => p.name === name) || null; }
+  function timelineLatest(tl) {
+    let t = '';
+    tl.forEach(n => { if (n.completedAt > t) t = n.completedAt; n.versions.forEach(v => { if (v.requestedAt > t) t = v.requestedAt; if (v.completedAt > t) t = v.completedAt; }); });
+    return t;
+  }
+  // 我的任务关联项目（按 tab 状态），按最新动态倒序
+  function myTaskProjects(status) {
+    const seen = {}, out = [];
+    MY_TASKS.filter(tk => tk.status === status).forEach(tk => {
+      const p = projectByName(tk.project);
+      const pid = p ? p.id : ('x_' + tk.id);
+      if (seen[pid]) return; seen[pid] = 1;
+      const proj = p || { id: pid, name: tk.project, progress: status === 'done' ? 100 : 70, type: tk.task, area: tk.area, d2d: [], d3d: [], coord: null };
+      const tl = getTaskTimelineFor(pid, proj);
+      out.push({ id: pid, project: p, task: tk, name: (p ? p.name : tk.project), latest: timelineLatest(tl) });
+    });
+    out.sort((a, b) => (b.latest || '').localeCompare(a.latest || ''));
+    return out;
+  }
+  function nextVer(node) {
+    if (!node.versions.length) return 'V1.0';
+    let maj = 0, min = 0;
+    node.versions.forEach(v => { const a = (v.v || 'V0.0').replace('V', '').split('.').map(Number); if (a[0] > maj || (a[0] === maj && a[1] > min)) { maj = a[0]; min = a[1]; } });
+    return 'V' + maj + '.' + (min + 1);
+  }
+  function _actor(pid, msCode) {
+    const p = PROJECTS.find(x => x.id === pid);
+    const rid = p ? msResponsible(p, msCode) : null;
+    return rid ? nameOf(rid) : currentRole().name;
+  }
+  function addTaskVersion(pid, msCode, o) {
+    const node = getTaskTimeline(pid).find(n => n.code === msCode); if (!node) return null;
+    const ver = mkVer(o.v || nextVer(node), 'done', { reason: o.reason || '', customerReq: o.customerReq || '', requestedBy: o.requestedBy || '设计师自建', requestedAt: o.requestedAt || nowStr(), changes: o.changes || '', deliverables: o.deliverables || [], completedBy: o.completedBy || _actor(pid, msCode), completedAt: nowStr() });
+    node.versions.push(ver); node.completedAt = ver.completedAt;
+    const p = PROJECTS.find(x => x.id === pid);
+    addLog('版本更新', (p ? p.name : pid) + ' · ' + node.name, `${ver.completedBy} 新增 ${ver.v}：${ver.changes || ver.customerReq}`);
+    persist(); return ver;
+  }
+  function completeVersion(pid, msCode, versionId, o) {
+    const node = getTaskTimeline(pid).find(n => n.code === msCode); if (!node) return null;
+    const ver = node.versions.find(v => v.id === versionId); if (!ver) return null;
+    ver.status = 'done'; ver.reason = o.reason || ver.reason; ver.changes = o.changes || ''; if (o.deliverables) ver.deliverables = o.deliverables;
+    ver.completedBy = _actor(pid, msCode); ver.completedAt = nowStr(); node.completedAt = ver.completedAt;
+    const p = PROJECTS.find(x => x.id === pid);
+    addLog('版本更新', (p ? p.name : pid) + ' · ' + node.name, `${ver.completedBy} 完成 ${ver.v}：${ver.changes}`);
+    persist(); return ver;
+  }
+  function acceptRequirement(pid, msCode, versionId) {
+    const node = getTaskTimeline(pid).find(n => n.code === msCode); if (!node) return;
+    const ver = node.versions.find(v => v.id === versionId); if (ver) { ver.status = 'accepted'; persist(); }
+  }
+
   // Export
   global.MOCK = {
     DEPARTMENTS, DESIGNERS, CUSTOMERS, PROJECTS, DESIGN_ORDERS, TODOS,
-    MY_TASKS, VERSIONS, COMMISSIONS, MILESTONE_TEMPLATE, AUDIT_LOGS,
+    MY_TASKS, VERSIONS, COMMISSIONS, MILESTONE_TEMPLATE, AUDIT_LOGS, MILESTONE_EVALS,
     CURRENT_USER,
+    // 质量评价 & 个人中心
+    canEvaluate, milestoneEvals, milestoneEval, designerEvals, msResponsible, addMilestoneEval,
+    getProfile, saveProfile,
+    // 我的任务 · 里程碑/版本时间轴
+    myTaskProjects, getTaskTimeline, addTaskVersion, completeVersion, acceptRequirement,
     getDesigner: id => DESIGNERS.find(d => d.id === id) || { name: id, level: '-', role: '-', dept: '-' },
     getCustomer: id => CUSTOMERS.find(c => c.id === id) || { name: id, level: '', address: '' },
     getProject: id => PROJECTS.find(p => p.id === id) || null,
@@ -301,4 +484,7 @@
     // 角色 & 数据范围
     ROLES, currentRole, setRole, scopeProjects, scopeDesigners, projectDepts
   };
+
+  // 所有数据/结构声明完成后再执行本地缓存恢复（避免 TDZ）
+  restore();
 })(window);

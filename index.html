@@ -1,14 +1,797 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8" />
-  <title>敬城设计云 · 首页</title>
-  <script>
-    // 自动跳转到工作台
-    location.replace('./workbench/dashboard.html');
-  </script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>设计软件业务流程框架</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    background: #e8f4fc;
+    padding: 20px;
+    min-width: 1600px;
+  }
+  .title {
+    text-align: center;
+    font-size: 28px;
+    font-weight: bold;
+    color: #1a3a5c;
+    margin-bottom: 20px;
+    padding: 10px;
+    background: linear-gradient(135deg, #4a9eff 0%, #2b6cb0 100%);
+    color: white;
+    border-radius: 8px;
+  }
+  .demo-entry {
+    text-align: center;
+    margin: 0 0 20px;
+  }
+  .demo-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 40px;
+    font-size: 18px;
+    font-weight: bold;
+    color: #fff;
+    text-decoration: none;
+    background: linear-gradient(135deg, #4a9eff 0%, #2b6cb0 100%);
+    border-radius: 30px;
+    box-shadow: 0 6px 18px rgba(43, 108, 176, 0.35);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .demo-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 26px rgba(43, 108, 176, 0.45);
+  }
+  .demo-btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: rgba(255, 255, 255, 0.22);
+    border-radius: 50%;
+    font-size: 12px;
+  }
+  .demo-tip {
+    margin-top: 10px;
+    font-size: 13px;
+    color: #5a7a95;
+  }
+  .framework {
+    display: flex;
+    gap: 0;
+    background: #d0e8f7;
+    border-radius: 12px;
+    padding: 15px;
+    border: 2px solid #a0c8e8;
+    min-height: 1200px;
+  }
+  .left-panel {
+    width: 160px;
+    background: #b8dcf0;
+    border-radius: 8px 0 0 8px;
+    padding: 10px 5px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .left-header {
+    background: #4a9eff;
+    color: white;
+    text-align: center;
+    padding: 8px;
+    border-radius: 6px;
+    font-weight: bold;
+    font-size: 14px;
+    margin-bottom: 5px;
+  }
+  .module-tag {
+    background: #f0c040;
+    color: #333;
+    padding: 8px 6px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 2px;
+    border: 1px solid #d4a830;
+  }
+  .main-flow {
+    flex: 1;
+    background: #e0f0f8;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow-x: auto;
+  }
+  .flow-header {
+    text-align: center;
+    font-size: 18px;
+    font-weight: bold;
+    color: #1a3a5c;
+    padding: 8px;
+    background: #c0e0f4;
+    border-radius: 6px;
+    margin-bottom: 5px;
+  }
+  .flow-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 0;
+    border-bottom: 1px dashed #a0c0d8;
+    min-height: 60px;
+  }
+  .flow-row:last-child { border-bottom: none; }
+  .step-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 100px;
+    max-width: 140px;
+  }
+  .role-label {
+    font-size: 10px;
+    color: #fff;
+    background: #4a9eff;
+    padding: 2px 8px;
+    border-radius: 4px 4px 0 0;
+    width: 100%;
+    text-align: center;
+    font-weight: bold;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .role-label.green { background: #4caf50; }
+  .role-label.orange { background: #ff9800; }
+  .role-label.purple { background: #9c27b0; }
+  .role-label.teal { background: #009688; }
+  .role-label.red { background: #e53935; }
+  .step-content {
+    background: #fff;
+    border: 1px solid #90caf9;
+    border-radius: 0 0 4px 4px;
+    padding: 6px 8px;
+    font-size: 11px;
+    color: #333;
+    text-align: center;
+    width: 100%;
+    line-height: 1.4;
+    min-height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .step-content.system {
+    background: #e8f5e9;
+    border-color: #66bb6a;
+  }
+  .arrow {
+    font-size: 16px;
+    color: #666;
+    margin: 0 2px;
+  }
+  .right-panel {
+    width: 220px;
+    background: #c8e4f5;
+    border-radius: 0 8px 8px 0;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .right-header {
+    text-align: center;
+    font-size: 16px;
+    font-weight: bold;
+    color: #1a3a5c;
+    padding: 8px;
+    background: #a0d0f0;
+    border-radius: 6px;
+  }
+  .system-group {
+    background: #fff;
+    border-radius: 6px;
+    padding: 8px;
+    border: 1px solid #90caf9;
+  }
+  .system-title {
+    font-size: 12px;
+    font-weight: bold;
+    color: #fff;
+    background: #4a9eff;
+    padding: 3px 8px;
+    border-radius: 4px;
+    margin-bottom: 6px;
+    text-align: center;
+  }
+  .system-item {
+    font-size: 11px;
+    color: #333;
+    padding: 3px 0;
+    border-bottom: 1px dotted #ccc;
+  }
+  .system-item:last-child { border-bottom: none; }
+  .connector-line {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #888;
+    font-size: 12px;
+  }
+  .dashed-arrow { border-top: 2px dashed #888; flex: 1; margin: 0 4px; position: relative; }
+  .dashed-arrow::after {
+    content: '>';
+    position: absolute;
+    right: -8px;
+    top: -10px;
+    color: #888;
+    font-weight: bold;
+  }
+  .two-col-flow { display: flex; gap: 20px; }
+  .sub-flow { display: flex; align-items: center; gap: 4px; }
+  .phase-label {
+    font-size: 10px;
+    color: #fff;
+    background: #ff7043;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-right: 4px;
+    white-space: nowrap;
+  }
+  .note-box {
+    background: #fff3e0;
+    border: 1px solid #ffb74d;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 10px;
+    color: #e65100;
+    margin-top: 4px;
+  }
+  .group-box {
+    border: 1px dashed #4a9eff;
+    border-radius: 6px;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(74, 158, 255, 0.05);
+  }
+  .group-label {
+    font-size: 10px;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    color: #4a9eff;
+    font-weight: bold;
+    padding: 4px 2px;
+    border-right: 1px dashed #4a9eff;
+  }
+</style>
 </head>
 <body>
-  <p style="font-family:sans-serif;padding:40px;">正在进入敬城设计云 · <a href="./workbench/dashboard.html">点此</a> 手动跳转</p>
+
+<div class="title">敬城集团设计软件（设计云平台）业务流程框架</div>
+
+<div class="demo-entry">
+  <a class="demo-btn" href="./workbench/dashboard.html">
+    <span class="demo-btn-icon">▶</span> 查看系统演示
+  </a>
+  <div class="demo-tip">进入 M9 项目管理台 / M10 订单与分成 后台演示</div>
+</div>
+
+<div class="framework">
+
+  <!-- 左侧：关键业务模块 -->
+  <div class="left-panel">
+    <div class="left-header">关键业务模块</div>
+    <div class="module-tag">M01<br>量尺与空间识别</div>
+    <div class="module-tag">M02<br>全案方案设计</div>
+    <div class="module-tag">M03<br>3D渲染与效果图</div>
+    <div class="module-tag">M04<br>品类深化设计</div>
+    <div class="module-tag">M05<br>三级BOM管理</div>
+    <div class="module-tag">M06<br>报价与合同</div>
+    <div class="module-tag">M07<br>设计资产管理</div>
+    <div class="module-tag">M08<br>产品库集成</div>
+    <div class="module-tag">M09<br>项目管理与协作</div>
+    <div class="module-tag">M10<br>订单与分成管理</div>
+  </div>
+
+  <!-- 中间：设计软件核心流程 -->
+  <div class="main-flow">
+    <div class="flow-header">设计云平台（核心流程域）</div>
+
+    <!-- M01 量尺与空间识别 -->
+    <div class="flow-row">
+      <span class="phase-label">M01</span>
+      <div class="step-box">
+        <div class="role-label">设计师/助理</div>
+        <div class="step-content">客户预约排程</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label">营销/客户</div>
+        <div class="step-content">需求访谈表单</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label">设计师</div>
+        <div class="step-content">现场量尺数据录入</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label green">系统</div>
+        <div class="step-content system">户型图自动绘制<br>AI户型图识别</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label green">系统</div>
+        <div class="step-content system">量尺数据校验<br>约束条件记录</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label">设计师</div>
+        <div class="step-content">云端同步<br>历史归档</div>
+      </div>
+      <div class="connector-line" style="margin-left: 10px;">
+        <span style="white-space: nowrap; font-size: 10px; color: #666;">推送 →</span>
+      </div>
+    </div>
+
+    <!-- M02 全案方案设计 -->
+    <div class="flow-row">
+      <span class="phase-label">M02</span>
+      <div class="step-box">
+        <div class="role-label">全案设计师</div>
+        <div class="step-content">空间功能分区设计</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label">客户</div>
+        <div class="step-content">分区方案评审</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label">全案设计师</div>
+        <div class="step-content">风格方案选定</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label green">AI Agent</div>
+        <div class="step-content system">方案智能推荐<br>风格一致性校验</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label">全案设计师</div>
+        <div class="step-content">品类配置清单<br>规格约束设定</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label">客户</div>
+        <div class="step-content">方案在线评审<br>确认签署</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label green">系统</div>
+        <div class="step-content system">方案版本管理<br>成本估算</div>
+      </div>
+      <div class="connector-line" style="margin-left: 10px;">
+        <span style="white-space: nowrap; font-size: 10px; color: #666;">移交 →</span>
+      </div>
+    </div>
+
+    <!-- M03 3D渲染与效果图 -->
+    <div class="flow-row">
+      <span class="phase-label">M03</span>
+      <div class="step-box">
+        <div class="role-label green">系统</div>
+        <div class="step-content system">2D→3D一键转换</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label">全案设计师</div>
+        <div class="step-content">3D场景编辑</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label">全案设计师</div>
+        <div class="step-content">材质替换预览<br>灯光调节</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label green">系统</div>
+        <div class="step-content system">效果图渲染输出<br>高清/4K批量渲染</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label green">AI Agent</div>
+        <div class="step-content system">AI效果图生成<br>全景图输出</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label">客户</div>
+        <div class="step-content">VR/AR漫游<br>全景查看</div>
+      </div>
+      <div class="connector-line" style="margin-left: 10px;">
+        <span style="white-space: nowrap; font-size: 10px; color: #666;">推送 →</span>
+      </div>
+    </div>
+
+    <!-- M04 品类深化设计 -->
+    <div class="flow-row">
+      <span class="phase-label">M04</span>
+      <div class="step-box">
+        <div class="role-label">品类设计师</div>
+        <div class="step-content">定制柜深化设计</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label">品类设计师</div>
+        <div class="step-content">门窗深化设计</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label">品类设计师</div>
+        <div class="step-content">卫浴深化设计</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label green">AI Agent</div>
+        <div class="step-content system">品类规则引擎<br>自动深化设计</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label green">系统</div>
+        <div class="step-content system">跨品类冲突检测<br>深化自检</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label purple">品类总监</div>
+        <div class="step-content">深化方案审核</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label">客户</div>
+        <div class="step-content">品类方案确认<br>签字归档</div>
+      </div>
+      <div class="connector-line" style="margin-left: 10px;">
+        <span style="white-space: nowrap; font-size: 10px; color: #666;">生成 →</span>
+      </div>
+    </div>
+
+    <!-- M05 三级BOM管理 -->
+    <div class="flow-row">
+      <span class="phase-label">M05</span>
+      <div class="step-box">
+        <div class="role-label green">系统</div>
+        <div class="step-content system">L1 BOM自动编制</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label purple">全案总监</div>
+        <div class="step-content">L1 BOM评审<br>移交品类中心</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label green">AI Agent</div>
+        <div class="step-content system">L2 BOM自动生成<br>L3 BOM自动生成</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label green">系统</div>
+        <div class="step-content system">物料编码映射<br>原材料用量计算</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label green">AI Agent</div>
+        <div class="step-content system">BOM自动生成引擎<br>BOM校验引擎</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label green">系统</div>
+        <div class="step-content system">BOM完整性校验<br>版本变更管理</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label">系统</div>
+        <div class="step-content system">BOM导出<br>成本预核算</div>
+      </div>
+      <div class="connector-line" style="margin-left: 10px;">
+        <span style="white-space: nowrap; font-size: 10px; color: #666;">推送 →</span>
+      </div>
+    </div>
+
+    <!-- M06 报价与合同 -->
+    <div class="flow-row">
+      <span class="phase-label">M06</span>
+      <div class="step-box">
+        <div class="role-label green">系统</div>
+        <div class="step-content system">成本自动核算<br>利润红线校验</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label green">AI Agent</div>
+        <div class="step-content system">智能报价引擎<br>替代SKU推荐</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label">系统/设计师</div>
+        <div class="step-content">报价单自动生成<br>选择模板</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label purple">总监/负责人</div>
+        <div class="step-content">折扣审批<br>利润红线预警</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label purple">总监/负责人</div>
+        <div class="step-content">报价单内部审核</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label">客户/法务</div>
+        <div class="step-content">合同模板管理<br>电子签章</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label">客户</div>
+        <div class="step-content">合同签订<br>定金收取</div>
+      </div>
+      <div class="connector-line" style="margin-left: 10px;">
+        <span style="white-space: nowrap; font-size: 10px; color: #666;">归档 →</span>
+      </div>
+    </div>
+
+    <!-- M07 设计资产管理 -->
+    <div class="flow-row">
+      <span class="phase-label">M07</span>
+      <div class="step-box">
+        <div class="role-label purple">全案总监</div>
+        <div class="step-content">设计标准库管理<br>风格定义库</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label">设计师</div>
+        <div class="step-content">方案模板库<br>一键引用</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label">设计师</div>
+        <div class="step-content">优秀案例库<br>标签检索</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label">产品中心</div>
+        <div class="step-content">品类BOM模板库<br>标准BOM维护</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label">设计师</div>
+        <div class="step-content">设计素材库<br>3D模型/材质</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label">产品中心</div>
+        <div class="step-content">五金配件库<br>参数/兼容性</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label green">系统</div>
+        <div class="step-content system">复用率统计<br>报表输出</div>
+      </div>
+    </div>
+
+    <!-- M08 产品库集成 -->
+    <div class="flow-row">
+      <span class="phase-label">M08</span>
+      <div class="step-box">
+        <div class="role-label">MDM/产品中心</div>
+        <div class="step-content">选品库同步<br>实时更新</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label">系统</div>
+        <div class="step-content">项目库管理<br>SKU子集筛选</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label">产品中心</div>
+        <div class="step-content">报价库同步<br>利润红线</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label green">系统</div>
+        <div class="step-content system">SKU空间标签<br>搭配规则引擎</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label green">系统</div>
+        <div class="step-content system">SKU状态校验<br>替代矩阵推荐</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label">产品中心</div>
+        <div class="step-content">新品上架通知<br>参数展示</div>
+      </div>
+    </div>
+
+    <!-- M09 项目管理与协作 -->
+    <div class="flow-row">
+      <span class="phase-label">M09</span>
+      <div class="step-box">
+        <div class="role-label">CRM</div>
+        <div class="step-content">项目建档<br>客户信息关联</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label">设计运营</div>
+        <div class="step-content">设计任务分配<br>通知到人</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label green">系统</div>
+        <div class="step-content system">设计进度跟踪<br>甘特图/看板</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label green">系统</div>
+        <div class="step-content system">L1 BOM移交通知<br>≤24h推送</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label green">系统</div>
+        <div class="step-content system">L3 BOM推送供应链<br>≤2h触发采购</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label green">系统</div>
+        <div class="step-content system">安装图推送工程<br>变更通知</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label">设计团队</div>
+        <div class="step-content">在线协作评论<br>项目归档</div>
+      </div>
+    </div>
+
+    <!-- M10 订单与分成管理 -->
+    <div class="flow-row">
+      <span class="phase-label">M10</span>
+      <div class="step-box">
+        <div class="role-label">CRM/OMS</div>
+        <div class="step-content">设计单接收<br>创建项目</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label green">系统</div>
+        <div class="step-content system">设计单分类排序<br>优先级</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label">分单管理员</div>
+        <div class="step-content">分单规则配置<br>自动分单</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label green">系统</div>
+        <div class="step-content system">设计项目里程碑<br>进度可视化</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label">分单管理员</div>
+        <div class="step-content">设计定价配置<br>费用自动计算</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label">设计运营/HR</div>
+        <div class="step-content">设计师等级管理<br>分成规则配置</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label green">系统</div>
+        <div class="step-content system">分成自动核算<br>核算明细输出</div>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step-box">
+        <div class="role-label">分单/总监/财务</div>
+        <div class="step-content">分成审批流程<br>结算执行</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 右侧：外部系统集成 -->
+  <div class="right-panel">
+    <div class="right-header">外部系统集成</div>
+
+    <div class="system-group">
+      <div class="system-title">CRM</div>
+      <div class="system-item">客户线索/需求画像</div>
+      <div class="system-item">客户360信息</div>
+      <div class="system-item">设计单接收</div>
+    </div>
+
+    <div class="system-group">
+      <div class="system-title">MDM 主数据</div>
+      <div class="system-item">SKU主数据同步</div>
+      <div class="system-item">物料主数据映射</div>
+      <div class="system-item">商品编码统一</div>
+    </div>
+
+    <div class="system-group">
+      <div class="system-title">OMS / CPQ</div>
+      <div class="system-item">L3 BOM推送</div>
+      <div class="system-item">合同/报价单对接</div>
+      <div class="system-item">订单信息同步</div>
+    </div>
+
+    <div class="system-group">
+      <div class="system-title">ERP 财务</div>
+      <div class="system-item">BOM成本数据</div>
+      <div class="system-item">合同/财务凭证</div>
+      <div class="system-item">分成结算执行</div>
+      <div class="system-item">应付凭证生成</div>
+    </div>
+
+    <div class="system-group">
+      <div class="system-title">SRM / WMS</div>
+      <div class="system-item">供应商报价同步</div>
+      <div class="system-item">L3 BOM物料需求</div>
+      <div class="system-item">采购触发</div>
+    </div>
+
+    <div class="system-group">
+      <div class="system-title">PMS / 工程</div>
+      <div class="system-item">安装图推送</div>
+      <div class="system-item">施工计划确认</div>
+      <div class="system-item">项目信息同步</div>
+    </div>
+
+    <div class="system-group">
+      <div class="system-title">企业微信 / HR</div>
+      <div class="system-item">任务/审批通知</div>
+      <div class="system-item">设计师等级同步</div>
+      <div class="system-item">组织架构同步</div>
+    </div>
+
+    <div class="system-group">
+      <div class="system-title">AI 中台</div>
+      <div class="system-item">Agent调用请求</div>
+      <div class="system-item">方案推荐/校验</div>
+      <div class="system-item">BOM生成/校验</div>
+    </div>
+
+  </div>
+
+</div>
+
+<div style="margin-top: 15px; display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;">
+  <div style="background: #fff; border-radius: 8px; padding: 12px 20px; border: 1px solid #90caf9; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+    <div style="font-weight: bold; color: #1a3a5c; margin-bottom: 6px; font-size: 14px;">图例说明</div>
+    <div style="display: flex; gap: 15px; font-size: 12px; color: #333;">
+      <span><span style="display: inline-block; width: 20px; height: 12px; background: #4a9eff; border-radius: 2px; vertical-align: middle; margin-right: 4px;"></span>角色操作</span>
+      <span><span style="display: inline-block; width: 20px; height: 12px; background: #4caf50; border-radius: 2px; vertical-align: middle; margin-right: 4px;"></span>系统自动/AI</span>
+      <span><span style="display: inline-block; width: 20px; height: 12px; background: #f0c040; border-radius: 2px; vertical-align: middle; margin-right: 4px;"></span>关键业务模块</span>
+      <span><span style="display: inline-block; width: 20px; height: 12px; background: #9c27b0; border-radius: 2px; vertical-align: middle; margin-right: 4px;"></span>审批/管理</span>
+      <span>→ 流程推进方向</span>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top: 15px; background: #fff; border-radius: 8px; padding: 15px; border: 1px solid #90caf9;">
+  <div style="font-weight: bold; color: #1a3a5c; margin-bottom: 10px; font-size: 14px;">核心数据流</div>
+  <div style="font-size: 12px; color: #333; line-height: 1.8;">
+    <b>CRM/OMS</b> → 设计单 → <b>设计云平台</b> → 量尺数据/户型 → 全案方案 → 3D效果图 → 品类深化 → L1/L2/L3 BOM → 报价/合同 → <b>ERP/OMS</b><br>
+    <b>MDM</b> → SKU/物料/商品库 → <b>设计云平台</b> → 选品/报价/ BOM物料编码 → <b>ERP/SRM</b><br>
+    <b>设计云平台</b> → 设计项目/里程碑/进度 → <b>PMS/企业微信</b> → 通知/协作/工程<br>
+    <b>设计云平台</b> → 设计费用/分成核算 → <b>ERP/HR</b> → 结算/薪酬
+  </div>
+</div>
+
 </body>
 </html>

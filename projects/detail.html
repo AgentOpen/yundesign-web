@@ -21,6 +21,15 @@
     /* Tabs 内容 */
     .tab-panel { display: none; }
     .tab-panel.active { display: block; }
+    .stars { color: #D1D5DB; font-size: 14px; letter-spacing: 1px; }
+    .stars .on { color: #F59E0B; }
+    .star-pick { font-size: 28px; color: #D1D5DB; cursor: pointer; letter-spacing: 4px; }
+    .star-pick span.hot { color: #F59E0B; }
+    .q-layout { display: grid; grid-template-columns: 380px 1fr; gap: 20px; }
+    @media (max-width: 900px) { .q-layout { grid-template-columns: 1fr; } }
+    .form-group { margin-bottom: 14px; }
+    .form-input { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 14px; font-family: inherit; background: #fff; box-sizing: border-box; }
+    textarea.form-input { resize: vertical; }
 
     /* Milestone bar */
     .milestone-bar { display: flex; gap: 4px; margin: 24px 0; }
@@ -81,6 +90,7 @@
           <div class="tab-item" data-tab="deliv">📦 交付物</div>
           <div class="tab-item" data-tab="files">📁 文件</div>
           <div class="tab-item" data-tab="log">📜 操作日志</div>
+          <div class="tab-item" data-tab="quality">⭐ 质量评价</div>
         </div>
 
         <div style="padding:20px;">
@@ -131,6 +141,9 @@
               <div class="timeline-item"><div class="timeline-title">项目立项，PM 许光创建</div><div class="timeline-time">2026-06-20 · PM 许光</div></div>
             </div>
           </div>
+
+          <!-- Quality -->
+          <div class="tab-panel" data-panel="quality" id="panel-quality">...</div>
 
         </div>
       </div>
@@ -288,6 +301,7 @@
         ${MOCK.MILESTONE_TEMPLATE.map((m, i) => {
         const done = i < 3;
         const active = i === 3;
+        const ev = MOCK.milestoneEval(p.id, m.code);
         return `
           <div class="card" style="margin-bottom:12px;">
             <div style="display:flex;align-items:center;padding:16px 20px;background:${done ? 'var(--success-bg)' : active ? 'var(--brand-primary-bg)' : 'var(--bg-hover)'};border-radius:8px 8px 0 0;">
@@ -295,6 +309,7 @@
               <div style="margin-left:12px;flex:1;">
                 <div style="font-weight:600;">${done ? '✅ ' : active ? '🔵 ' : '⏳ '}${m.name}</div>
                 <div class="text-sm text-secondary">${m.role} · 交付物：${m.deliverable}</div>
+                ${ev ? `<div class="text-sm" style="margin-top:4px;"><span class="stars">${[1, 2, 3, 4, 5].map(n => `<span class="${n <= ev.score ? 'on' : ''}">★</span>`).join('')}</span> <span style="color:var(--text-secondary);">${ev.comment} — ${ev.reviewer}</span></div>` : ''}
               </div>
               <div class="text-sm text-secondary">${done ? '2026-07-08 完成' : active ? '进行中 · 3 天' : '待开始'}</div>
             </div>
@@ -416,6 +431,60 @@
           </div>
         </div>
       `;
+
+      // Quality 质量评价
+      function starsHtml(n) { let s = ''; for (let i = 1; i <= 5; i++) s += `<span class="${i <= n ? 'on' : ''}">★</span>`; return `<span class="stars">${s}</span>`; }
+      const evalNodes = MOCK.MILESTONE_TEMPLATE.filter(m => MOCK.msResponsible(p, m.code));
+      let qScore = 0;
+      function renderQuality() {
+        const can = MOCK.canEvaluate();
+        const evs = MOCK.milestoneEvals(p.id);
+        const rows = evs.length ? evs.map(e => {
+          const d = MOCK.getDesigner(e.designerId);
+          const m = MOCK.MILESTONE_TEMPLATE.find(x => x.code === e.msCode) || { name: e.msCode };
+          return `<tr><td>${m.name}</td><td><span class="tag tag-purple">${MOCK.deptShort(d.dept)}</span> ${d.name}</td><td>${starsHtml(e.score)}</td><td class="text-sm">${e.comment || '—'}</td><td class="text-sm text-secondary">${e.reviewer}</td><td class="text-sm text-secondary">${e.ts.slice(5, 10)}</td></tr>`;
+        }).join('') : `<tr><td colspan="6"><div class="empty" style="padding:24px 0;"><div class="empty-title">暂无评价记录</div></div></td></tr>`;
+
+        const formCard = can ? `
+          <div class="card">
+            <div class="card-header"><div class="card-title">质量评价 <span class="tag tag-brand" style="margin-left:6px;">FR-M10-19 · ${MOCK.currentRole().title}</span></div></div>
+            <div class="card-body">
+              <div class="form-group"><label class="form-label">评价里程碑节点</label>
+                <select class="form-input" id="q-node">${evalNodes.map(m => { const d = MOCK.getDesigner(MOCK.msResponsible(p, m.code)); return `<option value="${m.code}">${m.name}（${d.name}）</option>`; }).join('')}</select>
+              </div>
+              <div class="form-group"><label class="form-label">设计质量评分（1-5 星）</label><div class="star-pick" id="q-stars"><span data-v="1">★</span><span data-v="2">★</span><span data-v="3">★</span><span data-v="4">★</span><span data-v="5">★</span></div></div>
+              <div class="form-group"><label class="form-label">评审意见</label><textarea class="form-input" id="q-comment" rows="3" placeholder="记录方案亮点与改进建议…"></textarea></div>
+              <div class="hint-box" style="background:var(--brand-primary-bg);color:var(--brand-primary);padding:8px 12px;border-radius:var(--radius-md);font-size:12px;margin-bottom:12px;">💡 评分写入设计师档案，作为分单权重和分成质量系数输入</div>
+              <button class="btn btn-primary" id="q-submit">提交评价</button>
+            </div>
+          </div>` : `
+          <div class="card"><div class="card-body"><div class="empty" style="padding:32px 0;"><div class="empty-illustration" style="width:56px;height:56px;">🔒</div><div class="empty-title">仅设计负责人 / 部门负责人可评价</div><div class="empty-desc">当前角色（${MOCK.currentRole().title}）为查看权限，可在右侧查看历史评价</div></div></div></div>`;
+
+        document.getElementById('panel-quality').innerHTML = `
+          <div class="q-layout">
+            ${formCard}
+            <div class="card">
+              <div class="card-header"><div class="card-title">历史评价记录</div></div>
+              <div class="card-body" style="padding:0;">
+                <table class="data-table"><thead><tr><th>节点</th><th>设计师</th><th>评分</th><th>评审意见</th><th>评审人</th><th>时间</th></tr></thead><tbody>${rows}</tbody></table>
+              </div>
+            </div>
+          </div>`;
+
+        if (can) {
+          qScore = 0;
+          const paint = () => document.querySelectorAll('#q-stars span').forEach(s => s.classList.toggle('hot', +s.dataset.v <= qScore));
+          document.querySelectorAll('#q-stars span').forEach(s => s.addEventListener('click', () => { qScore = +s.dataset.v; paint(); }));
+          document.getElementById('q-submit').addEventListener('click', () => {
+            if (!qScore) { toast('请先选择评分', 'warning'); return; }
+            const msCode = document.getElementById('q-node').value;
+            MOCK.addMilestoneEval({ project: p.id, msCode, designerId: MOCK.msResponsible(p, msCode), score: qScore, comment: document.getElementById('q-comment').value.trim() });
+            toast('评价已提交并写入设计师档案', 'success');
+            renderQuality();
+          });
+        }
+      }
+      renderQuality();
 
       // Tab 切换
       document.querySelectorAll('.tab-item').forEach(t => {

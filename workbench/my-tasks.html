@@ -22,6 +22,49 @@
     .task-meta .meta-value { color: var(--text-primary); font-weight: 500; }
     .task-footer { display: flex; align-items: center; justify-content: space-between; padding-top: 16px; border-top: 1px solid var(--divider); }
     .space-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+
+    /* 双栏时间轴 */
+    .mt-layout { display: grid; grid-template-columns: 300px 1fr; gap: 16px; align-items: start; }
+    @media (max-width: 960px) { .mt-layout { grid-template-columns: 1fr; } }
+    .mt-proj { padding: 11px 13px; border-radius: var(--radius-lg); cursor: pointer; border: 1px solid transparent; margin-bottom: 6px; }
+    .mt-proj:hover { background: var(--bg-hover); }
+    .mt-proj.active { background: var(--brand-primary-bg); border-color: #BCD0FA; }
+    .mt-proj .n { font-weight: 600; font-size: 14px; }
+    .mt-proj .m { font-size: 12px; color: var(--text-secondary); margin-top: 3px; }
+    .mt-detail-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+
+    .tl { position: relative; padding-left: 28px; }
+    .tl::before { content: ''; position: absolute; left: 10px; top: 6px; bottom: 6px; width: 2px; background: var(--divider); }
+    .tl-node { position: relative; padding-bottom: 20px; }
+    .tl-node:last-child { padding-bottom: 0; }
+    .tl-dot { position: absolute; left: -28px; top: 1px; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; background: var(--text-tertiary); border: 3px solid var(--bg-card); }
+    .tl-node.done .tl-dot { background: var(--success); }
+    .tl-node.active .tl-dot { background: var(--brand-primary); box-shadow: 0 0 0 4px var(--brand-primary-bg); }
+    .tl-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+    .tl-name { font-weight: 600; font-size: 14px; }
+    .tl-role { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+    .mat-row { margin-top: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+    .mat-label { font-size: 12px; color: var(--text-secondary); }
+    .mat-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; background: var(--bg-hover); border: 1px solid var(--border); border-radius: var(--radius-round); padding: 3px 10px; cursor: pointer; }
+    .mat-chip:hover { border-color: var(--brand-primary); color: var(--brand-primary); }
+
+    .ver { border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px 14px; margin-top: 10px; background: var(--bg-card); }
+    .ver.pending { border-color: #F0B429; background: var(--warning-bg); }
+    .ver-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .ver-grid { display: grid; grid-template-columns: 1fr 24px 1fr; gap: 10px; margin-top: 10px; align-items: stretch; }
+    @media (max-width: 720px) { .ver-grid { grid-template-columns: 1fr; } .ver-arrow { display: none; } }
+    .ver-col { background: var(--bg-page); border-radius: var(--radius-md); padding: 10px 12px; }
+    .ver-col.req { border-left: 3px solid var(--info); }
+    .ver-col.out { border-left: 3px solid var(--brand-primary); }
+    .ver-col .lbl { font-size: 11px; color: var(--text-tertiary); letter-spacing: .3px; margin-bottom: 4px; }
+    .ver-col .txt { font-size: 13px; line-height: 1.6; }
+    .ver-col .who { font-size: 12px; color: var(--text-secondary); margin-top: 6px; }
+    .ver-arrow { display: flex; align-items: center; justify-content: center; color: var(--text-tertiary); font-size: 18px; }
+    .newver-btn { margin-top: 10px; }
+    .file-list-edit { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .file-edit-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; background: var(--brand-primary-bg); color: var(--brand-primary); border-radius: var(--radius-round); padding: 3px 8px 3px 10px; }
+    .file-edit-chip .x { cursor: pointer; font-weight: 700; }
+    .fm-preview { height: 180px; border: 1px dashed var(--border); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 8px; color: var(--text-secondary); background: var(--bg-page); }
   </style>
 </head>
 <body>
@@ -97,6 +140,68 @@
     </div>
   </div>
 
+  <!-- 附件预览 / 下载弹窗 -->
+  <div class="modal-mask" id="file-modal">
+    <div class="modal modal-md">
+      <div class="modal-header">
+        <div class="modal-title" id="fm-title">附件预览</div>
+        <div class="modal-close" onclick="closeModal('file-modal')">✕</div>
+      </div>
+      <div class="modal-body">
+        <div class="fm-preview" id="fm-preview"></div>
+        <div class="text-sm text-secondary" style="margin-top:10px;" id="fm-meta"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-default" onclick="closeModal('file-modal')">关闭</button>
+        <button class="btn btn-primary" id="fm-download">⬇ 下载</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 新增/提交版本弹窗 -->
+  <div class="modal-mask" id="ver-modal">
+    <div class="modal modal-md">
+      <div class="modal-header">
+        <div class="modal-title" id="vm-title">新增版本</div>
+        <div class="modal-close" onclick="closeModal('ver-modal')">✕</div>
+      </div>
+      <div class="modal-body">
+        <div class="form-item">
+          <label class="form-label">节点 / 版本号</label>
+          <div class="text-sm" id="vm-node" style="font-weight:600;"></div>
+        </div>
+        <div class="form-item">
+          <label class="form-label">📩 本次版本客户需求 <span class="required">*</span></label>
+          <textarea class="textarea" id="vm-req" rows="2" placeholder="客户/协调员提出的需求（可由外部系统下发）"></textarea>
+          <div class="text-sm text-secondary" id="vm-req-src" style="margin-top:4px;"></div>
+        </div>
+        <div class="form-item">
+          <label class="form-label">为什么新增本次版本</label>
+          <input class="input" id="vm-reason" placeholder="例：客户批注 / 协调员反馈 / 定稿" />
+        </div>
+        <div class="form-item">
+          <label class="form-label">本次版本更改了什么 <span class="required">*</span></label>
+          <textarea class="textarea" id="vm-changes" rows="2" placeholder="具体修改内容，例：主卧衣柜左移 30cm；书房新增书桌"></textarea>
+        </div>
+        <div class="form-item" style="margin-bottom:0;">
+          <label class="form-label">产出物附件</label>
+          <div style="display:flex;gap:8px;">
+            <input class="input" id="vm-fname" placeholder="文件名，例：平面布局V4.0.dwg" style="flex:1;" />
+            <select class="input" id="vm-ftype" style="width:110px;">
+              <option value="dwg">DWG</option><option value="pdf">PDF</option><option value="img">图片</option><option value="zip">压缩包</option>
+            </select>
+            <button class="btn btn-default" id="vm-addfile" type="button">添加</button>
+          </div>
+          <div class="file-list-edit" id="vm-files"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-default" onclick="closeModal('ver-modal')">取消</button>
+        <button class="btn btn-primary" id="vm-submit">提交版本</button>
+      </div>
+    </div>
+  </div>
+
   <script src="../assets/js/utils.js"></script>
   <script src="../assets/js/mock-data.js"></script>
   <script src="../assets/js/shell.js"></script>
@@ -105,6 +210,7 @@
       let tasks = [...MOCK.MY_TASKS];
       let currentTab = 'pending';
       let currentRejectId = null;
+      const selectedByTab = { accepted: null, done: null };
 
       function updateCounts() {
         ['pending', 'accepted', 'rejected', 'done'].forEach(s => {
@@ -112,12 +218,29 @@
         });
       }
 
+      function fileIcon(type) { return ({ pdf: '📄', dwg: '📐', zip: '🗜️', img: '🖼️' })[type] || '📎'; }
+      function statusIcon(s) { return s === 'done' ? '✅' : s === 'active' ? '🔵' : '⏳'; }
+      function nodeTag(s) { return s === 'done' ? '<span class="tag tag-success">已完成</span>' : s === 'active' ? '<span class="tag tag-brand">进行中</span>' : '<span class="tag">待开始</span>'; }
+      function verTag(s) { return s === 'done' ? '<span class="tag tag-success">已产出</span>' : s === 'accepted' ? '<span class="tag tag-brand">处理中</span>' : '<span class="tag tag-warning">客户需求 · 待处理</span>'; }
+
+      // ============ 主渲染分流 ============
       function render() {
+        updateCounts();
         const list = document.getElementById('task-list');
+        const empty = document.getElementById('empty');
+        if (currentTab === 'accepted' || currentTab === 'done') {
+          empty.classList.add('hidden');
+          renderTimelineView(list);
+        } else {
+          renderCards(list, empty);
+        }
+      }
+
+      // ============ 待接单 / 已拒接：保留卡片 ============
+      function renderCards(list, empty) {
         list.innerHTML = '';
         const filtered = tasks.filter(t => t.status === currentTab);
-        updateCounts();
-        document.getElementById('empty').classList.toggle('hidden', filtered.length > 0);
+        empty.classList.toggle('hidden', filtered.length > 0);
 
         filtered.forEach(t => {
           const card = document.createElement('div');
@@ -224,6 +347,187 @@
           btn.addEventListener('click', () => toast('已提交复议，运营将重新评估该派单', 'success'));
         });
       }
+
+      // ============ 进行中 / 已完成：双栏（左项目 + 右里程碑时间轴）============
+      function renderTimelineView(container) {
+        const projects = MOCK.myTaskProjects(currentTab);
+        if (!projects.length) { container.innerHTML = ''; document.getElementById('empty').classList.remove('hidden'); return; }
+        let sel = selectedByTab[currentTab];
+        if (!sel || !projects.find(x => x.id === sel)) sel = projects[0].id;
+        selectedByTab[currentTab] = sel;
+
+        container.innerHTML = `
+          <div class="mt-layout">
+            <div class="card">
+              <div class="card-header"><div class="card-title">项目（${projects.length}）</div><span class="text-sm text-secondary">最新在前</span></div>
+              <div class="card-body" style="padding:8px;" id="mt-proj-list"></div>
+            </div>
+            <div class="card">
+              <div class="card-header mt-detail-head" id="mt-detail-head"></div>
+              <div class="card-body" id="mt-timeline"></div>
+            </div>
+          </div>`;
+
+        const pl = document.getElementById('mt-proj-list');
+        pl.innerHTML = projects.map(it => {
+          const prog = it.project ? it.project.progress : 100;
+          const stage = it.project ? it.project.stage : '已完成';
+          return `<div class="mt-proj ${it.id === sel ? 'active' : ''}" data-pid="${it.id}">
+            <div class="n">${it.name}</div>
+            <div class="m">${stage} · ${it.task.role} · 最新 ${it.latest ? it.latest.slice(5, 16) : '-'}</div>
+            <div class="progress" style="margin-top:6px;"><div class="progress-bar ${prog >= 80 ? 'success' : ''}" style="width:${prog}%;"></div></div>
+          </div>`;
+        }).join('');
+        pl.querySelectorAll('.mt-proj').forEach(el => el.addEventListener('click', () => { selectedByTab[currentTab] = el.dataset.pid; render(); }));
+
+        renderTimeline(projects.find(x => x.id === sel));
+      }
+
+      function renderTimeline(item) {
+        const editable = currentTab === 'accepted';
+        const p = item.project;
+        document.getElementById('mt-detail-head').innerHTML = `
+          <div>
+            <div class="card-title">${item.name}</div>
+            <div class="text-sm text-secondary" style="margin-top:2px;">${p ? p.code + ' · ' + p.type + ' · ' + p.area + ' ㎡' : '历史项目'} · 我的角色：<b>${item.task.role}</b></div>
+          </div>
+          ${p ? `<a class="btn btn-default btn-sm" href="../projects/detail.html?id=${p.id}">项目详情 →</a>` : ''}`;
+
+        const tl = MOCK.getTaskTimeline(item.id);
+        const host = document.getElementById('mt-timeline');
+        host.innerHTML = tl.length ? `<div class="tl">${tl.map((n, i) => nodeHtml(item.id, n, i, editable)).join('')}</div>` : '<div class="empty" style="padding:32px 0;"><div class="empty-title">暂无里程碑记录</div></div>';
+
+        // 附件预览
+        host.querySelectorAll('.mat-chip').forEach(c => c.addEventListener('click', () => openFile(c.dataset.fname, c.dataset.ftype)));
+        // 新增版本（设计师自建）
+        host.querySelectorAll('[data-addver]').forEach(b => b.addEventListener('click', () => openVer(item.id, b.dataset.addver, null, '')));
+        // 接受客户需求并上传产出物
+        host.querySelectorAll('[data-fulfill]').forEach(b => b.addEventListener('click', () => openVer(item.id, b.dataset.fulfill, b.dataset.vid, b.dataset.req)));
+        // 展开/收起历史版本
+        host.querySelectorAll('[data-toggle]').forEach(b => b.addEventListener('click', () => {
+          const box = document.getElementById(b.dataset.toggle);
+          const open = box.style.display !== 'none';
+          box.style.display = open ? 'none' : 'block';
+          b.textContent = (open ? '▸ 展开 ' : '▾ 收起 ') + b.dataset.count + ' 个历史版本';
+        }));
+      }
+
+      function chip(f) { return `<span class="mat-chip" data-fname="${f.name}" data-ftype="${f.type}">${fileIcon(f.type)} ${f.name}</span>`; }
+
+      function nodeHtml(pid, n, i, editable) {
+        const mats = n.materials && n.materials.length ? `<div class="mat-row"><span class="mat-label">资料：</span>${n.materials.map(chip).join('')}</div>` : '';
+        let versions = '';
+        if (n.design) {
+          const vs = n.versions;
+          if (vs.length) {
+            const latest = vs[vs.length - 1];
+            const older = vs.slice(0, -1);
+            versions += verHtml(n.code, latest, editable);
+            if (older.length) {
+              const gid = 'older-' + pid + '-' + n.code;
+              versions += `<button class="btn btn-text btn-sm ver-toggle" data-toggle="${gid}" data-count="${older.length}" style="margin-top:8px;">▸ 展开 ${older.length} 个历史版本</button>
+                <div class="ver-older" id="${gid}" style="display:none;">${older.slice().reverse().map(v => verHtml(n.code, v, editable)).join('')}</div>`;
+            }
+          }
+          if (editable && n.status !== 'pending') {
+            versions += `<div class="newver-btn"><button class="btn btn-default btn-sm" data-addver="${n.code}">+ 新增版本</button></div>`;
+          }
+        }
+        return `<div class="tl-node ${n.status}">
+          <div class="tl-dot">${n.status === 'done' ? '✓' : (i + 1)}</div>
+          <div class="tl-head">
+            <div><div class="tl-name">${statusIcon(n.status)} ${n.name}</div><div class="tl-role">${n.role}${n.design ? ' · 设计节点' : ''}</div></div>
+            <div style="text-align:right;flex-shrink:0;">${nodeTag(n.status)}${n.completedAt ? `<div class="text-sm text-secondary" style="margin-top:4px;">${n.completedAt} 完成</div>` : ''}</div>
+          </div>
+          ${mats}
+          ${versions}
+        </div>`;
+      }
+
+      function verHtml(msCode, v, editable) {
+        const pending = v.status !== 'done';
+        const outCol = v.status === 'done'
+          ? `<div class="txt"><b>为什么新增：</b>${v.reason || '—'}</div>
+             <div class="txt" style="margin-top:3px;"><b>改了什么：</b>${v.changes || '—'}</div>
+             ${v.deliverables.length ? `<div class="mat-row" style="margin-top:6px;"><span class="mat-label">产出物：</span>${v.deliverables.map(chip).join('')}</div>` : ''}
+             <div class="who">🎨 ${v.completedBy || '—'} · ${v.completedAt || ''} 完成</div>`
+          : `<div class="txt" style="color:#B4530A;">⏳ 待设计师接受并产出</div>
+             ${editable ? `<button class="btn btn-primary btn-sm" style="margin-top:8px;" data-fulfill="${msCode}" data-vid="${v.id}" data-req="${(v.customerReq || '').replace(/"/g, '&quot;')}">接受并上传产出物</button>` : ''}`;
+        return `<div class="ver ${pending ? 'pending' : ''}">
+          <div class="ver-top">
+            <div><span class="tag tag-brand">${v.v}</span> ${verTag(v.status)}</div>
+          </div>
+          <div class="ver-grid">
+            <div class="ver-col req">
+              <div class="lbl">📩 客户需求（提出）</div>
+              <div class="txt">${v.customerReq || '—'}</div>
+              <div class="who">👤 ${v.requestedBy || '—'} · ${v.requestedAt || ''}</div>
+            </div>
+            <div class="ver-arrow">→</div>
+            <div class="ver-col out">
+              <div class="lbl">🎨 设计产出（完成）</div>
+              ${outCol}
+            </div>
+          </div>
+        </div>`;
+      }
+
+      // ============ 附件预览 / 下载 ============
+      function openFile(name, type) {
+        document.getElementById('fm-title').textContent = name;
+        const map = { pdf: 'PDF 文档', dwg: 'CAD 图纸', img: '图片 / 720°', zip: '压缩包' };
+        document.getElementById('fm-preview').innerHTML = `<div style="font-size:44px;">${fileIcon(type)}</div><div>${map[type] || '附件'} 预览（演示占位）</div>`;
+        document.getElementById('fm-meta').textContent = '文件：' + name + ' · 类型：' + (map[type] || type);
+        openModal('file-modal');
+      }
+      document.getElementById('fm-download').addEventListener('click', () => { closeModal('file-modal'); toast('下载中（演示环境为占位文件）', 'info'); });
+
+      // ============ 新增 / 提交版本 ============
+      let verCtx = null, verFiles = [];
+      function renderVerFiles() {
+        document.getElementById('vm-files').innerHTML = verFiles.map((f, idx) =>
+          `<span class="file-edit-chip">${fileIcon(f.type)} ${f.name} <span class="x" data-rm="${idx}">✕</span></span>`).join('');
+        document.querySelectorAll('#vm-files [data-rm]').forEach(x => x.addEventListener('click', () => { verFiles.splice(+x.dataset.rm, 1); renderVerFiles(); }));
+      }
+      function openVer(pid, msCode, versionId, customerReq) {
+        verCtx = { pid, msCode, versionId };
+        verFiles = [];
+        const fulfilling = !!versionId;
+        document.getElementById('vm-title').textContent = fulfilling ? '接受客户需求 · 上传产出物' : '新增版本（设计师自建）';
+        document.getElementById('vm-node').textContent = (MOCK.getTaskTimeline(pid).find(n => n.code === msCode) || {}).name || msCode;
+        const reqEl = document.getElementById('vm-req');
+        reqEl.value = customerReq || '';
+        reqEl.readOnly = fulfilling;
+        document.getElementById('vm-req-src').textContent = fulfilling ? '需求由客户/外部系统下发，接受后请提交产出物' : '如为设计师自建版本，请补充对应需求来源';
+        document.getElementById('vm-reason').value = '';
+        document.getElementById('vm-changes').value = '';
+        document.getElementById('vm-fname').value = '';
+        renderVerFiles();
+        openModal('ver-modal');
+      }
+      document.getElementById('vm-addfile').addEventListener('click', () => {
+        const name = document.getElementById('vm-fname').value.trim();
+        if (!name) { toast('请填写文件名', 'warning'); return; }
+        verFiles.push({ name, type: document.getElementById('vm-ftype').value });
+        document.getElementById('vm-fname').value = '';
+        renderVerFiles();
+      });
+      document.getElementById('vm-submit').addEventListener('click', () => {
+        const req = document.getElementById('vm-req').value.trim();
+        const changes = document.getElementById('vm-changes').value.trim();
+        const reason = document.getElementById('vm-reason').value.trim();
+        if (!req) { toast('请填写本次版本客户需求', 'warning'); return; }
+        if (!changes) { toast('请填写本次版本更改内容', 'warning'); return; }
+        if (verCtx.versionId) {
+          MOCK.completeVersion(verCtx.pid, verCtx.msCode, verCtx.versionId, { reason, changes, deliverables: verFiles });
+          toast('已接受需求并提交产出物，版本已记录', 'success');
+        } else {
+          MOCK.addTaskVersion(verCtx.pid, verCtx.msCode, { customerReq: req, reason, changes, deliverables: verFiles });
+          toast('新版本已提交并留痕', 'success');
+        }
+        closeModal('ver-modal');
+        render();
+      });
 
       // Tab 切换
       document.querySelectorAll('.tab-item').forEach(t => {
