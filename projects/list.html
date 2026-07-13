@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>项目列表 · 敬城设计云</title>
+  <link rel="stylesheet" href="../assets/css/tokens.css" />
+  <link rel="stylesheet" href="../assets/css/base.css" />
+  <link rel="stylesheet" href="../assets/css/layout.css" />
+  <link rel="stylesheet" href="../assets/css/components.css" />
+  <style>
+    .type-color { width: 3px; align-self: stretch; border-radius: 2px; margin-right: -8px; }
+    .type-家装 { background: #6B8FF0; }
+    .type-工装 { background: #8B5CF6; }
+    .type-别墅 { background: #F59E0B; }
+    .progress-cell { display: flex; align-items: center; gap: 8px; min-width: 140px; }
+    .progress-cell .progress { flex: 1; }
+    .risk-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
+    .risk-ok { background: var(--success); }
+    .risk-warning { background: var(--warning); }
+    .risk-danger { background: var(--danger); }
+    .view-switcher { display: flex; background: var(--bg-hover); border-radius: 6px; padding: 2px; }
+    .view-switcher button { padding: 6px 12px; border-radius: 4px; background: transparent; color: var(--text-secondary); font-size: 13px; cursor: pointer; transition: var(--transition-fast); }
+    .view-switcher button.active { background: white; color: var(--brand-primary); box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+    .project-card { background: white; border-radius: 8px; padding: 20px; border: 1px solid var(--border); box-shadow: var(--shadow-card); cursor: pointer; transition: var(--transition-fast); position: relative; }
+    .project-card:hover { box-shadow: var(--shadow-hover); transform: translateY(-2px); }
+    .project-card .card-top-bar { position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: 8px 8px 0 0; }
+
+    .kanban { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 20px; }
+    .kanban-col { min-width: 260px; flex: 0 0 260px; background: var(--bg-hover); border-radius: 8px; padding: 12px; }
+    .kanban-col h4 { font-size: 13px; margin-bottom: 12px; display: flex; justify-content: space-between; }
+    .kanban-card { background: white; border-radius: 6px; padding: 12px; margin-bottom: 8px; box-shadow: var(--shadow-card); cursor: pointer; transition: var(--transition-fast); }
+    .kanban-card:hover { box-shadow: var(--shadow-hover); }
+
+    /* 紧凑表格 + 固定操作列 */
+    #view-table .data-table thead th,
+    #view-table .data-table tbody td { padding: 8px 10px; white-space: nowrap; }
+    #view-table .data-table td .avatar.sm { width: 20px; height: 20px; font-size: 10px; }
+    #view-table .data-table th:last-child,
+    #view-table .data-table td:last-child {
+      position: sticky; right: 0; text-align: right;
+      box-shadow: -8px 0 8px -8px rgba(16,24,40,.18);
+    }
+    #view-table .data-table thead th:last-child { background: #FAFBFC; z-index: 2; }
+    #view-table .data-table tbody td:last-child { background: white; }
+    #view-table .data-table tbody tr:hover td:last-child { background: var(--bg-hover); }
+    #view-table .data-table tbody tr.selected td:last-child { background: var(--bg-selected); }
+    .people-cell { display:flex; flex-direction:column; gap:2px; }
+    .people-cell .pc-row { display:flex; align-items:center; gap:5px; }
+    .people-cell .pc-dept { font-size:10px; color:var(--text-placeholder); }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="page-header">
+      <div class="page-breadcrumb">
+        <a href="../workbench/dashboard.html">工作台</a>
+        <span class="sep">/</span>
+        <span class="current">项目列表</span>
+      </div>
+      <div class="page-title-bar">
+        <div>
+          <div class="page-title">项目列表</div>
+          <div class="page-title-desc">全部在途 & 已完结项目一屏管理</div>
+        </div>
+        <div class="flex gap-2">
+          <button class="btn btn-default" onclick="toast('导出项目列表','success')">导出</button>
+          <a href="./create.html" class="btn btn-primary">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            创建设计单
+          </a>
+        </div>
+      </div>
+    </div>
+    <div class="page-body">
+      <!-- Filter -->
+      <div class="filter-bar">
+        <div class="filter-item">
+          <span class="filter-label">状态</span>
+          <select class="filter-select" id="f-status">
+            <option value="">全部</option>
+            <option>进行中</option>
+            <option>已交付</option>
+            <option>已完成</option>
+          </select>
+        </div>
+        <div class="filter-item">
+          <span class="filter-label">类型</span>
+          <select class="filter-select" id="f-type">
+            <option value="">全部</option>
+            <option>家装</option>
+            <option>工装</option>
+            <option>别墅</option>
+          </select>
+        </div>
+        <div class="filter-item">
+          <span class="filter-label">紧急度</span>
+          <select class="filter-select" id="f-urgency">
+            <option value="">全部</option>
+            <option>正常</option>
+            <option>加急</option>
+            <option>紧急</option>
+          </select>
+        </div>
+        <div class="filter-item">
+          <span class="filter-label">区域</span>
+          <select class="filter-select" id="f-region">
+            <option value="">全部</option>
+            <option>中国</option><option>泰国</option><option>越南</option><option>沙特</option>
+            <option>美国</option><option>印度</option><option>日本</option><option>英国</option>
+          </select>
+        </div>
+        <div class="filter-item">
+          <span class="filter-label">设计部门</span>
+          <select class="filter-select" id="f-dept"><option value="">全部</option></select>
+        </div>
+        <div class="filter-item">
+          <span class="filter-label">设计师</span>
+          <select class="filter-select" id="f-designer"><option value="">全部</option></select>
+        </div>
+        <div class="filter-item">
+          <span class="filter-label">协调员</span>
+          <select class="filter-select" id="f-coord"><option value="">全部</option></select>
+        </div>
+        <input type="text" class="filter-search" placeholder="搜索项目名 / 客户 / 编号" id="f-search" />
+        <div style="margin-left:auto;" class="view-switcher">
+          <button data-view="table" class="active">⚏ 列表</button>
+          <button data-view="card">▦ 卡片</button>
+          <button data-view="kanban">▧ 看板</button>
+        </div>
+      </div>
+
+      <!-- Views -->
+      <div class="card" id="view-table">
+        <div class="table-scroll" style="overflow-x:auto;">
+          <table class="data-table" style="min-width:1360px;">
+            <thead>
+              <tr>
+                <th style="width:40px;"><input type="checkbox" /></th>
+                <th>编号</th>
+                <th>来源</th>
+                <th>客户</th>
+                <th>区域</th>
+                <th>类型</th>
+                <th>面积</th>
+                <th>设计范围</th>
+                <th>紧急</th>
+                <th>平面设计师</th>
+                <th>3D设计师</th>
+                <th>协调员</th>
+                <th>修改</th>
+                <th>状态</th>
+                <th>期望工期</th>
+                <th style="text-align:right;">操作</th>
+              </tr>
+            </thead>
+            <tbody id="table-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card-grid hidden" id="view-card"></div>
+
+      <div class="kanban hidden" id="view-kanban"></div>
+    </div>
+  </div>
+
+  <script src="../assets/js/utils.js"></script>
+  <script src="../assets/js/mock-data.js"></script>
+  <script src="../assets/js/shell.js"></script>
+  <script>
+    (function () {
+      let currentView = 'table';
+      let filter = { status: '', type: '', urgency: '', region: '', dept: '', designer: '', coord: '', search: '' };
+
+      // 填充下拉
+      const deptSel = document.getElementById('f-dept');
+      MOCK.DEPARTMENTS.forEach(d => deptSel.insertAdjacentHTML('beforeend', `<option>${d}</option>`));
+      const dSel = document.getElementById('f-designer');
+      MOCK.DESIGNERS.filter(d => ['2D', '3D'].includes(d.role)).forEach(d => dSel.insertAdjacentHTML('beforeend', `<option value="${d.id}">${d.dept.replace('设计', '').replace('部', '')}·${d.name}（${d.role}）</option>`));
+      const cSel = document.getElementById('f-coord');
+      MOCK.designersByRole('协调员').forEach(d => cSel.insertAdjacentHTML('beforeend', `<option value="${d.id}">${d.name}（${d.dept}）</option>`));
+
+      function deptOfProject(p) {
+        // 项目涉及的设计师部门集合
+        const ids = [...(p.d2d || []), ...(p.d3d || []), p.coord].filter(Boolean);
+        return ids.map(id => MOCK.getDesigner(id).dept);
+      }
+
+      function filtered() {
+        return MOCK.PROJECTS.filter(p => {
+          if (filter.status && p.status !== filter.status) return false;
+          if (filter.type && p.type !== filter.type) return false;
+          if (filter.urgency && p.urgency !== filter.urgency) return false;
+          if (filter.region && !p.region.includes(filter.region)) return false;
+          if (filter.dept && !deptOfProject(p).includes(filter.dept)) return false;
+          if (filter.designer && !([...(p.d2d || []), ...(p.d3d || [])].includes(filter.designer))) return false;
+          if (filter.coord && p.coord !== filter.coord) return false;
+          if (filter.search) {
+            const q = filter.search.toLowerCase();
+            const cust = MOCK.getCustomer(p.customer).name || '';
+            if (!(p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q) || cust.toLowerCase().includes(q))) return false;
+          }
+          return true;
+        });
+      }
+
+      function statusTag(s) {
+        return s === '已完成' ? '<span class="tag tag-success">已完成</span>'
+          : s === '已交付' ? '<span class="tag tag-brand">已交付</span>'
+            : '<span class="tag tag-info">进行中</span>';
+      }
+      function urgencyTag(u) {
+        return `<span class="tag ${u === '紧急' ? 'tag-danger' : u === '加急' ? 'tag-warning' : ''}">${u}</span>`;
+      }
+      // 区域仅显示国家（国内不显示"中国"，改显示城市）
+      function regionShort(r) {
+        const parts = (r || '').split('·');
+        return parts[0] === '中国' ? (parts[1] || parts[0]) : parts[0];
+      }
+
+      function people(ids) {
+        if (!ids || !ids.length) return '<span class="text-placeholder text-sm">—</span>';
+        return `<div class="people-cell">${ids.map(id => {
+          const d = MOCK.getDesigner(id);
+          return `<div class="pc-row"><div class="avatar sm" data-color="${colorFrom(d.name)}">${initials(d.name)}</div><span class="text-sm">${d.name}</span><span class="pc-dept">${MOCK.deptShort(d.dept)}</span></div>`;
+        }).join('')}</div>`;
+      }
+
+      function renderTable() {
+        const tbody = document.getElementById('table-body');
+        tbody.innerHTML = '';
+        const rows = filtered();
+        if (!rows.length) { tbody.innerHTML = `<tr><td colspan="16"><div class="empty"><div class="empty-title">没有符合条件的项目</div></div></td></tr>`; return; }
+        rows.forEach(p => {
+          const cust = MOCK.getCustomer(p.customer);
+          const coord = p.coord ? (() => { const d = MOCK.getDesigner(p.coord); return `<div class="pc-row"><div class="avatar sm" data-color="${colorFrom(d.name)}">${initials(d.name)}</div><span class="text-sm">${d.name}</span></div>`; })() : (p.coordExternal ? `<span class="text-sm">${p.coordExternal}</span>` : '<span class="text-placeholder text-sm">无需</span>');
+          const tr = document.createElement('tr');
+          tr.style.cursor = 'pointer';
+          tr.innerHTML = `
+            <td><input type="checkbox" onclick="event.stopPropagation()" /></td>
+            <td><span class="font-mono text-sm">${p.code}</span><div style="font-size:12px;font-weight:500;">${p.name}</div></td>
+            <td><span class="tag ${p.source === 'CRM' ? 'tag-info' : p.source === 'OMS' ? 'tag-purple' : ''}">${p.source}</span></td>
+            <td>${cust.name}${cust.level ? `<div style="font-size:11px;color:var(--text-secondary);">${cust.level}</div>` : ''}</td>
+            <td class="text-sm">${regionShort(p.region)}</td>
+            <td><span class="tag">${p.type}</span></td>
+            <td>${p.area} ㎡</td>
+            <td class="text-sm">${(p.scope || []).join('/')}</td>
+            <td>${urgencyTag(p.urgency)}</td>
+            <td>${people(p.d2d)}</td>
+            <td>${people(p.d3d)}</td>
+            <td>${coord}</td>
+            <td style="text-align:center;"><span class="tag ${p.changesCount > 10 ? 'tag-warning' : ''}">${p.changesCount}</span></td>
+            <td>${statusTag(p.status)}</td>
+            <td class="text-sm" style="color:var(--text-secondary);white-space:nowrap;">${formatDate(p.deadline)}</td>
+            <td style="text-align:right;">
+              <button class="btn btn-text" onclick="event.stopPropagation();location.href='./detail.html?id=${p.id}'">查看</button>
+            </td>
+          `;
+          tr.addEventListener('click', () => location.href = './detail.html?id=' + p.id);
+          tbody.appendChild(tr);
+        });
+      }
+
+      function renderCard() {
+        const box = document.getElementById('view-card');
+        box.innerHTML = '';
+        filtered().forEach(p => {
+          const cust = MOCK.getCustomer(p.customer);
+          const lead = MOCK.getDesigner((p.d2d && p.d2d[0]) || (p.d3d && p.d3d[0]));
+          const card = document.createElement('div');
+          card.className = 'project-card';
+          const barColor = p.type === '别墅' ? '#F59E0B' : p.type === '工装' ? '#8B5CF6' : '#6B8FF0';
+          card.innerHTML = `
+            <div class="card-top-bar" style="background:${barColor};"></div>
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+              <div>
+                <div style="font-weight:600;font-size:16px;">${p.name}</div>
+                <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">${p.code}</div>
+              </div>
+              <span class="tag ${p.urgency === '紧急' ? 'tag-danger' : (p.urgency === '加急' ? 'tag-warning' : '')}">${p.urgency}</span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;color:var(--text-secondary);margin-bottom:12px;">
+              <div>👤 ${cust.name}</div>
+              <div>📐 ${p.area} ㎡</div>
+              <div>📍 ${p.region}</div>
+              <div>🎯 ${p.stage}</div>
+            </div>
+            <div class="progress" style="margin-bottom:8px;"><div class="progress-bar ${p.risk === 'danger' ? 'danger' : (p.risk === 'warning' ? 'warning' : 'success')}" style="width:${p.progress}%;"></div></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text-secondary);">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <div class="avatar sm" data-color="${colorFrom(lead.name)}">${initials(lead.name)}</div>
+                <span>${lead.name}</span>
+              </div>
+              <span>${p.progress}% · ${formatDate(p.deadline)}</span>
+            </div>
+          `;
+          card.addEventListener('click', () => location.href = './detail.html?id=' + p.id);
+          box.appendChild(card);
+        });
+      }
+
+      function renderKanban() {
+        const box = document.getElementById('view-kanban');
+        const stages = ['需求收集', '平面确认', '3D意向', '全屋3D', '项目完结'];
+        box.innerHTML = '';
+        stages.forEach(stage => {
+          const list = filtered().filter(p => p.stage === stage);
+          const col = document.createElement('div');
+          col.className = 'kanban-col';
+          col.innerHTML = `<h4><span>${stage}</span><span style="background:white;padding:1px 8px;border-radius:8px;font-weight:500;">${list.length}</span></h4>`;
+          list.forEach(p => {
+            const cust = MOCK.getCustomer(p.customer);
+            const card = document.createElement('div');
+            card.className = 'kanban-card';
+            card.innerHTML = `
+              <div style="font-weight:500;margin-bottom:4px;font-size:13px;">${p.name}</div>
+              <div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px;">${cust.name}</div>
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span class="tag tag-${p.urgency === '紧急' ? 'danger' : p.urgency === '加急' ? 'warning' : ''}">${p.urgency}</span>
+                <span style="font-size:11px;color:var(--text-placeholder);">${p.progress}%</span>
+              </div>
+            `;
+            card.addEventListener('click', () => location.href = './detail.html?id=' + p.id);
+            col.appendChild(card);
+          });
+          box.appendChild(col);
+        });
+      }
+
+      function rerender() {
+        if (currentView === 'table') renderTable();
+        else if (currentView === 'card') renderCard();
+        else renderKanban();
+      }
+
+      // View switch
+      document.querySelectorAll('[data-view]').forEach(b => {
+        b.addEventListener('click', () => {
+          document.querySelectorAll('[data-view]').forEach(x => x.classList.remove('active'));
+          b.classList.add('active');
+          currentView = b.dataset.view;
+          ['table', 'card', 'kanban'].forEach(v => document.getElementById('view-' + v).classList.toggle('hidden', v !== currentView));
+          rerender();
+        });
+      });
+
+      // Filters
+      ['f-status', 'f-type', 'f-urgency', 'f-region', 'f-dept', 'f-designer', 'f-coord'].forEach(id => {
+        document.getElementById(id).addEventListener('change', (e) => {
+          filter[id.substring(2)] = e.target.value;
+          rerender();
+        });
+      });
+      document.getElementById('f-search').addEventListener('input', debounce((e) => {
+        filter.search = e.target.value;
+        rerender();
+      }, 200));
+
+      rerender();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>我的分成 · 敬城设计云</title>
+  <link rel="stylesheet" href="../assets/css/tokens.css" />
+  <link rel="stylesheet" href="../assets/css/base.css" />
+  <link rel="stylesheet" href="../assets/css/layout.css" />
+  <link rel="stylesheet" href="../assets/css/components.css" />
+  <style>
+    .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+    @media (max-width: 1024px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+    .chart-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 24px; }
+    @media (max-width: 1024px) { .chart-grid { grid-template-columns: 1fr; } }
+    .bar-chart { padding: 20px; }
+    .bar-chart .month { display: flex; align-items: end; gap: 20px; height: 200px; padding: 0 20px; }
+    .bar-chart .bar { flex: 1; background: linear-gradient(180deg, #3A6BEC, #1E4FD8); border-radius: 4px 4px 0 0; position: relative; transition: opacity 0.2s; }
+    .bar-chart .bar:hover { opacity: 0.8; }
+    .bar-chart .bar .value { position: absolute; top: -22px; left: 50%; transform: translateX(-50%); font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
+    .bar-chart .month-labels { display: flex; gap: 20px; padding: 8px 20px 0; }
+    .bar-chart .month-labels > div { flex: 1; text-align: center; font-size: 12px; color: var(--text-secondary); }
+    .donut { width: 180px; height: 180px; }
+    .commission-detail { background: var(--bg-hover); border-radius: 8px; padding: 12px; margin-top: 12px; font-size: 13px; }
+    .commission-detail .row { display: flex; justify-content: space-between; padding: 4px 0; }
+    .commission-detail .row.total { font-weight: 600; border-top: 1px dashed var(--divider); padding-top: 8px; margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="page-header">
+      <div class="page-breadcrumb">
+        <a href="./dashboard.html">工作台</a>
+        <span class="sep">/</span>
+        <span class="current">我的分成</span>
+      </div>
+      <div class="page-title-bar">
+        <div>
+          <div class="page-title">我的分成</div>
+          <div class="page-title-desc">按项目和阶段自动核算的个人分成明细。对结果有异议？可发起申诉。</div>
+        </div>
+        <div class="flex gap-2">
+          <button class="btn btn-default" onclick="toast('导出 PDF 演示中', 'info')">导出 PDF</button>
+          <button class="btn btn-default" onclick="toast('暂无进行中的申诉', 'info')">我的申诉 (0)</button>
+        </div>
+      </div>
+    </div>
+    <div class="page-body">
+      <!-- KPI -->
+      <div class="kpi-grid">
+        <div class="stat-card">
+          <div class="stat-icon" style="color:var(--brand-primary);background:var(--brand-primary-bg);">💰</div>
+          <div class="stat-label">本月应分</div>
+          <div class="stat-value font-mono">¥42,800</div>
+          <div class="stat-delta up">▲ 12% 环比</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="color:var(--success);background:var(--success-bg);">✓</div>
+          <div class="stat-label">本月实分</div>
+          <div class="stat-value font-mono">¥45,120</div>
+          <div class="stat-delta up">质量+时效系数加成</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="color:var(--info);background:var(--info-bg);">📥</div>
+          <div class="stat-label">已结算</div>
+          <div class="stat-value font-mono">¥32,000</div>
+          <div class="stat-delta">已到账 7 月工资</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="color:var(--warning);background:var(--warning-bg);">⏳</div>
+          <div class="stat-label">待结算</div>
+          <div class="stat-value font-mono">¥13,120</div>
+          <div class="stat-delta">审批中 2 单</div>
+        </div>
+      </div>
+
+      <div class="chart-grid">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">📈 近 6 月分成趋势</div>
+            <div style="font-size:12px;color:var(--text-secondary);">单位：万元</div>
+          </div>
+          <div class="bar-chart">
+            <div class="month" id="bar-months"></div>
+            <div class="month-labels" id="month-labels"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><div class="card-title">🥧 项目分布</div></div>
+          <div class="card-body" style="display:flex;flex-direction:column;align-items:center;">
+            <svg class="donut" viewBox="0 0 180 180">
+              <circle cx="90" cy="90" r="70" fill="none" stroke="#E5E7EB" stroke-width="24"/>
+              <circle cx="90" cy="90" r="70" fill="none" stroke="#1E4FD8" stroke-width="24" stroke-dasharray="180 439" transform="rotate(-90 90 90)"/>
+              <circle cx="90" cy="90" r="70" fill="none" stroke="#10B981" stroke-width="24" stroke-dasharray="120 439" stroke-dashoffset="-180" transform="rotate(-90 90 90)"/>
+              <circle cx="90" cy="90" r="70" fill="none" stroke="#F59E0B" stroke-width="24" stroke-dasharray="80 439" stroke-dashoffset="-300" transform="rotate(-90 90 90)"/>
+              <text x="90" y="85" text-anchor="middle" font-size="14" fill="#6B7280">合计</text>
+              <text x="90" y="105" text-anchor="middle" font-size="18" font-weight="600" fill="#1F2937">7 个</text>
+            </svg>
+            <div style="width:100%;margin-top:16px;">
+              <div class="flex items-center gap-2 mb-2"><span style="width:10px;height:10px;background:#1E4FD8;border-radius:2px;"></span>别墅项目 <span style="margin-left:auto;font-weight:500;">¥22,800</span></div>
+              <div class="flex items-center gap-2 mb-2"><span style="width:10px;height:10px;background:#10B981;border-radius:2px;"></span>家装项目 <span style="margin-left:auto;font-weight:500;">¥15,200</span></div>
+              <div class="flex items-center gap-2 mb-2"><span style="width:10px;height:10px;background:#F59E0B;border-radius:2px;"></span>工装项目 <span style="margin-left:auto;font-weight:500;">¥4,800</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 明细表 -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📋 分成明细</div>
+          <div class="filter-item">
+            <select class="filter-select">
+              <option>本月</option>
+              <option>上月</option>
+              <option>本季度</option>
+              <option>本年</option>
+            </select>
+          </div>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>项目</th>
+                <th>角色</th>
+                <th style="text-align:right;">设计费</th>
+                <th style="text-align:right;">应分</th>
+                <th style="text-align:right;">实分</th>
+                <th>状态</th>
+                <th style="text-align:right;">操作</th>
+              </tr>
+            </thead>
+            <tbody id="commission-list"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 明细抽屉 -->
+  <div class="drawer-mask" id="detail-mask" onclick="closeDrawer('detail-drawer')"></div>
+  <div class="drawer drawer-md" id="detail-drawer">
+    <div class="drawer-header">
+      <div class="drawer-title">📊 分成核算明细</div>
+      <div class="modal-close" onclick="closeDrawer('detail-drawer')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </div>
+    </div>
+    <div class="drawer-body" id="detail-body">...</div>
+    <div class="drawer-footer">
+      <button class="btn btn-default" onclick="closeDrawer('detail-drawer')">关闭</button>
+      <button class="btn btn-danger-ghost" onclick="toast('申诉已提交，运营将在 2 个工作日内处理', 'success')">发起申诉</button>
+      <button class="btn btn-primary" onclick="toast('已导出 PDF', 'success')">导出 PDF</button>
+    </div>
+  </div>
+
+  <script src="../assets/js/utils.js"></script>
+  <script src="../assets/js/mock-data.js"></script>
+  <script src="../assets/js/shell.js"></script>
+  <script>
+    (function () {
+      // 6 月趋势
+      const months = [{ m: '2 月', v: 2.4 }, { m: '3 月', v: 3.1 }, { m: '4 月', v: 2.8 }, { m: '5 月', v: 3.8 }, { m: '6 月', v: 4.0 }, { m: '7 月', v: 4.5 }];
+      const max = Math.max(...months.map(x => x.v));
+      const bars = document.getElementById('bar-months');
+      const labels = document.getElementById('month-labels');
+      months.forEach(x => {
+        const h = (x.v / max) * 180;
+        bars.innerHTML += `<div class="bar" style="height:${h}px" title="${x.m} · ¥${x.v}万"><span class="value">¥${x.v}万</span></div>`;
+        labels.innerHTML += `<div>${x.m}</div>`;
+      });
+
+      // 明细表
+      const tbody = document.getElementById('commission-list');
+      MOCK.COMMISSIONS.forEach(c => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><div style="font-weight:500;">${c.projectName}</div><div style="font-size:12px;color:var(--text-secondary);">${c.project}</div></td>
+          <td><span class="tag tag-brand">${c.role}</span></td>
+          <td style="text-align:right;font-family:var(--font-mono);">¥${formatMoney(c.designFee, 0)}</td>
+          <td style="text-align:right;font-family:var(--font-mono);">¥${formatMoney(c.dueAmount, 0)}</td>
+          <td style="text-align:right;font-family:var(--font-mono);font-weight:600;color:var(--brand-primary);">¥${formatMoney(c.actualAmount, 0)}</td>
+          <td><span class="tag ${c.status === '已审批' ? 'tag-success' : 'tag-warning'}">${c.status}</span></td>
+          <td style="text-align:right;"><button class="btn btn-text" data-id="${c.id}">查看明细</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      tbody.querySelectorAll('[data-id]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const c = MOCK.COMMISSIONS.find(x => x.id === btn.dataset.id);
+          const body = document.getElementById('detail-body');
+          body.innerHTML = `
+            <div style="background:var(--brand-primary-bg);padding:16px;border-radius:8px;margin-bottom:16px;">
+              <div style="font-size:12px;color:var(--brand-primary);">${c.projectName} · ${c.role}</div>
+              <div style="font-size:28px;font-weight:700;color:var(--brand-primary);margin-top:4px;font-family:var(--font-mono);">¥${formatMoney(c.actualAmount, 2)}</div>
+              <div style="font-size:12px;color:var(--text-secondary);">实际分成金额</div>
+            </div>
+
+            <div style="margin-bottom:20px;">
+              <div style="font-weight:600;margin-bottom:8px;">① 设计费用</div>
+              <div class="commission-detail">
+                <div class="row"><span>基准价 × 面积 × 复杂度系数</span></div>
+                <div class="row"><span>基准价</span><span>380 元/㎡</span></div>
+                <div class="row"><span>面积</span><span>${c.projectName.includes('样板') ? '220 ㎡' : '96 ㎡'}</span></div>
+                <div class="row"><span>复杂度系数</span><span>1.20</span></div>
+                <div class="row total"><span>设计费用</span><span>¥${formatMoney(c.designFee, 2)}</span></div>
+              </div>
+            </div>
+
+            <div style="margin-bottom:20px;">
+              <div style="font-weight:600;margin-bottom:8px;">② 应分金额</div>
+              <div class="commission-detail">
+                <div class="row"><span>设计费用</span><span>¥${formatMoney(c.designFee, 2)}</span></div>
+                <div class="row"><span>× 分成比例 (${c.role})</span><span>${(c.dueRate * 100).toFixed(0)}%</span></div>
+                <div class="row total"><span>应分金额</span><span>¥${formatMoney(c.dueAmount, 2)}</span></div>
+              </div>
+            </div>
+
+            <div style="margin-bottom:20px;">
+              <div style="font-weight:600;margin-bottom:8px;">③ 实分金额 (含调节系数)</div>
+              <div class="commission-detail">
+                <div class="row"><span>应分金额</span><span>¥${formatMoney(c.dueAmount, 2)}</span></div>
+                <div class="row"><span>× 质量系数</span><span>${c.qualityFactor.toFixed(2)}</span></div>
+                <div class="row"><span>× 时效系数</span><span>${c.timelinessFactor.toFixed(2)}</span></div>
+                <div class="row"><span>× 满意度系数</span><span>${c.satisfactionFactor.toFixed(2)}</span></div>
+                <div class="row"><span>× 回款系数</span><span>${c.paymentFactor.toFixed(2)}</span></div>
+                <div class="row total"><span>实分金额</span><span style="color:var(--brand-primary);">¥${formatMoney(c.actualAmount, 2)}</span></div>
+              </div>
+            </div>
+
+            <div style="background:var(--info-bg);color:var(--info);padding:12px;border-radius:6px;font-size:13px;">
+              💡 提示：每一项数字均可点击追溯来源。若对本次分成有异议，可发起申诉（右下角按钮）。
+            </div>
+          `;
+          openDrawer('detail-drawer');
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>我的待办 · 敬城设计云</title>
+  <link rel="stylesheet" href="../assets/css/tokens.css" />
+  <link rel="stylesheet" href="../assets/css/base.css" />
+  <link rel="stylesheet" href="../assets/css/layout.css" />
+  <link rel="stylesheet" href="../assets/css/components.css" />
+  <style>
+    .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+    @media (max-width: 1024px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+    .two-col { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; }
+    @media (max-width: 1024px) { .two-col { grid-template-columns: 1fr; } }
+    .todo-item { display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--divider); cursor: pointer; transition: var(--transition-fast); }
+    .todo-item:hover { background: var(--bg-hover); }
+    .todo-item:last-child { border-bottom: none; }
+    .todo-priority { width: 4px; height: 32px; border-radius: 2px; flex-shrink: 0; }
+    .todo-priority.high { background: var(--danger); }
+    .todo-priority.medium { background: var(--warning); }
+    .todo-priority.low { background: var(--info); }
+    .quick-action { padding: 16px; background: var(--bg-hover); border-radius: 8px; cursor: pointer; transition: var(--transition-fast); display: flex; align-items: center; gap: 12px; }
+    .quick-action:hover { background: var(--brand-primary-bg); color: var(--brand-primary); transform: translateY(-2px); }
+    .quick-action .qa-icon { width: 36px; height: 36px; border-radius: 8px; background: white; display: flex; align-items: center; justify-content: center; color: var(--brand-primary); }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="page-header">
+      <div class="page-breadcrumb">
+        <a href="./dashboard.html">工作台</a>
+        <span class="sep">/</span>
+        <span class="current">我的待办</span>
+      </div>
+      <div class="page-title-bar">
+        <div>
+          <div class="page-title">我的待办</div>
+          <div class="page-title-desc">你好，<span id="hello-user">王负责人</span>！这里是今天需要你处理的关键事项。</div>
+        </div>
+        <div class="flex gap-2">
+          <button class="btn btn-default" onclick="toast('数据已刷新', 'success')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M20.49 15A9 9 0 0 1 5.64 18.36L1 14"/></svg>
+            刷新
+          </button>
+          <a href="../projects/create.html" class="btn btn-primary">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            创建设计单
+          </a>
+        </div>
+      </div>
+    </div>
+    <div class="page-body">
+      <!-- KPI -->
+      <div class="kpi-grid">
+        <div class="stat-card">
+          <div class="stat-icon" style="color:var(--brand-primary);background:var(--brand-primary-bg);">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </div>
+          <div class="stat-label">今日待办</div>
+          <div class="stat-value">12<span class="stat-suffix">条</span></div>
+          <div class="stat-delta up">▲ 3 (较昨日)</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="color:var(--warning);background:var(--warning-bg);">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/></svg>
+          </div>
+          <div class="stat-label">超期项目</div>
+          <div class="stat-value">6<span class="stat-suffix">个</span></div>
+          <div class="stat-delta down">▲ 2 需关注</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="color:var(--success);background:var(--success-bg);">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div class="stat-label">本月完结</div>
+          <div class="stat-value">41<span class="stat-suffix">个</span></div>
+          <div class="stat-delta up">▲ 15% (环比)</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="color:var(--accent);background:var(--warning-bg);">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          </div>
+          <div class="stat-label">本月分成 (¥)</div>
+          <div class="stat-value">168.5<span class="stat-suffix">万</span></div>
+          <div class="stat-delta up">▲ 8% (环比)</div>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <!-- Todo list -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">🔥 今日重点</div>
+            <a href="javascript:void(0)" class="btn-text" onclick="toast('已展开全部','info')">全部 (12) →</a>
+          </div>
+          <div id="todo-list"></div>
+        </div>
+
+        <!-- Quick actions -->
+        <div style="display:grid;gap:16px;">
+          <div class="card">
+            <div class="card-header"><div class="card-title">⚡ 快捷操作</div></div>
+            <div class="card-body" style="display:grid;gap:10px;">
+              <a href="../ops/order-pool.html" class="quick-action">
+                <div class="qa-icon">📥</div>
+                <div>
+                  <div style="font-weight:500;">设计单收件箱</div>
+                  <div style="font-size:12px;color:var(--text-secondary);">12 单待分派</div>
+                </div>
+              </a>
+              <a href="../ops/assign-board.html" class="quick-action">
+                <div class="qa-icon">🎯</div>
+                <div>
+                  <div style="font-weight:500;">分单看板</div>
+                  <div style="font-size:12px;color:var(--text-secondary);">智能推荐待确认</div>
+                </div>
+              </a>
+              <a href="../projects/overview.html" class="quick-action">
+                <div class="qa-icon">📺</div>
+                <div>
+                  <div style="font-weight:500;">运营总览</div>
+                  <div style="font-size:12px;color:var(--text-secondary);">项目看板 + 人效看板</div>
+                </div>
+              </a>
+              <a href="../projects/list.html" class="quick-action">
+                <div class="qa-icon">📁</div>
+                <div>
+                  <div style="font-weight:500;">项目列表</div>
+                  <div style="font-size:12px;color:var(--text-secondary);">全部在途项目</div>
+                </div>
+              </a>
+              <a href="../workbench/my-tasks.html" class="quick-action">
+                <div class="qa-icon">✅</div>
+                <div>
+                  <div style="font-weight:500;">我的任务</div>
+                  <div style="font-size:12px;color:var(--text-secondary);">3 条待接单</div>
+                </div>
+              </a>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><div class="card-title">📈 本周动态</div></div>
+            <div class="card-body">
+              <div class="timeline">
+                <div class="timeline-item success">
+                  <div class="timeline-title">Kumar 别墅 3D 意向获客户确认</div>
+                  <div class="timeline-time">14:20 · 协调员赵六</div>
+                </div>
+                <div class="timeline-item customer">
+                  <div class="timeline-title">张宅 客户批注 3 项修改</div>
+                  <div class="timeline-time">14:00 · 客户 张先生</div>
+                </div>
+                <div class="timeline-item">
+                  <div class="timeline-title">梅斯双层复式 已进入订单池</div>
+                  <div class="timeline-time">11:30 · PM 许光</div>
+                </div>
+                <div class="timeline-item warning">
+                  <div class="timeline-title">陈总办公楼 需求文档超期 1 天</div>
+                  <div class="timeline-time">今晨 · 系统预警</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/js/utils.js"></script>
+  <script src="../assets/js/mock-data.js"></script>
+  <script src="../assets/js/shell.js"></script>
+  <script>
+    (function () {
+      const list = document.getElementById('todo-list');
+      MOCK.TODOS.forEach(t => {
+        const project = t.project ? MOCK.getProject(t.project) : null;
+        const item = el('div', { class: 'todo-item' }, [
+          el('div', { class: 'todo-priority ' + t.priority }),
+          el('div', { style: { flex: 1 } }, [
+            el('div', { style: { fontWeight: 500, fontSize: '14px' } }, t.title),
+            el('div', { style: { fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' } },
+              [t.type, ' · ', el('span', { class: 'tag tag-info' }, project ? project.name : '订单池'), ' · 截止 ', t.due])
+          ]),
+          el('button', { class: 'btn btn-default btn-sm', onClick: () => toast('打开: ' + t.title, 'info') }, '处理'),
+        ]);
+        item.addEventListener('click', () => {
+          if (project) location.href = '../projects/detail.html?id=' + project.id;
+          else location.href = '../ops/order-pool.html';
+        });
+        list.appendChild(item);
+      });
+      // 更新头部欢迎
+      document.getElementById('hello-user').textContent = MOCK.CURRENT_USER.name;
+    })();
+  </script>
+</body>
+</html>

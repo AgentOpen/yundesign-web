@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>创建设计单 · 敬城设计云</title>
+  <link rel="stylesheet" href="../assets/css/tokens.css" />
+  <link rel="stylesheet" href="../assets/css/base.css" />
+  <link rel="stylesheet" href="../assets/css/layout.css" />
+  <link rel="stylesheet" href="../assets/css/components.css" />
+  <style>
+    .wizard { display: grid; grid-template-columns: 240px 1fr; gap: 24px; }
+    @media (max-width: 1024px) { .wizard { grid-template-columns: 1fr; } }
+    .wizard-nav { position: sticky; top: 100px; align-self: start; }
+    .wizard-step { display: flex; align-items: flex-start; gap: 12px; padding: 12px; border-radius: 8px; cursor: pointer; transition: var(--transition-fast); }
+    .wizard-step:hover { background: var(--bg-hover); }
+    .wizard-step.active { background: var(--brand-primary-bg); }
+    .wizard-step .step-num { width: 26px; height: 26px; border-radius: 50%; background: white; border: 2px solid var(--divider); color: var(--text-placeholder); display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 12px; flex-shrink: 0; }
+    .wizard-step.active .step-num { background: var(--brand-primary); border-color: var(--brand-primary); color: white; }
+    .wizard-step.done .step-num { background: var(--success); border-color: var(--success); color: white; }
+    .wizard-step .step-label { font-weight: 500; font-size: 14px; }
+    .wizard-step .step-desc { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 700px) { .form-grid { grid-template-columns: 1fr; } }
+    .full { grid-column: 1 / -1; }
+    .designer-picker { border: 1px dashed var(--divider); padding: 12px; border-radius: 8px; }
+    .designer-picker .selected-list { display: flex; flex-wrap: wrap; gap: 8px; }
+    .attach-dropzone { border: 2px dashed var(--divider); border-radius: 8px; padding: 30px; text-align: center; color: var(--text-secondary); cursor: pointer; transition: var(--transition-fast); }
+    .attach-dropzone:hover { border-color: var(--brand-primary); background: var(--brand-primary-bg); }
+    .review-block { background: var(--bg-hover); border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+    .review-block h4 { font-size: 13px; color: var(--text-secondary); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .review-block .kv { display: grid; grid-template-columns: 120px 1fr; gap: 4px 12px; font-size: 14px; }
+    .review-block .kv > .k { color: var(--text-secondary); }
+    .review-block .kv > .v { color: var(--text-primary); font-weight: 500; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="page-header">
+      <div class="page-breadcrumb">
+        <a href="./list.html">项目</a>
+        <span class="sep">/</span>
+        <span class="current">创建设计单</span>
+      </div>
+      <div class="page-title-bar">
+        <div>
+          <div class="page-title">创建设计单</div>
+          <div class="page-title-desc">按 4 步向导完成设计单创建。也可直接进入 <a href="../ops/order-pool.html">订单池</a> 从 CRM/OMS 已导入的单据分单。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="page-body">
+      <div class="wizard">
+        <!-- 左侧步骤 -->
+        <div class="wizard-nav card" style="padding:12px;">
+          <div class="wizard-step active" data-step="1">
+            <div class="step-num">1</div>
+            <div>
+              <div class="step-label">项目信息</div>
+              <div class="step-desc">名称、类型、面积、区域</div>
+            </div>
+          </div>
+          <div class="wizard-step" data-step="2">
+            <div class="step-num">2</div>
+            <div>
+              <div class="step-label">客户信息</div>
+              <div class="step-desc">客户、预算、期望时间</div>
+            </div>
+          </div>
+          <div class="wizard-step" data-step="3">
+            <div class="step-num">3</div>
+            <div>
+              <div class="step-label">团队与需求</div>
+              <div class="step-desc">PM/协调员/2D/3D 设计师</div>
+            </div>
+          </div>
+          <div class="wizard-step" data-step="4">
+            <div class="step-num">4</div>
+            <div>
+              <div class="step-label">确认提交</div>
+              <div class="step-desc">检查后立即分单或保存草稿</div>
+            </div>
+          </div>
+          <div style="border-top:1px solid var(--divider);margin-top:12px;padding-top:12px;">
+            <a href="./list.html" class="btn btn-ghost" style="width:100%;justify-content:center;">← 返回列表</a>
+          </div>
+        </div>
+
+        <!-- 右侧表单 -->
+        <div class="card">
+          <div class="card-body">
+            <!-- Step 1 -->
+            <div class="wizard-panel" data-panel="1">
+              <h3 style="margin-bottom:24px;">① 项目基础信息</h3>
+              <div class="form-grid">
+                <div class="form-item full">
+                  <label class="form-label">项目名称 <span class="required">*</span></label>
+                  <input class="input" id="f-name" placeholder="例：张宅全案 · 别墅" />
+                </div>
+                <div class="form-item">
+                  <label class="form-label">项目类型 <span class="required">*</span></label>
+                  <select class="input" id="f-type">
+                    <option>家装</option>
+                    <option>工装</option>
+                    <option>别墅</option>
+                  </select>
+                </div>
+                <div class="form-item">
+                  <label class="form-label">设计范围 <span class="required">*</span>（可多选）</label>
+                  <div id="f-scope" style="display:flex;flex-wrap:wrap;gap:6px;">
+                    <span class="chip" data-scope="全案">全案</span>
+                    <span class="chip" data-scope="定制柜">定制柜</span>
+                    <span class="chip" data-scope="门窗">门窗</span>
+                    <span class="chip" data-scope="卫浴">卫浴</span>
+                    <span class="chip" data-scope="软装">软装</span>
+                  </div>
+                </div>
+                <div class="form-item">
+                  <label class="form-label">紧急程度 <span class="required">*</span></label>
+                  <div style="display:flex;gap:8px;">
+                    <label class="radio"><input type="radio" name="urgency" value="正常" checked />正常</label>
+                    <label class="radio"><input type="radio" name="urgency" value="加急" />加急</label>
+                    <label class="radio"><input type="radio" name="urgency" value="紧急" />紧急</label>
+                  </div>
+                </div>
+                <div class="form-item">
+                  <label class="form-label">面积 (㎡) <span class="required">*</span></label>
+                  <input class="input" id="f-area" type="number" placeholder="120" />
+                </div>
+                <div class="form-item">
+                  <label class="form-label">区域 <span class="required">*</span></label>
+                  <select class="input" id="f-region">
+                    <optgroup label="🇨🇳 中国大陆">
+                      <option>中国·北京</option><option>中国·上海</option><option>中国·广州</option><option>中国·深圳</option><option>中国·成都</option><option>中国·苏州</option>
+                    </optgroup>
+                    <optgroup label="🌏 亚洲 (海外)">
+                      <option>泰国·曼谷</option><option>泰国·清迈</option><option>越南·胡志明市</option><option>印度·孟买</option><option>日本·东京</option><option>新加坡</option>
+                    </optgroup>
+                    <optgroup label="🌍 欧美 & 中东">
+                      <option>美国·洛杉矶</option><option>美国·纽约</option><option>沙特·利雅得</option><option>阿联酋·迪拜</option><option>英国·伦敦</option>
+                    </optgroup>
+                  </select>
+                </div>
+                <div class="form-item full">
+                  <label class="form-label">项目地址 (详细)</label>
+                  <input class="input" id="f-addr" placeholder="选填 · 精确到楼栋" />
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 2 -->
+            <div class="wizard-panel hidden" data-panel="2">
+              <h3 style="margin-bottom:24px;">② 客户与预算</h3>
+              <div class="form-grid">
+                <div class="form-item">
+                  <label class="form-label">客户名称 <span class="required">*</span></label>
+                  <input class="input" id="f-cust" placeholder="张先生 / Mr. Kumar" />
+                </div>
+                <div class="form-item">
+                  <label class="form-label">客户联系方式</label>
+                  <input class="input" id="f-phone" placeholder="手机号 或 邮箱" />
+                </div>
+                <div class="form-item">
+                  <label class="form-label">预算区间 (万元) <span class="required">*</span></label>
+                  <div style="display:flex;gap:8px;align-items:center;">
+                    <input class="input" id="f-budget-min" type="number" placeholder="80" />
+                    <span>~</span>
+                    <input class="input" id="f-budget-max" type="number" placeholder="120" />
+                  </div>
+                </div>
+                <div class="form-item">
+                  <label class="form-label">期望完成时间 <span class="required">*</span></label>
+                  <input class="input" id="f-deadline" type="date" />
+                </div>
+                <div class="form-item full">
+                  <label class="form-label">客户备注（多行）</label>
+                  <textarea class="textarea" id="f-remark" rows="4" placeholder="客户偏好、家庭结构、生活习惯、参考风格..."></textarea>
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 3 -->
+            <div class="wizard-panel hidden" data-panel="3">
+              <h3 style="margin-bottom:8px;">③ 团队与需求</h3>
+              <div class="text-secondary text-sm mb-4">大项目可为 2D / 3D 各选多位设计师；分单后系统会通知每位设计师"接受 / 拒接"。</div>
+
+              <div class="form-grid">
+                <div class="form-item">
+                  <label class="form-label">PM（销售负责人） <span class="required">*</span></label>
+                  <select class="input" id="f-pm">
+                    <option>许光（东南亚 · L5）</option>
+                    <option>刘 PM（华东）</option>
+                  </select>
+                </div>
+                <div class="form-item">
+                  <label class="form-label">是否需要协调员 <span class="required">*</span></label>
+                  <div style="display:flex;gap:8px;">
+                    <label class="radio"><input type="radio" name="need-coord" value="yes" checked />是</label>
+                    <label class="radio"><input type="radio" name="need-coord" value="no" />否 (PM 自己对接)</label>
+                  </div>
+                </div>
+                <div class="form-item full" id="coord-picker">
+                  <label class="form-label">协调员 <span class="required">*</span></label>
+                  <select class="input" id="f-coord">
+                    <option>-- 系统推荐（按档期/客户区域）--</option>
+                    <option>赵六 (L3 · 曼谷 · 空闲 60%)</option>
+                    <option>郑一 (L4 · 北京 · 空闲 30%)</option>
+                    <option>何美 (L2 · 南京 · 空闲 55%)</option>
+                  </select>
+                </div>
+                <div class="form-item full">
+                  <label class="form-label">2D 平面设计师 <span class="required">*</span>（大项目可多选，按空间分配）</label>
+                  <div class="designer-picker">
+                    <div class="selected-list" id="f-2d-list">
+                      <span class="text-placeholder text-sm">尚未选择设计师</span>
+                    </div>
+                    <button class="btn btn-default btn-sm mt-3" onclick="openPicker('2D')">+ 选择设计师</button>
+                    <div class="text-sm text-secondary mt-2">💡 系统会在下一步智能推荐（按技能、区域、当前负载、评级综合排序）</div>
+                  </div>
+                </div>
+                <div class="form-item full">
+                  <label class="form-label">3D 效果图设计师（可多选）</label>
+                  <div class="designer-picker">
+                    <div class="selected-list" id="f-3d-list">
+                      <span class="text-placeholder text-sm">尚未选择设计师</span>
+                    </div>
+                    <button class="btn btn-default btn-sm mt-3" onclick="openPicker('3D')">+ 选择设计师</button>
+                  </div>
+                </div>
+                <div class="form-item full">
+                  <label class="form-label">需求文档 & 附件</label>
+                  <div class="attach-dropzone" onclick="toast('文件上传演示中','info')">
+                    <div style="font-size:32px;margin-bottom:8px;">📎</div>
+                    <div>点击或拖拽上传</div>
+                    <div class="text-sm text-secondary mt-1">支持 图片 / PDF / Excel / ZIP · 单个文件 ≤ 200MB</div>
+                  </div>
+                  <div class="text-sm text-secondary mt-2">已上传：<span class="tag tag-info">需求初稿.docx</span> <span class="tag tag-info">户型平面图.pdf</span></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 4 -->
+            <div class="wizard-panel hidden" data-panel="4">
+              <h3 style="margin-bottom:8px;">④ 检查并提交</h3>
+              <div class="text-secondary text-sm mb-4">核对以下信息，选择：<b>立即分单</b>（走智能推荐弹窗）或 <b>保存草稿</b>（先入订单池待手动分派）。</div>
+              <div id="review"></div>
+              <div class="form-item full">
+                <label class="form-label">分单动作 <span class="required">*</span></label>
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                  <label class="radio" style="padding:12px;border:1px solid var(--divider);border-radius:8px;flex:1;">
+                    <input type="radio" name="submit-action" value="assign" checked />
+                    <div>
+                      <div style="font-weight:500;">立即分单（推荐）</div>
+                      <div class="text-sm text-secondary">进入智能分单弹窗，确认系统推荐或手动调整</div>
+                    </div>
+                  </label>
+                  <label class="radio" style="padding:12px;border:1px solid var(--divider);border-radius:8px;flex:1;">
+                    <input type="radio" name="submit-action" value="draft" />
+                    <div>
+                      <div style="font-weight:500;">保存草稿 · 入订单池</div>
+                      <div class="text-sm text-secondary">当前无合适设计师，先入订单池等待分单</div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Footer -->
+            <div style="display:flex;justify-content:space-between;padding-top:20px;border-top:1px solid var(--divider);margin-top:24px;">
+              <button class="btn btn-default" id="prev-btn" disabled>← 上一步</button>
+              <div style="display:flex;gap:8px;">
+                <button class="btn btn-ghost" onclick="toast('已存草稿','success')">保存草稿</button>
+                <button class="btn btn-primary" id="next-btn">下一步 →</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 设计师选择弹窗 -->
+  <div class="modal-mask" id="picker-modal">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <div class="modal-title">选择设计师 <span id="picker-role" style="color:var(--brand-primary);"></span></div>
+        <div class="modal-close" onclick="closeModal('picker-modal')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </div>
+      </div>
+      <div class="modal-body" style="padding:0;">
+        <div style="padding:12px 20px;border-bottom:1px solid var(--divider);">
+          <input type="text" class="filter-search" placeholder="搜索设计师" style="width:100%;" id="picker-search" />
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width:40px;"></th>
+              <th>设计师</th>
+              <th>所属部门</th>
+              <th>等级</th>
+              <th>擅长</th>
+              <th>城市</th>
+              <th>当前负载</th>
+              <th>评分</th>
+            </tr>
+          </thead>
+          <tbody id="picker-body"></tbody>
+        </table>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-default" onclick="closeModal('picker-modal')">取消</button>
+        <button class="btn btn-primary" id="picker-confirm">确定选择</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 智能分单弹窗（提交时打开）-->
+  <div class="modal-mask" id="submit-modal">
+    <div class="modal modal-md">
+      <div class="modal-header">
+        <div class="modal-title">✅ 提交成功</div>
+      </div>
+      <div class="modal-body">
+        <div style="text-align:center;padding:20px 0;">
+          <div style="font-size:48px;color:var(--success);margin-bottom:16px;">🎉</div>
+          <div style="font-size:18px;font-weight:600;margin-bottom:8px;">设计单已创建</div>
+          <div class="text-secondary" id="submit-tip">编号：D-20260711-XXX，下一步是"智能分单弹窗"</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <a href="./list.html" class="btn btn-default">返回列表</a>
+        <a href="../ops/assign-board.html" class="btn btn-primary">前往智能分单 →</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/js/utils.js"></script>
+  <script src="../assets/js/mock-data.js"></script>
+  <script src="../assets/js/shell.js"></script>
+  <script>
+    (function () {
+      let step = 1;
+      const form = {
+        name: '', type: '家装', scope: [], urgency: '正常', area: '', region: '', addr: '',
+        cust: '', phone: '', budgetMin: '', budgetMax: '', deadline: '', remark: '',
+        pm: '许光（东南亚 · L5）', needCoord: 'yes', coord: '',
+        team2D: [], team3D: []
+      };
+
+      // 场景 chip
+      document.querySelectorAll('#f-scope .chip').forEach(c => {
+        c.addEventListener('click', () => {
+          c.classList.toggle('active');
+          const val = c.dataset.scope;
+          if (c.classList.contains('active')) form.scope.push(val);
+          else form.scope = form.scope.filter(x => x !== val);
+        });
+      });
+
+      // 协调员 picker toggle
+      document.querySelectorAll('[name="need-coord"]').forEach(r => {
+        r.addEventListener('change', (e) => {
+          form.needCoord = e.target.value;
+          document.getElementById('coord-picker').style.display = e.target.value === 'yes' ? '' : 'none';
+        });
+      });
+
+      // Step 切换
+      function gotoStep(s) {
+        step = s;
+        document.querySelectorAll('.wizard-panel').forEach(p => p.classList.toggle('hidden', p.dataset.panel != s));
+        document.querySelectorAll('.wizard-step').forEach(w => {
+          const n = parseInt(w.dataset.step);
+          w.classList.toggle('active', n === s);
+          w.classList.toggle('done', n < s);
+        });
+        document.getElementById('prev-btn').disabled = s === 1;
+        document.getElementById('next-btn').textContent = s === 4 ? '提交 →' : '下一步 →';
+        if (s === 4) renderReview();
+        window.scrollTo(0, 0);
+      }
+      document.querySelectorAll('.wizard-step').forEach(w => {
+        w.addEventListener('click', () => gotoStep(parseInt(w.dataset.step)));
+      });
+      document.getElementById('prev-btn').addEventListener('click', () => gotoStep(Math.max(1, step - 1)));
+      document.getElementById('next-btn').addEventListener('click', () => {
+        if (step === 1) {
+          form.name = document.getElementById('f-name').value.trim();
+          form.type = document.getElementById('f-type').value;
+          form.urgency = document.querySelector('[name="urgency"]:checked').value;
+          form.area = document.getElementById('f-area').value;
+          form.region = document.getElementById('f-region').value;
+          form.addr = document.getElementById('f-addr').value;
+          if (!form.name || !form.area || form.scope.length === 0) { toast('请完成必填项 (名称/面积/设计范围)', 'warning'); return; }
+        } else if (step === 2) {
+          form.cust = document.getElementById('f-cust').value.trim();
+          form.phone = document.getElementById('f-phone').value;
+          form.budgetMin = document.getElementById('f-budget-min').value;
+          form.budgetMax = document.getElementById('f-budget-max').value;
+          form.deadline = document.getElementById('f-deadline').value;
+          form.remark = document.getElementById('f-remark').value;
+          if (!form.cust || !form.budgetMin || !form.deadline) { toast('请完成必填项 (客户/预算/期望完成时间)', 'warning'); return; }
+        } else if (step === 3) {
+          form.pm = document.getElementById('f-pm').value;
+          form.coord = document.getElementById('f-coord').value;
+          if (form.team2D.length === 0) { toast('请至少选择 1 位 2D 设计师', 'warning'); return; }
+        } else if (step === 4) {
+          submit();
+          return;
+        }
+        gotoStep(Math.min(4, step + 1));
+      });
+
+      // 设计师 picker
+      let pickerRole = '2D';
+      let pickerSelected = new Set();
+      window.openPicker = (role) => {
+        pickerRole = role;
+        pickerSelected = new Set(role === '2D' ? form.team2D : form.team3D);
+        document.getElementById('picker-role').textContent = ' · ' + role;
+        renderPicker();
+        openModal('picker-modal');
+      };
+      function renderPicker(q = '') {
+        const body = document.getElementById('picker-body');
+        body.innerHTML = '';
+        MOCK.DESIGNERS.filter(d => d.role === pickerRole).filter(d => !q || d.name.includes(q) || d.city.includes(q)).forEach(d => {
+          const busyClass = d.capacity > 85 ? 'danger' : d.capacity > 60 ? 'warning' : '';
+          const tr = document.createElement('tr');
+          if (pickerSelected.has(d.id)) tr.classList.add('selected');
+          tr.innerHTML = `
+            <td><input type="checkbox" ${pickerSelected.has(d.id) ? 'checked' : ''} data-uid="${d.id}" /></td>
+            <td>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <div class="avatar sm" data-color="${colorFrom(d.name)}">${initials(d.name)}</div>
+                <div><div>${d.name}</div><div style="font-size:11px;color:var(--text-secondary);">${d.id}</div></div>
+              </div>
+            </td>
+            <td><span class="tag tag-purple">${d.dept}</span></td>
+            <td><span class="tag tag-brand">${d.level}</span></td>
+            <td>${d.skills.map(s => `<span class="tag" style="margin-right:2px;">${s}</span>`).join('')}</td>
+            <td>${d.city}</td>
+            <td>
+              <div style="display:flex;align-items:center;gap:6px;">
+                <div class="progress" style="width:80px;"><div class="progress-bar ${busyClass}" style="width:${d.capacity}%;"></div></div>
+                <span style="font-size:12px;">${d.capacity}%</span>
+              </div>
+            </td>
+            <td>⭐ ${d.avgScore.toFixed(1)}</td>
+          `;
+          tr.addEventListener('click', () => {
+            const ck = tr.querySelector('input');
+            ck.checked = !ck.checked;
+            if (ck.checked) pickerSelected.add(d.id); else pickerSelected.delete(d.id);
+            tr.classList.toggle('selected', ck.checked);
+          });
+          body.appendChild(tr);
+        });
+      }
+      document.getElementById('picker-search').addEventListener('input', debounce(e => renderPicker(e.target.value.trim()), 200));
+
+      document.getElementById('picker-confirm').addEventListener('click', () => {
+        const ids = Array.from(pickerSelected);
+        if (pickerRole === '2D') form.team2D = ids; else form.team3D = ids;
+        renderSelected(pickerRole);
+        closeModal('picker-modal');
+        toast(`已选择 ${ids.length} 位 ${pickerRole} 设计师`, 'success');
+      });
+      function renderSelected(role) {
+        const list = role === '2D' ? form.team2D : form.team3D;
+        const box = document.getElementById(role === '2D' ? 'f-2d-list' : 'f-3d-list');
+        box.innerHTML = '';
+        if (list.length === 0) { box.innerHTML = '<span class="text-placeholder text-sm">尚未选择设计师</span>'; return; }
+        list.forEach(id => {
+          const d = MOCK.getDesigner(id);
+          const chip = el('span', { class: 'chip active' }, [
+            el('div', { class: 'avatar sm', 'data-color': String(colorFrom(d.name)) }, initials(d.name)),
+            el('span', {}, `${d.name} · ${d.dept}`),
+            el('span', {
+              class: 'close', onClick: () => {
+                if (role === '2D') form.team2D = form.team2D.filter(x => x !== id);
+                else form.team3D = form.team3D.filter(x => x !== id);
+                renderSelected(role);
+              }, html: '×'
+            })
+          ]);
+          box.appendChild(chip);
+        });
+      }
+
+      function renderReview() {
+        const box = document.getElementById('review');
+        const team2D = form.team2D.map(id => MOCK.getDesigner(id).name).join('、') || '未指定';
+        const team3D = form.team3D.map(id => MOCK.getDesigner(id).name).join('、') || '未指定';
+        box.innerHTML = `
+          <div class="review-block">
+            <h4>项目信息</h4>
+            <div class="kv">
+              <div class="k">名称</div><div class="v">${form.name || '-'}</div>
+              <div class="k">类型 / 范围</div><div class="v">${form.type} · ${form.scope.join('、')}</div>
+              <div class="k">面积 / 区域</div><div class="v">${form.area} ㎡ · ${form.region}</div>
+              <div class="k">紧急程度</div><div class="v">${form.urgency}</div>
+            </div>
+          </div>
+          <div class="review-block">
+            <h4>客户 / 预算</h4>
+            <div class="kv">
+              <div class="k">客户</div><div class="v">${form.cust} · ${form.phone || '-'}</div>
+              <div class="k">预算</div><div class="v">${form.budgetMin} ~ ${form.budgetMax} 万</div>
+              <div class="k">期望完成</div><div class="v">${form.deadline}</div>
+              <div class="k">客户备注</div><div class="v">${form.remark || '-'}</div>
+            </div>
+          </div>
+          <div class="review-block">
+            <h4>团队与需求</h4>
+            <div class="kv">
+              <div class="k">PM</div><div class="v">${form.pm}</div>
+              <div class="k">协调员</div><div class="v">${form.needCoord === 'yes' ? form.coord : '不需要'}</div>
+              <div class="k">2D 平面</div><div class="v">${team2D}</div>
+              <div class="k">3D 效果</div><div class="v">${team3D}</div>
+              <div class="k">附件</div><div class="v">2 个文件</div>
+            </div>
+          </div>
+        `;
+      }
+
+      function submit() {
+        const act = document.querySelector('[name="submit-action"]:checked').value;
+        const code = 'D-20260711-' + String(Math.floor(100 + Math.random() * 900));
+        document.getElementById('submit-tip').textContent = act === 'assign'
+          ? `编号：${code}，即将进入"智能分单弹窗"`
+          : `编号：${code}，已存入订单池，等待分单员处理`;
+        openModal('submit-modal');
+      }
+    })();
+  </script>
+</body>
+</html>

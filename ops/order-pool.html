@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>设计单收件箱 / 订单池 · 敬城设计云</title>
+  <link rel="stylesheet" href="../assets/css/tokens.css" />
+  <link rel="stylesheet" href="../assets/css/base.css" />
+  <link rel="stylesheet" href="../assets/css/layout.css" />
+  <link rel="stylesheet" href="../assets/css/components.css" />
+  <style>
+    .source-badge { padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+    .source-手动创建 { background: #EEF3FE; color: #1E4FD8; }
+    .source-CRM { background: #F1ECFB; color: #8B5CF6; }
+    .source-OMS { background: #FEF4E1; color: #B4530A; }
+    .urgency-cell .u-icon { display: inline-block; margin-right: 4px; }
+    .u-icon.紧急 { color: var(--danger); }
+    .u-icon.加急 { color: var(--warning); }
+    .u-icon.正常 { color: var(--info); }
+    .stats-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 16px; }
+    @media (max-width: 1024px) { .stats-row { grid-template-columns: repeat(3, 1fr); } }
+    .mini-stat { background: white; border: 1px solid var(--border); border-radius: 6px; padding: 12px 16px; }
+    .mini-stat .n { font-size: 20px; font-weight: 600; font-family: var(--font-mono); }
+    .mini-stat .l { font-size: 12px; color: var(--text-secondary); }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="page-header">
+      <div class="page-breadcrumb">
+        <a href="../workbench/dashboard.html">工作台</a>
+        <span class="sep">/</span>
+        <a href="javascript:void(0)">设计运营</a>
+        <span class="sep">/</span>
+        <span class="current">设计单收件箱 / 订单池</span>
+      </div>
+      <div class="page-title-bar">
+        <div>
+          <div class="page-title">设计单收件箱 / 订单池</div>
+          <div class="page-title-desc">待分派的设计单集中区，支持 <b>手动创建 · CRM · OMS</b> 三个来源；勾选后 <b>批量分单</b>，或单条点击 <b>智能分单弹窗</b>。</div>
+        </div>
+        <div class="flex gap-2">
+          <button class="btn btn-default" onclick="toast('已刷新','success')">刷新</button>
+          <a href="../projects/create.html" class="btn btn-primary">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            创建设计单
+          </a>
+        </div>
+      </div>
+    </div>
+    <div class="page-body">
+      <!-- Stats -->
+      <div class="stats-row" id="stats-row"></div>
+
+      <!-- Filter -->
+      <div class="filter-bar">
+        <div class="filter-item">
+          <span class="filter-label">来源</span>
+          <select class="filter-select" id="f-source">
+            <option value="">全部</option><option>手动创建</option><option>CRM</option><option>OMS</option>
+          </select>
+        </div>
+        <div class="filter-item">
+          <span class="filter-label">紧急度</span>
+          <select class="filter-select" id="f-urgency">
+            <option value="">全部</option><option>正常</option><option>加急</option><option>紧急</option>
+          </select>
+        </div>
+        <div class="filter-item">
+          <span class="filter-label">类型</span>
+          <select class="filter-select" id="f-type">
+            <option value="">全部</option><option>家装</option><option>工装</option><option>别墅</option>
+          </select>
+        </div>
+        <div class="filter-item">
+          <span class="filter-label">区域</span>
+          <select class="filter-select" id="f-region">
+            <option value="">全部</option>
+            <optgroup label="中国大陆"><option>中国</option></optgroup>
+            <optgroup label="海外">
+              <option>泰国</option><option>越南</option><option>沙特</option><option>印度</option><option>美国</option>
+            </optgroup>
+          </select>
+        </div>
+        <input class="filter-search" placeholder="搜索项目名 / 客户 / 编号" id="f-search" />
+        <button class="btn btn-default" style="margin-left:auto;" onclick="toast('导出','success')">导出</button>
+      </div>
+
+      <div class="card">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width:40px;"><input type="checkbox" id="sel-all" /></th>
+              <th>编号</th>
+              <th>项目名 / 客户</th>
+              <th>类型 / 范围</th>
+              <th>面积</th>
+              <th>预算</th>
+              <th>区域</th>
+              <th>期望完成</th>
+              <th>紧急</th>
+              <th>来源</th>
+              <th>创建时间</th>
+              <th style="text-align:right;">操作</th>
+            </tr>
+          </thead>
+          <tbody id="order-body"></tbody>
+        </table>
+      </div>
+
+      <!-- 批量操作条 -->
+      <div class="bulk-bar" id="bulk-bar">
+        <span class="bulk-count">已选 <b id="bulk-count">0</b> 条</span>
+        <div class="bulk-actions">
+          <button class="btn btn-ghost" onclick="clearSelection()" style="color:white;">取消</button>
+          <button class="btn btn-default" onclick="toast('批量导出','success')">导出</button>
+          <button class="btn btn-primary" onclick="openBatchAssign()">🎯 批量智能分单</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/js/utils.js"></script>
+  <script src="../assets/js/mock-data.js"></script>
+  <script src="../assets/js/shell.js"></script>
+  <script>
+    (function () {
+      let filter = { source: '', urgency: '', type: '', region: '', search: '' };
+      let selection = new Set();
+
+      function filtered() {
+        return MOCK.DESIGN_ORDERS.filter(o => o.status === '待分派').filter(o => {
+          if (filter.source && o.source !== filter.source) return false;
+          if (filter.urgency && o.urgency !== filter.urgency) return false;
+          if (filter.type && o.type !== filter.type) return false;
+          if (filter.region && !o.region.includes(filter.region)) return false;
+          if (filter.search) {
+            const q = filter.search.toLowerCase();
+            if (!(o.projectName.toLowerCase().includes(q) || o.customer.toLowerCase().includes(q) || o.code.toLowerCase().includes(q))) return false;
+          }
+          return true;
+        });
+      }
+
+      function updateBulk() {
+        const n = selection.size;
+        document.getElementById('bulk-count').textContent = n;
+        document.getElementById('bulk-bar').classList.toggle('active', n > 0);
+      }
+
+      function renderStats() {
+        const pool = MOCK.DESIGN_ORDERS.filter(o => o.status === '待分派');
+        const cnt = f => pool.filter(f).length;
+        document.getElementById('stats-row').innerHTML = `
+          <div class="mini-stat"><div class="n">${pool.length}</div><div class="l">待分派</div></div>
+          <div class="mini-stat"><div class="n" style="color:var(--danger);">${cnt(o => o.urgency === '紧急')}</div><div class="l">🚨 紧急</div></div>
+          <div class="mini-stat"><div class="n" style="color:var(--warning);">${cnt(o => o.urgency === '加急')}</div><div class="l">🚩 加急</div></div>
+          <div class="mini-stat"><div class="n" style="color:var(--brand-primary);">${cnt(o => o.source === '手动创建')}</div><div class="l">手动创建</div></div>
+          <div class="mini-stat"><div class="n" style="color:var(--purple);">${cnt(o => o.source === 'CRM')}</div><div class="l">CRM 导入</div></div>
+          <div class="mini-stat"><div class="n" style="color:#B4530A;">${cnt(o => o.source === 'OMS')}</div><div class="l">OMS 导入</div></div>`;
+      }
+
+      function render() {
+        renderStats();
+        const tbody = document.getElementById('order-body');
+        tbody.innerHTML = '';
+        filtered().forEach(o => {
+          const tr = document.createElement('tr');
+          if (selection.has(o.id)) tr.classList.add('selected');
+          const uColor = o.urgency === '紧急' ? 'danger' : o.urgency === '加急' ? 'warning' : 'info';
+          const uIcon = o.urgency === '紧急' ? '🚨' : o.urgency === '加急' ? '🚩' : '⏱';
+          tr.innerHTML = `
+            <td><input type="checkbox" data-id="${o.id}" ${selection.has(o.id) ? 'checked' : ''} onclick="event.stopPropagation()" /></td>
+            <td><span class="font-mono text-sm">${o.code}</span></td>
+            <td>
+              <div style="font-weight:500;">${o.projectName}</div>
+              <div class="text-sm text-secondary">${o.customer}</div>
+            </td>
+            <td>
+              <div>${o.type}</div>
+              <div class="text-sm text-secondary">${o.scope.join(' · ')}</div>
+            </td>
+            <td>${o.area} ㎡</td>
+            <td>${o.budget} 万</td>
+            <td>${o.region}</td>
+            <td>-</td>
+            <td><span class="tag tag-${uColor}">${uIcon} ${o.urgency}</span></td>
+            <td><span class="source-badge source-${o.source}">${o.source}</span></td>
+            <td class="text-sm text-secondary">${o.createdAt}</td>
+            <td style="text-align:right;">
+              <button class="btn btn-primary btn-sm" data-assign="${o.id}">🎯 智能分单</button>
+              <button class="btn btn-ghost btn-sm" data-view="${o.id}">查看</button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+        tbody.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+          cb.addEventListener('change', () => {
+            const id = cb.dataset.id;
+            if (cb.checked) selection.add(id); else selection.delete(id);
+            cb.closest('tr').classList.toggle('selected', cb.checked);
+            updateBulk();
+          });
+        });
+        tbody.querySelectorAll('[data-assign]').forEach(b => {
+          b.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const id = b.dataset.assign;
+            location.href = './assign-board.html?order=' + id;
+          });
+        });
+        tbody.querySelectorAll('[data-view]').forEach(b => {
+          b.addEventListener('click', (e) => { e.stopPropagation(); toast('打开设计单详情','info'); });
+        });
+      }
+
+      // Filters
+      ['f-source', 'f-urgency', 'f-type', 'f-region'].forEach(id => {
+        document.getElementById(id).addEventListener('change', (e) => {
+          filter[id.substring(2)] = e.target.value;
+          render();
+        });
+      });
+      document.getElementById('f-search').addEventListener('input', debounce(e => { filter.search = e.target.value; render(); }, 200));
+
+      // Select all
+      document.getElementById('sel-all').addEventListener('change', (e) => {
+        if (e.target.checked) filtered().forEach(o => selection.add(o.id));
+        else selection.clear();
+        render();
+        updateBulk();
+      });
+
+      window.clearSelection = () => { selection.clear(); render(); updateBulk(); };
+      window.openBatchAssign = () => {
+        if (selection.size === 0) { toast('请先勾选设计单', 'warning'); return; }
+        toast(`已进入批量智能分单，${selection.size} 条待处理`, 'info');
+        setTimeout(() => location.href = './assign-board.html?batch=' + Array.from(selection).join(','), 500);
+      };
+
+      render();
+    })();
+  </script>
+</body>
+</html>

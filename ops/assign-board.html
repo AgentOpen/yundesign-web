@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>分单看板 · 敬城设计云</title>
+  <link rel="stylesheet" href="../assets/css/tokens.css" />
+  <link rel="stylesheet" href="../assets/css/base.css" />
+  <link rel="stylesheet" href="../assets/css/layout.css" />
+  <link rel="stylesheet" href="../assets/css/components.css" />
+  <style>
+    .board { display: grid; grid-template-columns: 340px 1fr; gap: 16px; height: calc(100vh - 200px); }
+    @media (max-width: 1024px) { .board { grid-template-columns: 1fr; height: auto; } }
+
+    /* Left: order pool queue */
+    .order-queue { background: white; border-radius: 8px; padding: 16px; overflow-y: auto; }
+    .order-card { background: var(--bg-hover); border-radius: 6px; padding: 12px; margin-bottom: 8px; cursor: grab; border-left: 3px solid var(--info); transition: var(--transition-fast); }
+    .order-card:hover { background: var(--brand-primary-bg); box-shadow: var(--shadow-hover); }
+    .order-card.urgent { border-left-color: var(--warning); }
+    .order-card.critical { border-left-color: var(--danger); }
+    .order-card.selected { background: var(--brand-primary-bg); box-shadow: 0 0 0 2px var(--brand-primary); }
+    .order-card .oc-title { font-weight: 500; font-size: 14px; margin-bottom: 4px; }
+    .order-card .oc-meta { font-size: 12px; color: var(--text-secondary); }
+
+    /* Right: designer load board */
+    .designer-board { background: white; border-radius: 8px; padding: 16px; overflow-y: auto; }
+    .designer-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-top: 12px; }
+    .designer-cell { border: 2px dashed var(--divider); border-radius: 8px; padding: 12px; transition: var(--transition-fast); cursor: pointer; }
+    .designer-cell:hover { border-color: var(--brand-primary); background: var(--brand-primary-bg); }
+    .designer-cell.drop-target { border-color: var(--success); background: var(--success-bg); border-style: solid; }
+    .designer-cell .d-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .designer-cell .load-bar { height: 6px; background: var(--bg-hover); border-radius: 3px; overflow: hidden; }
+    .designer-cell .load-fill { height: 100%; background: var(--brand-primary); }
+    .designer-cell .load-fill.warn { background: var(--warning); }
+    .designer-cell .load-fill.danger { background: var(--danger); }
+
+    .load-legend { display: flex; gap: 12px; font-size: 12px; color: var(--text-secondary); }
+    .load-legend > div { display: flex; align-items: center; gap: 4px; }
+    .lb-swatch { width: 12px; height: 12px; border-radius: 2px; }
+
+    /* Modal - intelligent assign */
+    .rec-list { display: flex; flex-direction: column; gap: 8px; }
+    .rec-item { display: flex; align-items: center; padding: 12px; border: 1px solid var(--divider); border-radius: 8px; cursor: pointer; transition: var(--transition-fast); }
+    .rec-item:hover { border-color: var(--brand-primary); background: var(--brand-primary-bg); }
+    .rec-item.selected { border: 2px solid var(--brand-primary); background: var(--brand-primary-bg); }
+    .rec-item .rec-avatar { margin-right: 12px; }
+    .rec-item .rec-body { flex: 1; }
+    .rec-item .rec-score { text-align: right; font-family: var(--font-mono); }
+    .rec-item .rec-score .score-num { font-size: 24px; font-weight: 700; color: var(--brand-primary); }
+    .rec-item .rec-score .score-label { font-size: 11px; color: var(--text-secondary); }
+    .rec-reasons { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+    .rec-reason { font-size: 11px; padding: 2px 6px; border-radius: 3px; background: var(--brand-primary-bg); color: var(--brand-primary); }
+    .rec-reason.warn { background: var(--warning-bg); color: #B4530A; }
+
+    .space-picker { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 0; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="page-header">
+      <div class="page-breadcrumb">
+        <a href="./order-pool.html">订单池</a>
+        <span class="sep">/</span>
+        <span class="current">分单看板</span>
+      </div>
+      <div class="page-title-bar">
+        <div>
+          <div class="page-title">分单看板</div>
+          <div class="page-title-desc">左侧为待分单队列，右侧为设计师负载视图。可 <b>拖拽</b> 分单，或点击订单调起 <b>智能分单弹窗</b>。</div>
+        </div>
+        <div class="flex gap-2">
+          <a href="./order-pool.html" class="btn btn-default">← 返回订单池</a>
+          <button class="btn btn-primary" onclick="autoAssignAll()">⚡ 一键智能分单</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="page-body">
+      <div class="board">
+        <!-- 左：待分单 -->
+        <div class="order-queue">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <h4>📥 待分单 (<span id="q-count">6</span>)</h4>
+            <select class="filter-select" id="q-sort">
+              <option value="urgency">按紧急度</option>
+              <option value="time">按创建时间</option>
+              <option value="area">按面积</option>
+            </select>
+          </div>
+          <div id="order-list"></div>
+        </div>
+
+        <!-- 右：设计师负载 -->
+        <div class="designer-board">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <div>
+              <h4>👨‍🎨 设计师负载视图</h4>
+              <div class="load-legend" style="margin-top:6px;">
+                <div><span class="lb-swatch" style="background:var(--success);"></span>空闲 (&lt;40%)</div>
+                <div><span class="lb-swatch" style="background:var(--brand-primary);"></span>正常 (40-70%)</div>
+                <div><span class="lb-swatch" style="background:var(--warning);"></span>饱和 (70-85%)</div>
+                <div><span class="lb-swatch" style="background:var(--danger);"></span>过载 (&gt;85%)</div>
+              </div>
+            </div>
+            <div class="flex gap-2">
+              <select class="filter-select" id="d-dept"><option value="">全部部门</option></select>
+              <select class="filter-select" id="d-role"><option value="">全部角色</option><option>2D</option><option>3D</option><option>协调员</option></select>
+            </div>
+          </div>
+          <div class="designer-grid" id="designer-grid"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 智能分单弹窗 (M10-b1) -->
+  <div class="modal-mask" id="assign-modal">
+    <div class="modal modal-xl">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">🎯 智能分单</div>
+          <div class="text-sm text-secondary" id="assign-order-info" style="margin-top:2px;">...</div>
+        </div>
+        <div class="modal-close" onclick="closeModal('assign-modal')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </div>
+      </div>
+      <div class="modal-body" style="padding:0;">
+        <div style="display:grid;grid-template-columns:1fr 340px;height:520px;">
+          <div style="padding:16px;overflow-y:auto;">
+            <!-- 角色 tab -->
+            <div class="tabs" style="border-bottom:1px solid var(--divider);margin-bottom:12px;padding:0 8px;">
+              <div class="tab-item active" data-role-tab="coord">🧭 协调员 <span class="count" id="cnt-coord">0</span></div>
+              <div class="tab-item" data-role-tab="2d">🎨 平面 2D <span class="count" id="cnt-2d">0</span></div>
+              <div class="tab-item" data-role-tab="3d">🖼 3D效果图 <span class="count" id="cnt-3d">0</span></div>
+            </div>
+
+            <!-- 协调员模式选择 -->
+            <div id="coord-mode-box" style="margin-bottom:12px;background:var(--bg-hover);border-radius:8px;padding:12px;">
+              <div class="text-sm" style="font-weight:600;margin-bottom:8px;">是否需要协调员？</div>
+              <label class="radio" style="display:block;margin-bottom:6px;"><input type="radio" name="coord-mode" value="internal" checked /> 需要 · 由 <b>设计部协调助理</b> 跟进（从下方推荐中选择）</label>
+              <label class="radio" style="display:block;"><input type="radio" name="coord-mode" value="external" /> 无需设计部跟进 · 由 <b>其他人员</b> 对接</label>
+              <div id="ext-coord-wrap" class="hidden" style="margin-top:8px;">
+                <input type="text" class="input" id="ext-coord-name" placeholder="请填写对接协调员姓名（如 PM 许光 / 客户经理）" />
+              </div>
+            </div>
+
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+              <div class="text-sm text-secondary">系统按 <b>技能匹配 · 区域 · 当前负载 · 历史评分</b> 综合评分</div>
+              <div class="text-sm">
+                <label class="checkbox"><input type="checkbox" id="multi-select" /> 多选（大项目分区）</label>
+              </div>
+            </div>
+            <div class="rec-list" id="rec-list"></div>
+          </div>
+
+          <div style="border-left:1px solid var(--divider);padding:16px;background:var(--bg-hover);overflow-y:auto;">
+            <h4 style="font-size:14px;margin-bottom:12px;">✅ 已选团队</h4>
+            <div id="selected-team">
+              <div class="text-sm text-secondary">尚未选择设计师</div>
+            </div>
+
+            <h4 style="font-size:14px;margin:20px 0 8px;">📐 参考空间（可选）</h4>
+            <div class="text-sm text-secondary">大项目可勾选空间辅助分工；每位设计师的「设计任务（全案/面积）」在上方成员卡片中设置</div>
+            <div class="space-picker" id="space-picker">
+              <span class="chip">客厅</span>
+              <span class="chip">餐厅</span>
+              <span class="chip">主卧</span>
+              <span class="chip">次卧</span>
+              <span class="chip">书房</span>
+              <span class="chip">厨房</span>
+              <span class="chip">卫生间</span>
+              <span class="chip">阳台</span>
+            </div>
+
+            <h4 style="font-size:14px;margin:20px 0 8px;">📝 分单备注</h4>
+            <textarea class="textarea" placeholder="向设计师说明分工/期望..." rows="3"></textarea>
+
+            <div style="margin-top:20px;padding:12px;background:white;border-radius:6px;border:1px dashed var(--divider);">
+              <div class="text-sm" style="margin-bottom:6px;"><b>📊 分单摘要</b></div>
+              <div class="text-sm text-secondary" style="line-height:1.8;">
+                • 分单人：<b id="sm-assigner">王负责人</b><br/>
+                • 分单方式：<b id="sm-mode">系统推荐 + 人工确认</b><br/>
+                • 通知：<b>企业微信 + 系统弹窗</b><br/>
+                • 记录：<b>写入审计日志</b>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <label class="checkbox" style="margin-right:auto;"><input type="checkbox" id="save-rule" /> 将本次分单结果作为规则样本</label>
+        <button class="btn btn-default" onclick="closeModal('assign-modal')">取消</button>
+        <button class="btn btn-primary" id="assign-confirm">✓ 确认分单</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 一键智能分单 · 预分配预览 -->
+  <div class="modal-mask" id="batch-modal">
+    <div class="modal modal-xl">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">⚡ 一键智能分单 · 系统预分配预览</div>
+          <div class="text-sm text-secondary" style="margin-top:2px;">系统已按「技能 · 区域 · 负载 · 评分」为每条待分单推荐团队，可整体确认或逐条微调</div>
+        </div>
+        <div class="modal-close" onclick="closeModal('batch-modal')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </div>
+      </div>
+      <div class="modal-body" style="max-height:560px;overflow-y:auto;">
+        <table class="data-table">
+          <thead>
+            <tr><th>设计单</th><th>类型/区域</th><th>协调员</th><th>平面 2D（部门·设计师）</th><th>3D效果图（部门·设计师）</th><th>匹配度</th></tr>
+          </thead>
+          <tbody id="batch-body"></tbody>
+        </table>
+      </div>
+      <div class="modal-footer">
+        <span class="text-sm text-secondary" style="margin-right:auto;">共 <b id="batch-count">0</b> 条待分单</span>
+        <button class="btn btn-default" onclick="closeModal('batch-modal')">取消</button>
+        <button class="btn btn-primary" id="batch-confirm">✓ 全部确认并派单</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/js/utils.js"></script>
+  <script src="../assets/js/mock-data.js"></script>
+  <script src="../assets/js/shell.js"></script>
+  <script>
+    (function () {
+      let currentOrder = null;
+      let currentRoleTab = 'coord';
+      let selectedByRole = { coord: null, '2d': [], '3d': [] };
+      let selectedSpaces = new Set();
+      let designerFilter = { role: '', dept: '' };
+      let coordMode = 'internal';        // internal=设计部协调助理 / external=外部对接
+      let externalCoordName = '';
+      let taskByDesigner = {};           // id -> { mode:'全案'|'面积', area:Number }
+
+      const orders = MOCK.DESIGN_ORDERS.filter(o => o.status === '待分派');
+      // 若 URL 指定订单
+      const preOrderId = getQuery('order');
+
+      // 部门筛选下拉
+      const dDeptSel = document.getElementById('d-dept');
+      MOCK.DEPARTMENTS.forEach(dp => dDeptSel.insertAdjacentHTML('beforeend', `<option>${dp}</option>`));
+
+      function deptShort(dept) { return MOCK.deptShort(dept); }
+
+      function renderOrders() {
+        const list = document.getElementById('order-list');
+        list.innerHTML = '';
+        const sortBy = document.getElementById('q-sort').value;
+        const sorted = [...orders].sort((a, b) => {
+          if (sortBy === 'urgency') {
+            const rank = { '紧急': 3, '加急': 2, '正常': 1 };
+            return rank[b.urgency] - rank[a.urgency];
+          }
+          if (sortBy === 'area') return b.area - a.area;
+          return b.createdAt.localeCompare(a.createdAt);
+        });
+        sorted.forEach(o => {
+          const cls = o.urgency === '紧急' ? 'critical' : o.urgency === '加急' ? 'urgent' : '';
+          const card = document.createElement('div');
+          card.className = 'order-card ' + cls + (currentOrder && o.id === currentOrder.id ? ' selected' : '');
+          card.setAttribute('draggable', 'true');
+          card.dataset.id = o.id;
+          card.innerHTML = `
+            <div class="oc-title">${o.projectName}</div>
+            <div class="oc-meta">${o.code} · ${o.type} · ${o.area}㎡</div>
+            <div class="oc-meta" style="margin-top:4px;">${o.region}</div>
+            <div style="margin-top:6px;display:flex;gap:4px;">
+              <span class="tag tag-${o.urgency === '紧急' ? 'danger' : o.urgency === '加急' ? 'warning' : 'info'}">${o.urgency}</span>
+              <span class="tag">${o.source}</span>
+            </div>
+          `;
+          card.addEventListener('click', () => openAssignModal(o));
+          card.addEventListener('dragstart', (e) => {
+            e.dataTransfer.setData('order-id', o.id);
+            e.dataTransfer.effectAllowed = 'move';
+          });
+          list.appendChild(card);
+        });
+        document.getElementById('q-count').textContent = sorted.length;
+      }
+
+      function computeScore(designer, order) {
+        let score = 60;
+        const reasons = [];
+        // 技能匹配
+        const scopeStr = order.scope.join('') + order.type;
+        const matched = designer.skills.filter(s => scopeStr.includes(s) || (s === '别墅' && order.type === '别墅') || (s === '家装' && order.type === '家装') || (s === '工装' && order.type === '工装'));
+        if (matched.length) { score += 15; reasons.push({ text: '技能匹配 ' + matched.join('/'), warn: false }); }
+        // 区域
+        if (order.region.includes(designer.city) || (designer.city === '曼谷' && order.region.includes('泰国'))) {
+          score += 10; reasons.push({ text: '同区域 ' + designer.city, warn: false });
+        }
+        // 负载
+        if (designer.capacity < 40) { score += 10; reasons.push({ text: '空闲 ' + designer.capacity + '%', warn: false }); }
+        else if (designer.capacity < 70) { score += 5; reasons.push({ text: '正常负载', warn: false }); }
+        else if (designer.capacity > 85) { score -= 15; reasons.push({ text: '过载 ' + designer.capacity + '%', warn: true }); }
+        // 评分
+        if (designer.avgScore >= 4.5) { score += 5; reasons.push({ text: '⭐ ' + designer.avgScore, warn: false }); }
+        // 紧急项目要求高等级
+        if (order.urgency === '紧急' && ['L4', 'L5', 'L6'].includes(designer.level)) { score += 5; reasons.push({ text: '匹配紧急项目', warn: false }); }
+        return { score: Math.min(100, score), reasons };
+      }
+
+      function openAssignModal(order) {
+        currentOrder = order;
+        selectedByRole = { coord: null, '2d': [], '3d': [] };
+        selectedSpaces = new Set();
+        coordMode = 'internal';
+        externalCoordName = '';
+        taskByDesigner = {};
+        document.querySelectorAll('input[name="coord-mode"]').forEach(r => r.checked = r.value === 'internal');
+        document.getElementById('ext-coord-name').value = '';
+        document.getElementById('ext-coord-wrap').classList.add('hidden');
+        renderOrders();
+        document.getElementById('assign-order-info').innerHTML = `
+          <b>${order.projectName}</b> · ${order.code} · ${order.type} · ${order.area}㎡ · ${order.region}
+          <span class="tag tag-${order.urgency === '紧急' ? 'danger' : order.urgency === '加急' ? 'warning' : 'info'}" style="margin-left:8px;">${order.urgency}</span>
+        `;
+        currentRoleTab = 'coord';
+        document.querySelectorAll('[data-role-tab]').forEach((t, i) => t.classList.toggle('active', i === 0));
+        syncCoordModeUI();
+        renderRecommendations();
+        renderSelected();
+        openModal('assign-modal');
+      }
+
+      function syncCoordModeUI() {
+        const box = document.getElementById('coord-mode-box');
+        box.classList.toggle('hidden', currentRoleTab !== 'coord');
+        document.getElementById('ext-coord-wrap').classList.toggle('hidden', coordMode !== 'external');
+      }
+
+      function renderRecommendations() {
+        const box = document.getElementById('rec-list');
+        box.innerHTML = '';
+        // 协调员 · 外部对接模式：不展示推荐列表
+        if (currentRoleTab === 'coord' && coordMode === 'external') {
+          box.innerHTML = `<div class="empty" style="padding:24px;"><div class="empty-title">无需设计部协调助理</div><div class="empty-desc">该项目由外部人员对接，请在上方填写协调员姓名</div></div>`;
+          return;
+        }
+        const roleMap = { coord: '协调员', '2d': '2D', '3d': '3D' };
+        const filtered = MOCK.DESIGNERS.filter(d => d.role === roleMap[currentRoleTab]).map(d => ({ ...d, ...computeScore(d, currentOrder) }));
+        filtered.sort((a, b) => b.score - a.score);
+
+        filtered.forEach((d, i) => {
+          const item = document.createElement('div');
+          const chosen = currentRoleTab === 'coord' ? (selectedByRole.coord === d.id) : (selectedByRole[currentRoleTab].includes(d.id));
+          item.className = 'rec-item' + (chosen ? ' selected' : '');
+          const capBar = `<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);margin-top:6px;">
+            当前负载：
+            <div class="load-bar" style="width:100px;height:6px;"><div class="load-fill ${d.capacity > 85 ? 'danger' : d.capacity > 70 ? 'warn' : ''}" style="width:${d.capacity}%;"></div></div>
+            <span>${d.capacity}%</span>
+            <span style="margin-left:12px;">在途 ${d.activeProjects} 单</span>
+          </div>`;
+          item.innerHTML = `
+            <div class="rec-avatar avatar lg" data-color="${colorFrom(d.name)}">${initials(d.name)}</div>
+            <div class="rec-body">
+              <div style="font-weight:600;">${d.name} <span class="tag tag-purple" style="margin-left:4px;">${d.dept}</span> <span class="tag tag-brand" style="margin-left:4px;">${d.level}</span> ${i === 0 ? '<span class="tag tag-success" style="margin-left:4px;">🏆 系统首选</span>' : ''}</div>
+              <div class="text-sm text-secondary" style="margin-top:2px;">${d.city} · ${d.skills.map(s => s).join(' / ')} · ⭐ ${d.avgScore.toFixed(1)}</div>
+              <div class="rec-reasons">
+                ${d.reasons.map(r => `<span class="rec-reason ${r.warn ? 'warn' : ''}">${r.text}</span>`).join('')}
+              </div>
+              ${capBar}
+            </div>
+            <div class="rec-score">
+              <div class="score-num">${d.score}</div>
+              <div class="score-label">匹配度</div>
+            </div>
+          `;
+          item.addEventListener('click', () => {
+            if (currentRoleTab === 'coord') {
+              selectedByRole.coord = selectedByRole.coord === d.id ? null : d.id;
+            } else {
+              const multi = document.getElementById('multi-select').checked;
+              const list = selectedByRole[currentRoleTab];
+              const idx = list.indexOf(d.id);
+              if (idx >= 0) { list.splice(idx, 1); delete taskByDesigner[d.id]; }
+              else {
+                if (multi) list.push(d.id);
+                else { selectedByRole[currentRoleTab].forEach(x => delete taskByDesigner[x]); selectedByRole[currentRoleTab] = [d.id]; }
+                // 默认任务：单人=全案，多人=指定面积（均分）
+                taskByDesigner[d.id] = { mode: multi ? '面积' : '全案', area: multi ? Math.round(currentOrder.area / (list.length || 1)) : currentOrder.area };
+              }
+            }
+            renderRecommendations();
+            renderSelected();
+          });
+          box.appendChild(item);
+        });
+      }
+
+      function renderSelected() {
+        const box = document.getElementById('selected-team');
+        let html = '';
+
+        // 协调员
+        if (coordMode === 'external') {
+          html += `<div style="margin-bottom:12px;">
+            <div class="text-sm" style="margin-bottom:4px;">🧭 协调员 <span class="tag">外部对接</span></div>
+            <div class="member-item" style="margin-bottom:4px;"><div style="font-size:13px;">${externalCoordName || '<span style="color:var(--text-placeholder)">待填写外部协调员姓名</span>'}</div></div>
+          </div>`;
+        } else if (selectedByRole.coord) {
+          const d = MOCK.getDesigner(selectedByRole.coord);
+          html += `<div style="margin-bottom:12px;">
+            <div class="text-sm" style="margin-bottom:4px;">🧭 协调员</div>
+            <div class="member-item" style="margin-bottom:4px;">
+              <div class="avatar sm" data-color="${colorFrom(d.name)}">${initials(d.name)}</div>
+              <div style="margin-left:8px;flex:1;"><div style="font-size:13px;font-weight:500;">${d.name}</div><div style="font-size:11px;color:var(--text-secondary);">${d.dept} · ${d.level}</div></div>
+            </div>
+          </div>`;
+        }
+
+        // 2D / 3D —— 显示 部门·设计师 + 设计任务选择
+        [['2d', '🎨 平面 2D 设计师'], ['3d', '🖼 3D效果图 设计师']].forEach(([k, label]) => {
+          const ids = selectedByRole[k];
+          if (!ids.length) return;
+          html += `<div style="margin-bottom:12px;"><div class="text-sm" style="margin-bottom:4px;">${label}</div>`;
+          ids.forEach(id => {
+            const d = MOCK.getDesigner(id);
+            const t = taskByDesigner[id] || { mode: '全案', area: currentOrder.area };
+            html += `<div style="background:white;border:1px solid var(--divider);border-radius:6px;padding:8px 10px;margin-bottom:6px;">
+              <div style="display:flex;align-items:center;">
+                <div class="avatar sm" data-color="${colorFrom(d.name)}">${initials(d.name)}</div>
+                <div style="margin-left:8px;flex:1;">
+                  <div style="font-size:13px;font-weight:500;">${d.name} <span class="tag tag-purple" style="font-size:10px;">${d.dept}</span></div>
+                  <div style="font-size:11px;color:var(--text-secondary);">${d.city} · ${d.level}</div>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;margin-top:8px;">
+                <span class="text-sm text-secondary">设计任务</span>
+                <select class="filter-select task-mode" data-id="${id}" style="height:28px;">
+                  <option value="全案" ${t.mode === '全案' ? 'selected' : ''}>全案（全部空间）</option>
+                  <option value="面积" ${t.mode === '面积' ? 'selected' : ''}>指定面积</option>
+                </select>
+                <input type="number" class="input task-area" data-id="${id}" value="${t.area}" ${t.mode === '全案' ? 'disabled' : ''} style="width:80px;height:28px;padding:2px 8px;" /> <span class="text-sm text-secondary">㎡</span>
+              </div>
+            </div>`;
+          });
+          html += `</div>`;
+        });
+
+        if (html === '') html = '<div class="text-sm text-secondary">尚未选择设计师</div>';
+        box.innerHTML = html;
+
+        // 任务选择器事件
+        box.querySelectorAll('.task-mode').forEach(sel => {
+          sel.addEventListener('change', e => {
+            const id = e.target.dataset.id;
+            taskByDesigner[id] = taskByDesigner[id] || { mode: '全案', area: currentOrder.area };
+            taskByDesigner[id].mode = e.target.value;
+            if (e.target.value === '全案') taskByDesigner[id].area = currentOrder.area;
+            renderSelected();
+          });
+        });
+        box.querySelectorAll('.task-area').forEach(inp => {
+          inp.addEventListener('input', e => {
+            const id = e.target.dataset.id;
+            taskByDesigner[id] = taskByDesigner[id] || { mode: '面积', area: 0 };
+            taskByDesigner[id].area = Number(e.target.value) || 0;
+          });
+        });
+
+        // 更新 tab count
+        document.getElementById('cnt-coord').textContent = coordMode === 'external' ? (externalCoordName ? 1 : 0) : (selectedByRole.coord ? 1 : 0);
+        document.getElementById('cnt-2d').textContent = selectedByRole['2d'].length;
+        document.getElementById('cnt-3d').textContent = selectedByRole['3d'].length;
+      }
+
+      // 空间 chip
+      document.querySelectorAll('.space-picker .chip').forEach(c => {
+        c.addEventListener('click', () => {
+          c.classList.toggle('active');
+          const v = c.textContent;
+          if (c.classList.contains('active')) selectedSpaces.add(v);
+          else selectedSpaces.delete(v);
+        });
+      });
+
+      // 角色 tab
+      document.querySelectorAll('[data-role-tab]').forEach(t => {
+        t.addEventListener('click', () => {
+          document.querySelectorAll('[data-role-tab]').forEach(x => x.classList.remove('active'));
+          t.classList.add('active');
+          currentRoleTab = t.dataset.roleTab;
+          document.getElementById('multi-select').checked = currentRoleTab !== 'coord';
+          document.getElementById('multi-select').disabled = currentRoleTab === 'coord';
+          syncCoordModeUI();
+          renderRecommendations();
+        });
+      });
+
+      // 协调员模式切换
+      document.querySelectorAll('input[name="coord-mode"]').forEach(r => {
+        r.addEventListener('change', e => {
+          coordMode = e.target.value;
+          if (coordMode === 'external') selectedByRole.coord = null;
+          else externalCoordName = '';
+          syncCoordModeUI();
+          renderRecommendations();
+          renderSelected();
+        });
+      });
+      document.getElementById('ext-coord-name').addEventListener('input', e => {
+        externalCoordName = e.target.value.trim();
+        renderSelected();
+      });
+
+      // 确认分单
+      document.getElementById('assign-confirm').addEventListener('click', () => {
+        const designers = selectedByRole['2d'].length + selectedByRole['3d'].length;
+        if (designers === 0) { toast('请至少选择 1 位平面 / 3D 设计师', 'warning'); return; }
+        // 校验设计任务
+        const missing = [...selectedByRole['2d'], ...selectedByRole['3d']].find(id => {
+          const t = taskByDesigner[id];
+          return !t || (t.mode === '面积' && (!t.area || t.area <= 0));
+        });
+        if (missing) { toast('请为每位设计师设置设计任务（全案或有效面积）', 'warning'); return; }
+        if (coordMode === 'external' && !externalCoordName) { toast('请填写外部对接协调员姓名', 'warning'); return; }
+
+        const coordTxt = coordMode === 'external' ? `外部对接：${externalCoordName}` : (selectedByRole.coord ? MOCK.getDesigner(selectedByRole.coord).name : '未指定');
+        const mkTasks = ids => ids.map(id => ({ id, mode: taskByDesigner[id].mode, area: taskByDesigner[id].area }));
+        const proj = MOCK.assignOrder(currentOrder.id, {
+          coordMode, coord: selectedByRole.coord, coordExternal: externalCoordName,
+          d2d: mkTasks(selectedByRole['2d']), d3d: mkTasks(selectedByRole['3d']),
+          spaces: Array.from(selectedSpaces),
+          note: (document.querySelector('#assign-modal .textarea') || {}).value || ''
+        });
+        toast(`✓ 已分单：${currentOrder.projectName} · 协调员 ${coordTxt} · 已生成项目 ${proj ? proj.code : ''} 并向设计师推送待接任务`, 'success');
+        closeModal('assign-modal');
+        const idx = orders.findIndex(o => o.id === currentOrder.id);
+        if (idx >= 0) orders.splice(idx, 1);
+        renderOrders();
+        renderDesigners();
+      });
+
+      // ===== 一键批量智能分单 · 预分配预览 =====
+      function bestByRole(order, role) {
+        const cands = MOCK.DESIGNERS.filter(d => d.role === role).map(d => ({ d, ...computeScore(d, order) }));
+        cands.sort((a, b) => b.score - a.score);
+        return cands[0];
+      }
+      function recCell(order, role) {
+        const b = bestByRole(order, role);
+        if (!b) return '<span class="text-placeholder">—</span>';
+        return `<div style="display:flex;align-items:center;gap:6px;"><div class="avatar sm" data-color="${colorFrom(b.d.name)}">${initials(b.d.name)}</div>
+          <div><div class="text-sm" style="font-weight:500;">${b.d.name}</div><div style="font-size:11px;color:var(--text-secondary);">${b.d.dept}</div></div>
+          <span class="tag ${b.score >= 80 ? 'tag-success' : 'tag-info'}" style="margin-left:auto;">${b.score}</span></div>`;
+      }
+
+      window.autoAssignAll = () => {
+        if (!orders.length) { toast('当前没有待分单', 'info'); return; }
+        const body = document.getElementById('batch-body');
+        body.innerHTML = '';
+        orders.forEach(o => {
+          const b2 = bestByRole(o, '2D'), b3 = bestByRole(o, '3D'), bc = bestByRole(o, '协调员');
+          const avg = Math.round(((b2 ? b2.score : 0) + (b3 ? b3.score : 0) + (bc ? bc.score : 0)) / ([b2, b3, bc].filter(Boolean).length || 1));
+          body.insertAdjacentHTML('beforeend', `<tr>
+            <td><div style="font-weight:500;">${o.projectName}</div><div class="text-sm text-secondary font-mono">${o.code}</div></td>
+            <td class="text-sm">${o.type}<br/>${o.region}</td>
+            <td>${bc ? `${bc.d.name}<div style="font-size:11px;color:var(--text-secondary);">${bc.d.dept}</div>` : '—'}</td>
+            <td>${recCell(o, '2D')}</td>
+            <td>${o.type === '工装' && o.scope.length === 1 && o.scope[0] === '软装' ? '<span class="text-placeholder">可选</span>' : recCell(o, '3D')}</td>
+            <td style="text-align:center;"><span class="score-num" style="font-size:18px;color:var(--brand-primary);font-weight:700;">${avg}</span></td>
+          </tr>`);
+        });
+        document.getElementById('batch-count').textContent = orders.length;
+        openModal('batch-modal');
+      };
+
+      document.getElementById('batch-confirm').addEventListener('click', () => {
+        const n = orders.length;
+        // 逐条按系统推荐落地
+        [...orders].forEach(o => {
+          const b2 = bestByRole(o, '2D'), b3 = bestByRole(o, '3D'), bc = bestByRole(o, '协调员');
+          const noNeed3D = o.type === '工装' && o.scope.length === 1 && o.scope[0] === '软装';
+          MOCK.assignOrder(o.id, {
+            coordMode: 'internal', coord: bc ? bc.d.id : null,
+            d2d: b2 ? [{ id: b2.d.id, mode: '全案', area: o.area }] : [],
+            d3d: (b3 && !noNeed3D) ? [{ id: b3.d.id, mode: '全案', area: o.area }] : [],
+            spaces: [], note: '一键智能分单'
+          });
+        });
+        orders.splice(0, orders.length);
+        closeModal('batch-modal');
+        toast(`✓ 已按系统推荐批量分派 ${n} 条设计单，已生成项目并向设计师推送待接任务`, 'success');
+        renderOrders();
+        renderDesigners();
+      });
+
+      // 设计师负载
+      function renderDesigners() {
+        const grid = document.getElementById('designer-grid');
+        grid.innerHTML = '';
+        const list = MOCK.DESIGNERS.filter(d => ['2D', '3D', '协调员'].includes(d.role))
+          .filter(d => !designerFilter.role || d.role === designerFilter.role)
+          .filter(d => !designerFilter.dept || d.dept === designerFilter.dept);
+        list.forEach(d => {
+          const cls = d.capacity > 85 ? 'danger' : d.capacity > 70 ? 'warn' : '';
+          const cell = document.createElement('div');
+          cell.className = 'designer-cell';
+          cell.dataset.did = d.id;
+          cell.innerHTML = `
+            <div class="d-head">
+              <div class="avatar" data-color="${colorFrom(d.name)}">${initials(d.name)}</div>
+              <div>
+                <div style="font-weight:500;">${d.name} <span class="tag tag-purple" style="font-size:10px;">${deptShort(d.dept)}</span></div>
+                <div style="font-size:11px;color:var(--text-secondary);">${d.role} · ${d.level} · ${d.city}</div>
+              </div>
+            </div>
+            <div class="text-sm" style="margin-bottom:4px;display:flex;justify-content:space-between;">
+              <span>负载 ${d.capacity}%</span>
+              <span>${d.activeProjects} 单在途</span>
+            </div>
+            <div class="load-bar"><div class="load-fill ${cls}" style="width:${d.capacity}%;"></div></div>
+            <div class="text-sm" style="margin-top:8px;color:var(--text-secondary);">⭐ ${d.avgScore.toFixed(1)} · ${d.skills.slice(0, 2).join('/')}</div>
+          `;
+          // 拖入
+          cell.addEventListener('dragover', (e) => { e.preventDefault(); cell.classList.add('drop-target'); });
+          cell.addEventListener('dragleave', () => cell.classList.remove('drop-target'));
+          cell.addEventListener('drop', (e) => {
+            e.preventDefault();
+            cell.classList.remove('drop-target');
+            const oid = e.dataTransfer.getData('order-id');
+            const o = orders.find(x => x.id === oid);
+            if (o) {
+              confirmDialog('确认分派', `将 <b>${o.projectName}</b> 分派给 <b>${d.name}</b> (${d.role} · 负载 ${d.capacity}%) ？`).then(ok => {
+                if (ok) {
+                  toast(`已分派 ${o.projectName} 给 ${d.name}`, 'success');
+                  const idx = orders.indexOf(o);
+                  if (idx >= 0) orders.splice(idx, 1);
+                  renderOrders();
+                }
+              });
+            }
+          });
+          cell.addEventListener('click', () => {
+            toast(`${d.name}：${d.role} · L${d.level} · 负载 ${d.capacity}%`, 'info');
+          });
+          grid.appendChild(cell);
+        });
+      }
+
+      document.getElementById('d-role').addEventListener('change', (e) => { designerFilter.role = e.target.value; renderDesigners(); });
+      document.getElementById('d-dept').addEventListener('change', (e) => { designerFilter.dept = e.target.value; renderDesigners(); });
+      document.getElementById('q-sort').addEventListener('change', renderOrders);
+
+      renderOrders();
+      renderDesigners();
+
+      // 若 URL 带订单，自动打开弹窗
+      if (preOrderId) {
+        const o = orders.find(o => o.id === preOrderId);
+        if (o) setTimeout(() => openAssignModal(o), 200);
+      }
+    })();
+  </script>
+</body>
+</html>

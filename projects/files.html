@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>文件归档 · 敬城设计云</title>
+  <link rel="stylesheet" href="../assets/css/tokens.css" />
+  <link rel="stylesheet" href="../assets/css/base.css" />
+  <link rel="stylesheet" href="../assets/css/layout.css" />
+  <link rel="stylesheet" href="../assets/css/components.css" />
+  <style>
+    .file-icon { width: 34px; height: 34px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: white; flex-shrink: 0; }
+    .fi-pdf { background: #EF4444; } .fi-img { background: #10B981; } .fi-720 { background: #8B5CF6; } .fi-xls { background: #059669; } .fi-zip { background: #F59E0B; } .fi-dwg { background: #3B82F6; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="page-header">
+      <div class="page-breadcrumb">
+        <a href="../workbench/dashboard.html">工作台</a><span class="sep">/</span>
+        <span class="current">M9 · 文件归档</span>
+      </div>
+      <div class="page-title-bar">
+        <div>
+          <div class="page-title">文件归档</div>
+          <div class="page-title-desc">所有设计文件（需求 / 方案 / BOM / 报价 / 合同 / 交付物）按项目归档，支持检索（FR-M09-08）</div>
+        </div>
+        <div class="flex gap-2">
+          <button class="btn btn-default" onclick="toast('已打包所选文件为 zip','success')">批量下载</button>
+          <button class="btn btn-primary" onclick="toast('上传演示中','info')">上传文件</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="page-body">
+      <div class="filter-bar" style="margin-bottom:16px;">
+        <div class="filter-item"><select class="filter-select" id="f-proj"><option value="">全部项目</option></select></div>
+        <div class="filter-item"><select class="filter-select" id="f-type">
+          <option value="">全部类型</option><option>需求文档</option><option>平面图</option><option>3D/720°</option><option>BOM</option><option>报价单</option><option>合同</option>
+        </select></div>
+        <div class="filter-item" style="flex:1;"><input class="filter-search" id="f-search" placeholder="搜索文件名 / 项目 / 上传人" style="width:100%;" /></div>
+      </div>
+
+      <div class="card">
+        <div class="card-body" style="padding:0;">
+          <table class="data-table">
+            <thead><tr>
+              <th class="row-checkbox"><input type="checkbox" id="chk-all" /></th>
+              <th>文件</th><th>项目</th><th>类型</th><th>版本</th><th>上传人</th><th>时间</th><th class="col-actions">操作</th>
+            </tr></thead>
+            <tbody id="file-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/js/utils.js"></script>
+  <script src="../assets/js/mock-data.js"></script>
+  <script src="../assets/js/shell.js"></script>
+  <script>
+    (function () {
+      const P = MOCK.PROJECTS;
+      const sel = document.getElementById('f-proj');
+      P.forEach(p => { const o = document.createElement('option'); o.value = p.id; o.textContent = p.name; sel.appendChild(o); });
+
+      const ext = { '需求文档': ['pdf', 'fi-pdf'], '平面图': ['dwg', 'fi-dwg'], '3D/720°': ['720', 'fi-720'], 'BOM': ['xls', 'fi-xls'], '报价单': ['pdf', 'fi-pdf'], '合同': ['pdf', 'fi-pdf'], '效果图': ['img', 'fi-img'] };
+      const owners = ['u001', 'u003', 'u004', 'u009', 'u002'];
+      const files = [];
+      const types = ['需求文档', '平面图', '3D/720°', 'BOM', '报价单', '合同', '效果图'];
+      P.forEach((p, pi) => {
+        const n = 3 + (pi % 4);
+        for (let i = 0; i < n; i++) {
+          const t = types[(pi + i) % types.length];
+          const e = ext[t];
+          files.push({
+            name: `${p.name.slice(0, 6)}_${t}_V${1 + (i % 3)}.${e[0] === '720' ? 'html' : e[0]}`,
+            proj: p.id, type: t, ver: `V${1 + (i % 3)}.${i % 4}`,
+            owner: owners[(pi + i) % owners.length],
+            ts: `2026-07-${String(6 + ((pi + i) % 6)).padStart(2, '0')} ${10 + i}:${20 + i}`,
+            icon: e[1]
+          });
+        }
+      });
+
+      let fProj = '', fType = '', fSearch = '';
+      function render() {
+        const list = files.filter(f =>
+          (!fProj || f.proj === fProj) &&
+          (!fType || f.type === fType) &&
+          (!fSearch || (f.name + MOCK.getProject(f.proj).name + MOCK.getDesigner(f.owner).name).toLowerCase().includes(fSearch.toLowerCase()))
+        );
+        document.getElementById('file-body').innerHTML = list.length ? list.map(f => {
+          const p = MOCK.getProject(f.proj); const o = MOCK.getDesigner(f.owner);
+          const label = f.icon.replace('fi-', '').toUpperCase();
+          return `<tr>
+            <td class="row-checkbox"><input type="checkbox" class="row-chk" /></td>
+            <td><div style="display:flex;align-items:center;gap:10px;"><div class="file-icon ${f.icon}">${label.slice(0, 3)}</div><div style="font-weight:500;">${f.name}</div></div></td>
+            <td>${p.name}</td>
+            <td><span class="tag">${f.type}</span></td>
+            <td>${f.ver}</td>
+            <td><div style="display:flex;align-items:center;gap:6px;"><div class="avatar sm" data-color="${colorFrom(o.name)}">${initials(o.name)}</div>${o.name}</div></td>
+            <td class="text-sm text-secondary">${f.ts}</td>
+            <td class="col-actions"><button class="btn btn-xs btn-text" onclick="toast('预览 ${f.name}','info')">预览</button><button class="btn btn-xs btn-text" onclick="toast('下载 ${f.name}','success')">下载</button></td>
+          </tr>`;
+        }).join('') : `<tr><td colspan="8"><div class="empty"><div class="empty-title">没有符合条件的文件</div><div class="empty-desc">试试调整筛选条件或搜索关键词</div></div></td></tr>`;
+      }
+      document.getElementById('f-proj').addEventListener('change', e => { fProj = e.target.value; render(); });
+      document.getElementById('f-type').addEventListener('change', e => { fType = e.target.value; render(); });
+      document.getElementById('f-search').addEventListener('input', debounce(e => { fSearch = e.target.value; render(); }, 200));
+      document.getElementById('chk-all').addEventListener('change', e => document.querySelectorAll('.row-chk').forEach(c => c.checked = e.target.checked));
+      render();
+    })();
+  </script>
+</body>
+</html>

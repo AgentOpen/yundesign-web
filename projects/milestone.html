@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>里程碑与进度 · 敬城设计云</title>
+  <link rel="stylesheet" href="../assets/css/tokens.css" />
+  <link rel="stylesheet" href="../assets/css/base.css" />
+  <link rel="stylesheet" href="../assets/css/layout.css" />
+  <link rel="stylesheet" href="../assets/css/components.css" />
+  <style>
+    .ms-layout { display: grid; grid-template-columns: 280px 1fr; gap: 16px; }
+    @media (max-width: 900px) { .ms-layout { grid-template-columns: 1fr; } }
+    .proj-item { padding: 12px 14px; border-radius: var(--radius-lg); cursor: pointer; border: 1px solid transparent; margin-bottom: 6px; }
+    .proj-item:hover { background: var(--bg-hover); }
+    .proj-item.active { background: var(--brand-primary-bg); border-color: #BCD0FA; }
+    .proj-item .pi-name { font-weight: 500; font-size: 14px; }
+    .proj-item .pi-meta { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+
+    .timeline-v { position: relative; padding-left: 30px; }
+    .timeline-v::before { content: ''; position: absolute; left: 11px; top: 8px; bottom: 8px; width: 2px; background: var(--divider); }
+    .ms-step { position: relative; padding-bottom: 18px; }
+    .ms-step:last-child { padding-bottom: 0; }
+    .ms-node { position: absolute; left: -30px; top: 0; width: 24px; height: 24px; border-radius: 50%; background: var(--divider); color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; border: 3px solid var(--bg-card); }
+    .ms-step.done .ms-node { background: var(--success); }
+    .ms-step.active .ms-node { background: var(--brand-primary); box-shadow: 0 0 0 4px var(--brand-primary-bg); }
+    .ms-step.overdue .ms-node { background: var(--danger); }
+    .ms-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 12px 14px; }
+    .ms-step.active .ms-card { border-color: #BCD0FA; background: var(--brand-primary-bg); }
+    .ms-step.overdue .ms-card { border-color: var(--danger); background: var(--danger-bg); }
+    .ms-title { font-weight: 600; font-size: 14px; }
+    .ms-meta { font-size: 12px; color: var(--text-secondary); margin-top: 3px; }
+    .rev-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; background: var(--warning-bg); color: #B4530A; padding: 1px 8px; border-radius: var(--radius-round); }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="page-header">
+      <div class="page-breadcrumb">
+        <a href="../workbench/dashboard.html">工作台</a><span class="sep">/</span>
+        <span class="current">M10 · 里程碑与进度</span>
+      </div>
+      <div class="page-title-bar">
+        <div>
+          <div class="page-title">里程碑与进度</div>
+          <div class="page-title-desc">设计项目里程碑与进度可视化，含「设计师多次修改」记录（FR-M10-06 / 07）</div>
+        </div>
+        <a href="./version.html" class="btn btn-default">版本溯源 →</a>
+      </div>
+    </div>
+
+    <div class="page-body">
+      <div class="ms-layout">
+        <div class="card">
+          <div class="card-header"><div class="card-title">项目</div></div>
+          <div class="card-body" style="padding:8px;" id="proj-list"></div>
+        </div>
+
+        <div style="display:grid;gap:16px;">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title" id="ms-proj-name">—</div>
+              <div id="ms-progress-tag"></div>
+            </div>
+            <div class="card-body"><div class="timeline-v" id="ms-timeline"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/js/utils.js"></script>
+  <script src="../assets/js/mock-data.js"></script>
+  <script src="../assets/js/shell.js"></script>
+  <script>
+    (function () {
+      const P = MOCK.PROJECTS;
+      let cur = getQuery('id') || P[0].id;
+
+      // 每个项目里程碑进度：按 progress 推导当前步
+      const template = MOCK.MILESTONE_TEMPLATE;
+
+      function renderProjects() {
+        document.getElementById('proj-list').innerHTML = P.map(p => `<div class="proj-item ${p.id === cur ? 'active' : ''}" data-id="${p.id}">
+          <div class="pi-name">${p.name}</div>
+          <div class="pi-meta">${p.stage} · ${p.progress}%</div>
+          <div class="progress" style="margin-top:6px;"><div class="progress-bar ${p.risk === 'danger' ? 'danger' : p.risk === 'warning' ? 'warning' : ''}" style="width:${p.progress}%;"></div></div>
+        </div>`).join('');
+        document.querySelectorAll('.proj-item').forEach(el => el.addEventListener('click', () => { cur = el.dataset.id; renderProjects(); renderTimeline(); }));
+      }
+
+      function renderTimeline() {
+        const p = MOCK.getProject(cur);
+        document.getElementById('ms-proj-name').textContent = p.name + ' · ' + p.code;
+        document.getElementById('ms-progress-tag').innerHTML = `<span class="tag ${p.risk === 'danger' ? 'tag-danger' : p.risk === 'warning' ? 'tag-warning' : 'tag-success'}">${p.risk === 'danger' ? '已超期' : p.risk === 'warning' ? '预警' : '正常'} · ${p.progress}%</span>`;
+
+        // 已完成步数 = round(progress/100 * steps)
+        const doneCount = Math.round(p.progress / 100 * template.length);
+        // 模拟每个里程碑的修改次数（版本迭代）
+        const revs = { 'ms3': 3, 'ms4': 2, 'ms5': 2, 'ms7': 1 };
+        const dates = ['07-06', '07-07', '07-08', '07-09', '07-10', '07-11', '07-12', '07-13'];
+
+        document.getElementById('ms-timeline').innerHTML = template.map((m, i) => {
+          let cls = '', node = i + 1;
+          if (i < doneCount) { cls = 'done'; node = '✓'; }
+          else if (i === doneCount) { cls = (p.risk === 'danger' ? 'overdue' : 'active'); }
+          const rev = revs[m.code];
+          return `<div class="ms-step ${cls}">
+            <div class="ms-node">${node}</div>
+            <div class="ms-card">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+                <div>
+                  <div class="ms-title">${m.name}</div>
+                  <div class="ms-meta">责任：${m.role} · 交付物：${m.deliverable}</div>
+                </div>
+                <div style="text-align:right;flex-shrink:0;">
+                  <div class="text-sm text-secondary">${dates[i]}</div>
+                  ${cls === 'done' ? '<span class="tag tag-success" style="margin-top:4px;">已完成</span>' : cls === 'active' ? '<span class="tag tag-brand" style="margin-top:4px;">进行中</span>' : cls === 'overdue' ? '<span class="tag tag-danger" style="margin-top:4px;">已超期</span>' : '<span class="tag" style="margin-top:4px;">未开始</span>'}
+                </div>
+              </div>
+              ${rev && i <= doneCount ? `<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--divider);display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <span class="rev-badge">🔁 设计师修改 ${rev} 次</span>
+                <a href="./version.html?id=${p.id}" class="btn btn-xs btn-text">查看版本溯源</a>
+              </div>` : ''}
+            </div>
+          </div>`;
+        }).join('');
+      }
+
+      renderProjects();
+      renderTimeline();
+    })();
+  </script>
+</body>
+</html>

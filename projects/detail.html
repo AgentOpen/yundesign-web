@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>项目详情 · 敬城设计云</title>
+  <link rel="stylesheet" href="../assets/css/tokens.css" />
+  <link rel="stylesheet" href="../assets/css/base.css" />
+  <link rel="stylesheet" href="../assets/css/layout.css" />
+  <link rel="stylesheet" href="../assets/css/components.css" />
+  <style>
+    .detail-header { background: white; border-radius: 8px; padding: 20px; margin-bottom: 16px; border: 1px solid var(--border); }
+    .detail-title { font-size: 22px; font-weight: 600; margin-bottom: 8px; }
+    .detail-meta { display: flex; gap: 16px; font-size: 13px; color: var(--text-secondary); flex-wrap: wrap; }
+    .detail-kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; margin-top: 20px; }
+    @media (max-width: 1024px) { .detail-kpis { grid-template-columns: repeat(3, 1fr); } }
+    .kpi { padding: 12px; background: var(--bg-hover); border-radius: 6px; }
+    .kpi-l { font-size: 12px; color: var(--text-secondary); }
+    .kpi-v { font-size: 18px; font-weight: 600; margin-top: 4px; }
+
+    /* Tabs 内容 */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* Milestone bar */
+    .milestone-bar { display: flex; gap: 4px; margin: 24px 0; }
+    .ms-node { flex: 1; background: var(--bg-hover); padding: 12px; border-radius: 6px; position: relative; cursor: pointer; transition: var(--transition-fast); }
+    .ms-node.done { background: var(--success-bg); }
+    .ms-node.active { background: var(--brand-primary-bg); border: 2px solid var(--brand-primary); }
+    .ms-node.late { background: var(--danger-bg); }
+    .ms-node .ms-t { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; }
+    .ms-node .ms-l { font-size: 13px; font-weight: 500; margin-top: 4px; }
+    .ms-node .ms-d { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+
+    /* Team card */
+    .team-role { background: white; border-radius: 8px; padding: 16px; border: 1px solid var(--border); margin-bottom: 16px; }
+    .team-role h4 { font-size: 14px; margin-bottom: 12px; display: flex; justify-content: space-between; }
+    .member-item { display: flex; align-items: center; padding: 10px; border-radius: 6px; background: var(--bg-hover); margin-bottom: 8px; }
+
+    /* Version */
+    .version-tree { border-left: 2px solid var(--divider); padding-left: 20px; margin-left: 8px; }
+    .version-node { position: relative; padding: 12px 16px; background: white; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 12px; box-shadow: var(--shadow-card); }
+    .version-node::before { content: ''; position: absolute; left: -28px; top: 20px; width: 12px; height: 12px; background: var(--brand-primary); border-radius: 50%; border: 2px solid white; box-shadow: 0 0 0 2px var(--brand-primary); }
+    .version-node.confirmed::before { background: var(--success); box-shadow: 0 0 0 2px var(--success); }
+    .version-tag { font-family: var(--font-mono); background: var(--brand-primary-bg); color: var(--brand-primary); padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+
+    /* Collab layout */
+    .collab-layout { display: grid; grid-template-columns: 1fr 320px; gap: 16px; }
+    @media (max-width: 900px) { .collab-layout { grid-template-columns: 1fr; } }
+    .comment-item { padding: 12px; background: var(--bg-hover); border-radius: 6px; margin-bottom: 8px; }
+    .comment-item .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .comment-item .body { font-size: 13px; line-height: 1.5; }
+    .online-dot { width: 8px; height: 8px; background: var(--success); border-radius: 50%; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="page-header">
+      <div class="page-breadcrumb">
+        <a href="./list.html">项目</a>
+        <span class="sep">/</span>
+        <a href="./list.html">项目列表</a>
+        <span class="sep">/</span>
+        <span class="current" id="bc-name">项目详情</span>
+      </div>
+      <div class="page-title-bar" id="title-bar">...</div>
+    </div>
+
+    <div class="page-body">
+      <!-- Header info -->
+      <div class="detail-header" id="detail-header">...</div>
+
+      <!-- Tabs -->
+      <div class="card" style="padding:0;">
+        <div class="tabs" style="padding: 0 16px;">
+          <div class="tab-item active" data-tab="overview">📋 概览</div>
+          <div class="tab-item" data-tab="team">👥 任务与团队</div>
+          <div class="tab-item" data-tab="milestone">🎯 里程碑 & 甘特</div>
+          <div class="tab-item" data-tab="version">🕐 版本管理</div>
+          <div class="tab-item" data-tab="collab">💬 协同</div>
+          <div class="tab-item" data-tab="deliv">📦 交付物</div>
+          <div class="tab-item" data-tab="files">📁 文件</div>
+          <div class="tab-item" data-tab="log">📜 操作日志</div>
+        </div>
+
+        <div style="padding:20px;">
+          <!-- Overview -->
+          <div class="tab-panel active" data-panel="overview" id="panel-overview">...</div>
+
+          <!-- Team -->
+          <div class="tab-panel" data-panel="team" id="panel-team">...</div>
+
+          <!-- Milestone -->
+          <div class="tab-panel" data-panel="milestone" id="panel-milestone">...</div>
+
+          <!-- Version -->
+          <div class="tab-panel" data-panel="version" id="panel-version">...</div>
+
+          <!-- Collab -->
+          <div class="tab-panel" data-panel="collab" id="panel-collab">...</div>
+
+          <!-- Deliverables -->
+          <div class="tab-panel" data-panel="deliv">
+            <table class="data-table">
+              <thead><tr><th>名称</th><th>类型</th><th>版本</th><th>上传人</th><th>时间</th><th>状态</th><th style="text-align:right;">操作</th></tr></thead>
+              <tbody>
+                <tr><td>平面布局图</td><td>PDF</td><td>V3.2</td><td>张三</td><td>2026-07-11 14:20</td><td><span class="tag tag-warning">待审</span></td><td style="text-align:right;"><a href="javascript:toast('打开预览','info')" class="btn-text">预览</a></td></tr>
+                <tr><td>主卧 3D 意向</td><td>720°</td><td>V1.0</td><td>王五</td><td>2026-07-09 15:00</td><td><span class="tag tag-success">客户确认</span></td><td style="text-align:right;"><a href="javascript:toast('打开720°','info')" class="btn-text">720°预览</a></td></tr>
+                <tr><td>需求文档</td><td>PDF</td><td>V1</td><td>赵六</td><td>2026-07-07 10:20</td><td><span class="tag tag-success">已归档</span></td><td style="text-align:right;"><a href="javascript:toast('下载中','info')" class="btn-text">下载</a></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Files -->
+          <div class="tab-panel" data-panel="files">
+            <div class="empty" style="padding:40px 0;">
+              <div class="empty-illustration" style="width:60px;height:60px;">📁</div>
+              <div class="empty-title">文件归档区</div>
+              <div class="empty-desc">跳转到 <a href="./files.html">文件归档</a> 查看完整树状目录</div>
+            </div>
+          </div>
+
+          <!-- Log -->
+          <div class="tab-panel" data-panel="log">
+            <div class="timeline">
+              <div class="timeline-item success"><div class="timeline-title">3D 意向被客户确认</div><div class="timeline-time">今天 14:20 · 协调员 赵六</div></div>
+              <div class="timeline-item"><div class="timeline-title">张三 上传平面 V3.2</div><div class="timeline-time">今天 14:20 · 2D 张三</div></div>
+              <div class="timeline-item customer"><div class="timeline-title">客户批注：主卧衣柜移 30cm、书房加书桌</div><div class="timeline-time">今天 14:00 · 客户 张先生</div></div>
+              <div class="timeline-item"><div class="timeline-title">王负责人 安排 3D 王五加入项目</div><div class="timeline-time">昨天 16:30 · 设计负责人</div></div>
+              <div class="timeline-item warning"><div class="timeline-title">系统预警：平面阶段耗时超基准 15%</div><div class="timeline-time">昨天 09:00 · 系统</div></div>
+              <div class="timeline-item"><div class="timeline-title">项目立项，PM 许光创建</div><div class="timeline-time">2026-06-20 · PM 许光</div></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/js/utils.js"></script>
+  <script src="../assets/js/mock-data.js"></script>
+  <script src="../assets/js/shell.js"></script>
+  <script>
+    (function () {
+      const pid = getQuery('id') || 'p001';
+      const p = MOCK.getProject(pid) || MOCK.PROJECTS[0];
+      const cust = MOCK.getCustomer(p.customer);
+
+      document.getElementById('bc-name').textContent = p.name;
+      document.title = p.name + ' · 项目详情';
+
+      // Title bar
+      document.getElementById('title-bar').innerHTML = `
+        <div>
+          <div class="page-title">${p.name}
+            <span class="tag ${p.urgency === '紧急' ? 'tag-danger' : p.urgency === '加急' ? 'tag-warning' : 'tag-brand'}" style="margin-left:8px;">${p.urgency}</span>
+          </div>
+          <div class="page-title-desc">${p.code} · ${p.type} · ${p.region} · ${p.area} ㎡ · 客户 ${cust.name}</div>
+        </div>
+        <div class="flex gap-2">
+          <button class="btn btn-default" onclick="toast('已加入关注','success')">☆ 关注</button>
+          <button class="btn btn-default" onclick="toast('已订阅变更通知','success')">🔔 订阅变更</button>
+          <button class="btn btn-primary" onclick="location.href='../ops/assign-board.html?project=${p.id}'">👥 分单 / 改派</button>
+        </div>
+      `;
+
+      // Header
+      document.getElementById('detail-header').innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div>
+            <div style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;">当前阶段</div>
+            <div style="font-size:20px;font-weight:600;">${p.stage} <span class="tag tag-brand" style="margin-left:6px;font-size:12px;">进行中</span></div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:13px;color:var(--text-secondary);">项目进度</div>
+            <div style="font-size:24px;font-weight:700;color:var(--brand-primary);font-family:var(--font-mono);">${p.progress}%</div>
+          </div>
+        </div>
+        <div class="progress progress-lg" style="margin-top:12px;"><div class="progress-bar ${p.risk === 'danger' ? 'danger' : p.risk === 'warning' ? 'warning' : 'success'}" style="width:${p.progress}%"></div></div>
+        <div class="detail-kpis">
+          <div class="kpi"><div class="kpi-l">团队规模</div><div class="kpi-v">${p.team.length} 人</div></div>
+          <div class="kpi"><div class="kpi-l">变更次数</div><div class="kpi-v">${p.changesCount}</div></div>
+          <div class="kpi"><div class="kpi-l">交付物</div><div class="kpi-v">${p.deliverables} 件</div></div>
+          <div class="kpi"><div class="kpi-l">已用工时</div><div class="kpi-v">128 h</div></div>
+          <div class="kpi"><div class="kpi-l">预算</div><div class="kpi-v">¥${p.budget} 万</div></div>
+          <div class="kpi"><div class="kpi-l">距截止</div><div class="kpi-v" style="color:${p.risk === 'danger' ? 'var(--danger)' : ''};">${Math.max(0, Math.ceil((new Date(p.deadline) - new Date()) / 86400000))} 天</div></div>
+        </div>
+      `;
+
+      // Overview
+      document.getElementById('panel-overview').innerHTML = `
+        <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;">
+          <div>
+            <h4 style="font-size:14px;margin-bottom:12px;">🎯 里程碑速览</h4>
+            <div class="milestone-bar">
+              ${MOCK.MILESTONE_TEMPLATE.map((m, i) => {
+        const state = i < 3 ? 'done' : i === 3 ? 'active' : (i === 4 && p.risk === 'warning' ? 'late' : '');
+        return `<div class="ms-node ${state}"><div class="ms-t">MS-${i + 1}</div><div class="ms-l">${m.name}</div><div class="ms-d">${m.deliverable}</div></div>`;
+      }).join('')}
+            </div>
+            <h4 style="font-size:14px;margin-bottom:12px;">📊 阶段耗时（对比基准）</h4>
+            <div style="display:flex;gap:12px;">
+              <div class="card" style="flex:1;padding:16px;"><div class="text-sm text-secondary">需求收集</div><div style="display:flex;justify-content:space-between;margin-top:4px;"><span>2 天</span><span class="text-success text-sm">✓ 达标</span></div></div>
+              <div class="card" style="flex:1;padding:16px;"><div class="text-sm text-secondary">平面阶段</div><div style="display:flex;justify-content:space-between;margin-top:4px;"><span>7 天</span><span class="text-warning text-sm">▲ 超 15%</span></div></div>
+              <div class="card" style="flex:1;padding:16px;"><div class="text-sm text-secondary">3D意向</div><div style="display:flex;justify-content:space-between;margin-top:4px;"><span>进行中</span><span class="text-info text-sm">🕐 3 天</span></div></div>
+            </div>
+          </div>
+          <div>
+            <h4 style="font-size:14px;margin-bottom:12px;">👥 核心团队</h4>
+            ${p.team.map(id => {
+        const d = MOCK.getDesigner(id);
+        return `<div class="member-item">
+                <div class="avatar" data-color="${colorFrom(d.name)}">${initials(d.name)}</div>
+                <div style="margin-left:12px;flex:1;">
+                  <div style="font-weight:500;">${d.name}</div>
+                  <div class="text-sm text-secondary">${d.role} · ${d.level}</div>
+                </div>
+                <span class="tag tag-info">在线</span>
+              </div>`;
+      }).join('')}
+          </div>
+        </div>
+      `;
+
+      // Team
+      const team2D = p.team.filter(id => MOCK.getDesigner(id).role === '2D');
+      const team3D = p.team.filter(id => MOCK.getDesigner(id).role === '3D');
+      const teamCoord = p.team.filter(id => MOCK.getDesigner(id).role === '协调员');
+      document.getElementById('panel-team').innerHTML = `
+        <div class="team-role">
+          <h4>🎨 2D 平面设计师 (${team2D.length})<button class="btn btn-default btn-sm" onclick="toast('打开智能分单/改派','info')">+ 添加</button></h4>
+          ${team2D.map(id => {
+        const d = MOCK.getDesigner(id);
+        return `<div class="member-item">
+              <div class="avatar" data-color="${colorFrom(d.name)}">${initials(d.name)}</div>
+              <div style="margin-left:12px;flex:1;">
+                <div style="font-weight:500;">${d.name} <span class="tag tag-brand">${d.level}</span></div>
+                <div class="text-sm text-secondary">负责空间：客厅、餐厅、主卧 · 76 ㎡ · 已用 32h</div>
+              </div>
+              <button class="btn btn-ghost btn-sm" onclick="toast('工作台快照','info')">📊 快照</button>
+              <button class="btn btn-ghost btn-sm" onclick="toast('改派确认弹窗','info')">🔄 改派</button>
+            </div>`;
+      }).join('') || '<div class="text-secondary text-sm">尚未分配 2D 设计师</div>'}
+        </div>
+        <div class="team-role">
+          <h4>🖼 3D 效果图设计师 (${team3D.length})<button class="btn btn-default btn-sm">+ 添加</button></h4>
+          ${team3D.map(id => {
+        const d = MOCK.getDesigner(id);
+        return `<div class="member-item">
+              <div class="avatar" data-color="${colorFrom(d.name)}">${initials(d.name)}</div>
+              <div style="margin-left:12px;flex:1;">
+                <div style="font-weight:500;">${d.name} <span class="tag tag-brand">${d.level}</span></div>
+                <div class="text-sm text-secondary">负责空间：主卧、客厅 · 意向阶段 · 已用 24h</div>
+              </div>
+              <button class="btn btn-ghost btn-sm">📊 快照</button>
+              <button class="btn btn-ghost btn-sm">🔄 改派</button>
+            </div>`;
+      }).join('') || '<div class="text-secondary text-sm">尚未分配 3D 设计师</div>'}
+        </div>
+        <div class="team-role">
+          <h4>🧭 协调员 & PM (${teamCoord.length + 1})</h4>
+          ${teamCoord.map(id => {
+        const d = MOCK.getDesigner(id);
+        return `<div class="member-item">
+              <div class="avatar" data-color="${colorFrom(d.name)}">${initials(d.name)}</div>
+              <div style="margin-left:12px;flex:1;">
+                <div style="font-weight:500;">${d.name} <span class="tag tag-purple">${d.role}</span></div>
+                <div class="text-sm text-secondary">客户沟通、需求整理、交付确认</div>
+              </div>
+            </div>`;
+      }).join('')}
+          <div class="member-item">
+            <div class="avatar" data-color="3">许</div>
+            <div style="margin-left:12px;flex:1;">
+              <div style="font-weight:500;">许光 <span class="tag tag-info">PM</span></div>
+              <div class="text-sm text-secondary">销售负责人 · 东南亚</div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Milestone
+      document.getElementById('panel-milestone').innerHTML = `
+        <div style="margin-bottom:16px;">
+          <h4>📅 里程碑详情（含每次修改）</h4>
+          <div class="text-sm text-secondary">符号：✅ 已完成 · 🔵 进行中 · ⏳ 待开始 · 💬 客户反馈 · 🔄 修改记录</div>
+        </div>
+        ${MOCK.MILESTONE_TEMPLATE.map((m, i) => {
+        const done = i < 3;
+        const active = i === 3;
+        return `
+          <div class="card" style="margin-bottom:12px;">
+            <div style="display:flex;align-items:center;padding:16px 20px;background:${done ? 'var(--success-bg)' : active ? 'var(--brand-primary-bg)' : 'var(--bg-hover)'};border-radius:8px 8px 0 0;">
+              <div style="width:32px;height:32px;border-radius:50%;background:white;display:flex;align-items:center;justify-content:center;font-weight:600;color:${done ? 'var(--success)' : active ? 'var(--brand-primary)' : 'var(--text-secondary)'};">MS${i + 1}</div>
+              <div style="margin-left:12px;flex:1;">
+                <div style="font-weight:600;">${done ? '✅ ' : active ? '🔵 ' : '⏳ '}${m.name}</div>
+                <div class="text-sm text-secondary">${m.role} · 交付物：${m.deliverable}</div>
+              </div>
+              <div class="text-sm text-secondary">${done ? '2026-07-08 完成' : active ? '进行中 · 3 天' : '待开始'}</div>
+            </div>
+            ${active ? `
+              <div style="padding:16px 20px;">
+                <div class="timeline">
+                  <div class="timeline-item"><div class="timeline-title">🔄 平面 V3.2 · 张三</div><div class="timeline-time">今天 14:20 · 修改主卧衣柜、书房增加书桌</div></div>
+                  <div class="timeline-item customer"><div class="timeline-title">💬 客户批注 · 张先生</div><div class="timeline-time">今天 14:00 · 主卧衣柜向左移 30cm，书房加一张书桌</div></div>
+                  <div class="timeline-item"><div class="timeline-title">🔄 平面 V3.1 · 张三</div><div class="timeline-time">昨天 18:45 · 客厅沙发朝向调整</div></div>
+                  <div class="timeline-item"><div class="timeline-title">🔄 平面 V3.0 · 郑一（协调员整理反馈）</div><div class="timeline-time">昨天 10:00</div></div>
+                  <div class="timeline-item"><div class="timeline-title">🔄 平面 V2.0 · 张三</div><div class="timeline-time">2 天前 · 户型分区重新调整</div></div>
+                  <div class="timeline-item"><div class="timeline-title">🔄 平面 V1.0 · 张三</div><div class="timeline-time">4 天前 · 首版方案</div></div>
+                </div>
+              </div>
+            ` : ''}
+          </div>`;
+      }).join('')}
+      `;
+
+      // Version
+      document.getElementById('panel-version').innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <h4>🕐 版本管理与溯源</h4>
+          <div style="display:flex;gap:8px;">
+            <select class="filter-select">
+              <option>全部交付物</option><option>平面布局</option><option>3D 意向</option><option>全屋 3D</option>
+            </select>
+            <button class="btn btn-default" onclick="toast('对比 V3.1 vs V3.2','info')">↔ 版本对比</button>
+          </div>
+        </div>
+        <div class="version-tree">
+          ${MOCK.VERSIONS.filter(v => v.project === p.id).map(v => {
+        const d = MOCK.getDesigner(v.designer);
+        return `<div class="version-node ${v.major === 3 && v.minor === 2 ? '' : v.major < 3 ? 'confirmed' : ''}">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+              <div>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                  <span class="version-tag">${v.deliverable} V${v.major}.${v.minor}</span>
+                  <span class="text-sm text-secondary">${v.ts}</span>
+                  <span class="text-sm text-secondary">· 耗时 ${v.duration}</span>
+                </div>
+                <div class="text-sm">🎨 修改人：<b>${d.name}</b> · ${d.role}</div>
+                ${v.feedback ? `<div class="text-sm text-secondary" style="margin-top:6px;">💬 反馈：${v.feedback}</div>` : ''}
+                ${v.changes.length ? `<div style="margin-top:8px;">
+                  ${v.changes.map(c => `<div style="font-size:13px;margin-top:4px;">
+                    🔄 <b>${c.space}</b>：${c.points.join('；')}
+                  </div>`).join('')}
+                </div>` : ''}
+              </div>
+              <div style="display:flex;gap:6px;">
+                <button class="btn btn-default btn-sm" onclick="toast('打开 V${v.major}.${v.minor} 预览','info')">预览</button>
+                <button class="btn btn-ghost btn-sm" onclick="toast('已设为里程碑版本','success')">📌 里程碑</button>
+              </div>
+            </div>
+          </div>`;
+      }).join('')}
+        </div>
+      `;
+
+      // Collab
+      document.getElementById('panel-collab').innerHTML = `
+        <div class="collab-layout">
+          <div>
+            <h4 style="margin-bottom:12px;">💬 协作评论</h4>
+            <div class="comment-item">
+              <div class="head">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <div class="avatar sm" data-color="3">赵</div>
+                  <b>赵六（协调员）</b>
+                  <span class="text-sm text-secondary">今天 14:20</span>
+                </div>
+                <button class="btn btn-text btn-xs">回复</button>
+              </div>
+              <div class="body">@张三 客户对平面 V3.2 主卧的调整很满意，但书房希望再加一个储物柜，位置见批注。</div>
+            </div>
+            <div class="comment-item" style="margin-left:32px;">
+              <div class="head">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <div class="avatar sm" data-color="1">张</div>
+                  <b>张三</b>
+                  <span class="text-sm text-secondary">今天 15:10</span>
+                </div>
+              </div>
+              <div class="body">收到，今晚出 V3.3</div>
+            </div>
+            <div class="comment-item">
+              <div class="head">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <div class="avatar sm" data-color="5">王</div>
+                  <b>王五（3D）</b>
+                  <span class="text-sm text-secondary">昨天 16:30</span>
+                </div>
+              </div>
+              <div class="body">主卧 720° 已上传，等客户回应我再排剩余空间</div>
+            </div>
+            <div style="margin-top:16px;">
+              <textarea class="textarea" placeholder="@ 提及成员 或 撰写评论..."></textarea>
+              <div style="text-align:right;margin-top:8px;">
+                <button class="btn btn-primary" onclick="toast('评论已发送','success')">发布评论</button>
+              </div>
+            </div>
+          </div>
+          <div>
+            <h4 style="margin-bottom:12px;">🟢 当前在线</h4>
+            ${p.team.slice(0, 3).map(id => {
+        const d = MOCK.getDesigner(id);
+        return `<div class="member-item">
+                <div class="avatar sm" data-color="${colorFrom(d.name)}">${initials(d.name)}</div>
+                <div style="margin-left:8px;flex:1;">
+                  <div style="font-size:13px;font-weight:500;">${d.name}</div>
+                  <div style="font-size:11px;color:var(--text-secondary);">正在查看 平面 V3.2</div>
+                </div>
+                <span class="online-dot"></span>
+              </div>`;
+      }).join('')}
+            <h4 style="margin:20px 0 12px;">📢 变更通知订阅</h4>
+            <div class="text-sm text-secondary">已订阅 5 类变更：里程碑推进 / 版本更新 / 客户批注 / 团队变动 / 交付评审</div>
+            <button class="btn btn-default btn-sm" style="width:100%;margin-top:8px;" onclick="toast('已取消所有订阅','info')">取消订阅</button>
+          </div>
+        </div>
+      `;
+
+      // Tab 切换
+      document.querySelectorAll('.tab-item').forEach(t => {
+        t.addEventListener('click', () => {
+          document.querySelectorAll('.tab-item').forEach(x => x.classList.remove('active'));
+          document.querySelectorAll('.tab-panel').forEach(x => x.classList.remove('active'));
+          t.classList.add('active');
+          document.querySelector('[data-panel="' + t.dataset.tab + '"]').classList.add('active');
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

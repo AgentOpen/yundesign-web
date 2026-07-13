@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>审计日志 · 敬城设计云</title>
+  <link rel="stylesheet" href="../assets/css/tokens.css" />
+  <link rel="stylesheet" href="../assets/css/base.css" />
+  <link rel="stylesheet" href="../assets/css/layout.css" />
+  <link rel="stylesheet" href="../assets/css/components.css" />
+</head>
+<body>
+  <div class="page">
+    <div class="page-header">
+      <div class="page-breadcrumb">
+        <a href="../workbench/dashboard.html">工作台</a><span class="sep">/</span>
+        <span class="current">审计日志</span>
+      </div>
+      <div class="page-title-bar">
+        <div>
+          <div class="page-title">审计日志</div>
+          <div class="page-title-desc">分单、改派、定价、分成规则、结算等关键操作全程留痕（对应 7.3 操作审计）</div>
+        </div>
+        <button class="btn btn-default" onclick="toast('日志已导出','success')">导出日志</button>
+      </div>
+    </div>
+
+    <div class="page-body">
+      <div class="filter-bar" style="margin-bottom:16px;">
+        <div class="filter-item"><select class="filter-select" id="f-cat">
+          <option value="">全部类别</option><option>分单</option><option>改派</option><option>定价</option><option>分成规则</option><option>核算结算</option><option>审批</option>
+        </select></div>
+        <div class="filter-item" style="flex:1;"><input class="filter-search" id="f-search" placeholder="搜索操作人 / 对象 / 内容" style="width:100%;" /></div>
+      </div>
+
+      <div class="card">
+        <div class="card-body" style="padding:0;">
+          <table class="data-table">
+            <thead><tr><th>时间</th><th>操作人</th><th>类别</th><th>操作对象</th><th>操作内容</th></tr></thead>
+            <tbody id="log-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/js/utils.js"></script>
+  <script src="../assets/js/mock-data.js"></script>
+  <script src="../assets/js/shell.js"></script>
+  <script>
+    (function () {
+      const catTag = { '分单': 'tag-brand', '改派': 'tag-warning', '定价': 'tag-info', '分成规则': 'tag-purple', '核算结算': 'tag-success', '审批': 'tag-info' };
+      // 动态产生的操作（分单等）置顶
+      const dynamic = (MOCK.AUDIT_LOGS || []).map(l => [l.ts, l.actor, l.cat, l.target, l.detail]);
+      const logs = [
+        ...dynamic,
+        ['2026-07-11 14:32', '王负责人', '分单', 'D-20260710-002 中东豪宅', '分派 2D 张三 / 3D 王五 / 协调员赵六，多空间分区'],
+        ['2026-07-11 11:20', '王负责人', '改派', 'D-20260709-002 Sunny Villa', '将 2D 由孙八改派给李四（原因：孙八过载 40%→系统推荐）'],
+        ['2026-07-11 10:20', '系统', '核算结算', 'P-20260620-008 万科样板房', '触发分成自动核算，生成 2 条核算明细'],
+        ['2026-07-10 18:05', '刘总监', '审批', 'CM-2026-07 分成核算', '复核通过李四 ¥20,790 分成'],
+        ['2026-07-10 16:40', '王负责人', '定价', '全案设计基准价', '海外系数由 1.2 调整为 1.25，生成 v3'],
+        ['2026-07-10 15:00', '王负责人', '分成规则', '曼谷别墅组', '团队二次分配：组长 40% / 组员 60%'],
+        ['2026-07-09 15:20', '许光(PM)', '分单', 'D-20260707-001 张宅全案', 'CRM 接单自动创建设计项目 P-20260620-001'],
+        ['2026-07-09 09:15', '财务-陈', '核算结算', 'CM-2026-06 批次', '推送 ERP 应付凭证，标记已结算'],
+        ['2026-07-08 17:30', '刘总监', '审批', '分成规则变更', '与分单管理员双重审批通过，下月 1 日生效']
+      ];
+      let fCat = '', fSearch = '';
+      function render() {
+        const list = logs.filter(l => (!fCat || l[2] === fCat) && (!fSearch || (l[1] + l[3] + l[4]).toLowerCase().includes(fSearch.toLowerCase())));
+        document.getElementById('log-body').innerHTML = list.length ? list.map(l => `<tr>
+          <td class="text-sm text-secondary" style="white-space:nowrap;">${l[0]}</td>
+          <td style="font-weight:500;">${l[1]}</td>
+          <td><span class="tag ${catTag[l[2]] || ''}">${l[2]}</span></td>
+          <td>${l[3]}</td>
+          <td class="text-sm text-secondary">${l[4]}</td>
+        </tr>`).join('') : `<tr><td colspan="5"><div class="empty"><div class="empty-title">无匹配日志</div></div></td></tr>`;
+      }
+      document.getElementById('f-cat').addEventListener('change', e => { fCat = e.target.value; render(); });
+      document.getElementById('f-search').addEventListener('input', debounce(e => { fSearch = e.target.value; render(); }, 200));
+      render();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>分成规则 · 敬城设计云</title>
+  <link rel="stylesheet" href="../assets/css/tokens.css" />
+  <link rel="stylesheet" href="../assets/css/base.css" />
+  <link rel="stylesheet" href="../assets/css/layout.css" />
+  <link rel="stylesheet" href="../assets/css/components.css" />
+  <style>
+    .tab-panel { display: none; } .tab-panel.active { display: block; }
+    .grade-bar { display: flex; gap: 10px; flex-wrap: wrap; }
+    .grade-chip { flex: 1; min-width: 130px; border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px; text-align: center; }
+    .grade-chip .gc-lvl { font-size: 18px; font-weight: 700; color: var(--brand-primary); }
+    .grade-chip .gc-name { font-size: 13px; margin: 4px 0; }
+    .grade-chip .gc-rate { font-size: 22px; font-weight: 700; }
+    .tpl-card { border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; cursor: pointer; transition: var(--transition-fast); }
+    .tpl-card:hover { border-color: var(--brand-primary); }
+    .tpl-card.active { border-color: var(--brand-primary); background: var(--brand-primary-bg); }
+    .seg-bar { display: flex; height: 26px; border-radius: var(--radius-md); overflow: hidden; margin-top: 10px; }
+    .seg { display: flex; align-items: center; justify-content: center; color: white; font-size: 11px; font-weight: 600; }
+    .factor-card { border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; }
+    .factor-card h4 { font-size: 14px; margin-bottom: 10px; }
+    .factor-line { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; border-bottom: 1px dashed var(--divider); }
+    .factor-line:last-child { border-bottom: none; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="page-header">
+      <div class="page-breadcrumb">
+        <a href="../workbench/dashboard.html">工作台</a><span class="sep">/</span>
+        <span class="current">M10 · 分成规则</span>
+      </div>
+      <div class="page-title-bar">
+        <div>
+          <div class="page-title">分成规则配置</div>
+          <div class="page-title-desc">设计师等级 · 分成模板 · 个人/团队规则 · 调节系数（FR-M10-16 ~ 20），变更需双重审批并可版本回溯</div>
+        </div>
+        <button class="btn btn-primary" onclick="toast('规则已提交审批，将于下月 1 日生效','success')">提交生效</button>
+      </div>
+    </div>
+
+    <div class="page-body">
+      <div class="pill-tabs" style="margin-bottom:20px;">
+        <div class="pill-tab active" data-tab="grade">设计师等级</div>
+        <div class="pill-tab" data-tab="tpl">分成模板</div>
+        <div class="pill-tab" data-tab="team">个人 / 团队</div>
+        <div class="pill-tab" data-tab="factor">调节系数</div>
+      </div>
+
+      <!-- 等级 -->
+      <div class="tab-panel active" id="panel-grade">
+        <div class="card">
+          <div class="card-header"><div class="card-title">等级体系与基准分成比例</div><span class="text-sm text-secondary">按季度晋级评审</span></div>
+          <div class="card-body"><div class="grade-bar" id="grade-bar"></div></div>
+        </div>
+        <div class="card" style="margin-top:16px;">
+          <div class="card-header"><div class="card-title">设计师等级分布</div></div>
+          <div class="card-body" style="padding:0;">
+            <table class="data-table">
+              <thead><tr><th>设计师</th><th>角色</th><th>当前等级</th><th>基准分成</th><th>近 3 月均分</th><th class="col-actions">操作</th></tr></thead>
+              <tbody id="grade-list"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- 模板 -->
+      <div class="tab-panel" id="panel-tpl">
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;" id="tpl-grid"></div>
+      </div>
+
+      <!-- 个人/团队 -->
+      <div class="tab-panel" id="panel-team">
+        <div class="card">
+          <div class="card-header"><div class="card-title">个人 / 团队分成规则</div><span class="text-sm text-secondary">可切换个人独立结算或团队二次分配</span></div>
+          <div class="card-body" style="padding:0;">
+            <table class="data-table">
+              <thead><tr><th>对象</th><th>模式</th><th>适用模板</th><th>基准比例</th><th>团队二次分配</th><th class="col-actions">操作</th></tr></thead>
+              <tbody id="team-list"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- 调节系数 -->
+      <div class="tab-panel" id="panel-factor">
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;">
+          <div class="factor-card"><h4>① 质量系数（基于评分 0.8~1.2）</h4>
+            <div class="factor-line"><span>评分 ≥ 4.8</span><b style="color:var(--success);">×1.2</b></div>
+            <div class="factor-line"><span>4.5 ~ 4.7</span><b>×1.1</b></div>
+            <div class="factor-line"><span>4.0 ~ 4.4</span><b>×1.0</b></div>
+            <div class="factor-line"><span>< 4.0</span><b style="color:var(--danger);">×0.8</b></div>
+          </div>
+          <div class="factor-card"><h4>② 时效系数</h4>
+            <div class="factor-line"><span>提前 ≥ 3 天</span><b style="color:var(--success);">×1.1</b></div>
+            <div class="factor-line"><span>按时完成</span><b>×1.0</b></div>
+            <div class="factor-line"><span>延期 > 3 天</span><b style="color:var(--danger);">×0.9</b></div>
+          </div>
+          <div class="factor-card"><h4>③ 客户满意度系数</h4>
+            <div class="factor-line"><span>非常满意</span><b style="color:var(--success);">×1.05</b></div>
+            <div class="factor-line"><span>满意</span><b>×1.0</b></div>
+            <div class="factor-line"><span>不满意</span><b style="color:var(--danger);">×0.85</b></div>
+          </div>
+          <div class="factor-card"><h4>④ 回款系数</h4>
+            <div class="factor-line"><span>全款付清</span><b style="color:var(--success);">×1.0</b></div>
+            <div class="factor-line"><span>回款 80%</span><b>×0.8</b></div>
+            <div class="factor-line"><span>回款 50%</span><b style="color:var(--danger);">×0.5</b></div>
+          </div>
+        </div>
+        <div class="text-sm text-secondary" style="margin-top:14px;line-height:1.7;">
+          实分金额 = 应分金额 × 质量系数 × 时效系数 × 满意度系数 × 回款系数。各系数权重可配置，规则变更完整留痕。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/js/utils.js"></script>
+  <script src="../assets/js/mock-data.js"></script>
+  <script src="../assets/js/shell.js"></script>
+  <script>
+    (function () {
+      document.querySelectorAll('.pill-tab').forEach(t => t.addEventListener('click', () => {
+        document.querySelectorAll('.pill-tab').forEach(x => x.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(x => x.classList.remove('active'));
+        t.classList.add('active');
+        document.getElementById('panel-' + t.dataset.tab).classList.add('active');
+      }));
+
+      const grades = [
+        { lvl: 'L1', name: '见习', rate: 25 }, { lvl: 'L2', name: '初级', rate: 30 },
+        { lvl: 'L3', name: '中级', rate: 40 }, { lvl: 'L4', name: '高级', rate: 50 },
+        { lvl: 'L5', name: '资深', rate: 55 }, { lvl: 'L6', name: '总监', rate: 60 }
+      ];
+      const rateOf = lvl => (grades.find(g => g.lvl === lvl) || { rate: '-' }).rate;
+      document.getElementById('grade-bar').innerHTML = grades.map(g => `<div class="grade-chip"><div class="gc-lvl">${g.lvl}</div><div class="gc-name">${g.name}</div><div class="gc-rate">${g.rate}%</div></div>`).join('');
+
+      const designers = MOCK.DESIGNERS.filter(d => ['2D', '3D', '协调员'].includes(d.role));
+      document.getElementById('grade-list').innerHTML = designers.map(d => `<tr>
+        <td><div style="display:flex;align-items:center;gap:8px;"><div class="avatar sm" data-color="${colorFrom(d.name)}">${initials(d.name)}</div>${d.name}</div></td>
+        <td>${d.role}</td>
+        <td><span class="tag tag-brand">${d.level}</span></td>
+        <td><b>${rateOf(d.level)}%</b></td>
+        <td>¥${formatMoney(d.monthCommission)}</td>
+        <td class="col-actions"><button class="btn btn-xs btn-text" onclick="toast('提名 ${d.name} 晋级评审','info')">晋级提名</button></td>
+      </tr>`).join('');
+
+      // 模板
+      const tpls = [
+        { name: '按阶段分成', segs: [['量尺', 5], ['全案', 20], ['深化', 30], ['BOM', 15], ['效果图', 10], ['配合', 10], ['审核', 10]], def: true },
+        { name: '按品类分成', segs: [['定制柜', 40], ['门窗', 25], ['卫浴', 20], ['软装', 15]] },
+        { name: '按角色分成', segs: [['主设计', 60], ['辅助', 30], ['审核', 10]] },
+        { name: '混合模式', segs: [['阶段', 50], ['品类', 30], ['角色', 20]] }
+      ];
+      const colors = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#06B6D4', '#EF4444', '#6366F1'];
+      document.getElementById('tpl-grid').innerHTML = tpls.map((t, ti) => `<div class="tpl-card ${t.def ? 'active' : ''}" data-ti="${ti}">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <b>${t.name}</b>${t.def ? '<span class="tag tag-brand">默认</span>' : ''}
+        </div>
+        <div class="seg-bar">${t.segs.map((s, i) => `<div class="seg" style="width:${s[1]}%;background:${colors[i % colors.length]};" title="${s[0]} ${s[1]}%">${s[1] >= 12 ? s[0] : ''}</div>`).join('')}</div>
+        <div class="text-sm text-secondary" style="margin-top:8px;">${t.segs.map(s => s[0] + ' ' + s[1] + '%').join(' · ')}</div>
+      </div>`).join('');
+      document.querySelectorAll('.tpl-card').forEach(c => c.addEventListener('click', () => {
+        document.querySelectorAll('.tpl-card').forEach(x => x.classList.remove('active'));
+        c.classList.add('active');
+        toast('已设为默认分成模板：' + tpls[+c.dataset.ti].name, 'success');
+      }));
+
+      // 个人/团队
+      const team = [
+        { name: '张三', mode: '个人独立', tpl: '按阶段分成', rate: '50%', second: '-' },
+        { name: '曼谷别墅组', mode: '团队分成', tpl: '按角色分成', rate: '团队 55%', second: '组长 40% / 组员均分 60%' },
+        { name: '王五', mode: '个人独立', tpl: '按阶段分成', rate: '55%', second: '-' },
+        { name: '上海家装组', mode: '团队分成', tpl: '混合模式', rate: '团队 45%', second: '按工时占比分配' }
+      ];
+      document.getElementById('team-list').innerHTML = team.map(t => `<tr>
+        <td style="font-weight:500;">${t.name}</td>
+        <td><span class="tag ${t.mode === '团队分成' ? 'tag-purple' : 'tag-info'}">${t.mode}</span></td>
+        <td>${t.tpl}</td><td><b>${t.rate}</b></td><td class="text-sm text-secondary">${t.second}</td>
+        <td class="col-actions"><button class="btn btn-xs btn-text" onclick="toast('编辑 ${t.name} 分成规则','info')">编辑</button></td>
+      </tr>`).join('');
+    })();
+  </script>
+</body>
+</html>

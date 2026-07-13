@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>运营总览 · 敬城设计云</title>
+  <link rel="stylesheet" href="../assets/css/tokens.css" />
+  <link rel="stylesheet" href="../assets/css/base.css" />
+  <link rel="stylesheet" href="../assets/css/layout.css" />
+  <link rel="stylesheet" href="../assets/css/components.css" />
+  <style>
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    .ov-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+    @media (max-width: 1100px) { .ov-grid { grid-template-columns: repeat(2, 1fr); } }
+    .flow-mini { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin: 4px 0 8px; }
+    .flow-mini .f-step { padding: 5px 12px; background: var(--bg-page); border: 1px solid var(--divider); border-radius: var(--radius-md); font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
+    .flow-mini .f-step.hot { background: var(--brand-primary-bg); border-color: #BCD0FA; color: var(--brand-primary); font-weight: 500; }
+    .flow-mini .f-arrow { color: var(--text-placeholder); }
+
+    .two-col { display: grid; grid-template-columns: 1.6fr 1fr; gap: 16px; }
+    @media (max-width: 1000px) { .two-col { grid-template-columns: 1fr; } }
+
+    .funnel-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+    .funnel-row .fr-label { width: 88px; font-size: 13px; color: var(--text-secondary); flex-shrink: 0; }
+    .funnel-row .fr-track { flex: 1; height: 26px; background: var(--bg-page); border-radius: var(--radius-md); overflow: hidden; }
+    .funnel-row .fr-fill { height: 100%; border-radius: var(--radius-md); display: flex; align-items: center; padding: 0 10px; color: white; font-size: 12px; font-weight: 600; min-width: 34px; }
+    .funnel-row .fr-count { width: 40px; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+    .rank-item { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--divider); }
+    .rank-item:last-child { border-bottom: none; }
+    .rank-num { width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: white; background: var(--brand-primary); flex-shrink: 0; }
+    .rank-num.gold { background: #D97706; } .rank-num.silver { background: #6B7280; } .rank-num.bronze { background: #92400E; }
+
+    /* 人效看板 */
+    .eff-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px; }
+    @media (max-width: 900px) { .eff-summary { grid-template-columns: repeat(2, 1fr); } }
+    .eff-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; display: flex; align-items: center; gap: 14px; }
+    .eff-card .ec-dot { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+    .eff-card .ec-num { font-size: 26px; font-weight: 700; line-height: 1; }
+    .eff-card .ec-label { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+
+    .dcard-wall { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+    .dcard { border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px; cursor: pointer; transition: var(--transition-fast); background: var(--bg-card); }
+    .dcard:hover { border-color: var(--brand-primary); box-shadow: var(--shadow-hover); }
+    .dcard .dc-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .dcard .dc-name { font-weight: 600; }
+    .dcard .dc-sub { font-size: 11px; color: var(--text-secondary); }
+    .dcard .load-bar { height: 6px; background: var(--bg-page); border-radius: 3px; overflow: hidden; margin: 8px 0 6px; }
+    .dcard .load-fill { height: 100%; }
+    .status-chip { font-size: 11px; padding: 1px 8px; border-radius: var(--radius-round); font-weight: 500; margin-left: auto; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="page-header">
+      <div class="page-breadcrumb">
+        <a href="../workbench/dashboard.html">工作台</a>
+        <span class="sep">/</span>
+        <span class="current">M9 · 运营总览</span>
+      </div>
+      <div class="page-title-bar">
+        <div>
+          <div class="page-title">运营总览</div>
+          <div class="page-title-desc">设计中心全局视图 · 项目进度与人力效能一屏总览（对应 FR-M09 项目管理与协作）</div>
+        </div>
+        <div class="flex gap-2">
+          <span class="text-sm text-secondary" id="ov-clock" style="align-self:center;"></span>
+          <a href="./list.html" class="btn btn-default">项目列表</a>
+          <a href="../ops/order-pool.html" class="btn btn-primary">设计单池</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="page-body">
+      <div class="tabs" style="margin-bottom:16px;">
+        <div class="tab-item active" data-tab="pm">项目看板</div>
+        <div class="tab-item" data-tab="hr">人效看板</div>
+      </div>
+
+      <!-- ===== 项目看板 ===== -->
+      <div class="tab-panel active" id="panel-pm">
+        <div class="ov-grid" style="margin-bottom:16px;">
+          <div class="stat-card"><div class="stat-icon" style="background:var(--brand-primary-bg);color:var(--brand-primary);">项</div><div><div class="stat-value" id="k-total">0</div><div class="stat-label">全部项目</div></div></div>
+          <div class="stat-card"><div class="stat-icon" style="background:var(--info-bg);color:var(--info);">进</div><div><div class="stat-value" id="k-active">0</div><div class="stat-label">进行中</div></div></div>
+          <div class="stat-card"><div class="stat-icon" style="background:var(--success-bg);color:var(--success);">交</div><div><div class="stat-value" id="k-done">0</div><div class="stat-label">已交付</div></div></div>
+          <div class="stat-card"><div class="stat-icon" style="background:var(--danger-bg);color:var(--danger);">险</div><div><div class="stat-value" id="k-risk">0</div><div class="stat-label">风险 / 超时</div></div></div>
+        </div>
+
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-body">
+            <div class="text-sm text-secondary" style="margin-bottom:8px;">标准设计流程（点击阶段可在下方项目流水线筛选）</div>
+            <div class="flow-mini" id="flow-mini"></div>
+          </div>
+        </div>
+
+        <div class="two-col">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">项目流水线</div>
+              <div class="flex gap-2">
+                <span class="text-sm text-secondary" id="pipe-filter-label"></span>
+                <button class="btn btn-sm btn-default" onclick="clearStage()">全部</button>
+              </div>
+            </div>
+            <div class="card-body" style="padding:0;">
+              <table class="data-table">
+                <thead><tr><th>项目</th><th>类型</th><th>面积</th><th>阶段</th><th>进度</th><th>风险</th></tr></thead>
+                <tbody id="pipe-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div style="display:grid;gap:16px;">
+            <div class="card">
+              <div class="card-header"><div class="card-title">阶段分布</div></div>
+              <div class="card-body" id="funnel"></div>
+            </div>
+            <div class="card">
+              <div class="card-header"><div class="card-title">设计师产出 TOP5</div></div>
+              <div class="card-body" id="top-designers"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== 人效看板 ===== -->
+      <div class="tab-panel" id="panel-hr">
+        <div class="eff-summary" id="eff-summary"></div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">设计师状态墙 <span class="text-sm text-secondary" id="eff-count"></span></div>
+            <div class="flex gap-2">
+              <select class="filter-select" id="eff-dept"><option value="">全部部门</option></select>
+              <select class="filter-select" id="eff-role">
+                <option value="">全部角色</option><option>2D</option><option>3D</option><option>协调员</option>
+              </select>
+              <select class="filter-select" id="eff-status">
+                <option value="">全部状态</option><option value="idle">空闲</option><option value="normal">正常</option><option value="busy">饱和</option><option value="over">过载</option>
+              </select>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="dcard-wall" id="dcard-wall"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/js/utils.js"></script>
+  <script src="../assets/js/mock-data.js"></script>
+  <script src="../assets/js/shell.js"></script>
+  <script>
+    (function () {
+      const P = MOCK.PROJECTS;
+      const D = MOCK.DESIGNERS.filter(d => ['2D', '3D', '协调员'].includes(d.role));
+      let stageFilter = '';
+
+      // ---- Tabs ----
+      document.querySelectorAll('.tab-item').forEach(t => {
+        t.addEventListener('click', () => {
+          document.querySelectorAll('.tab-item').forEach(x => x.classList.remove('active'));
+          document.querySelectorAll('.tab-panel').forEach(x => x.classList.remove('active'));
+          t.classList.add('active');
+          document.getElementById('panel-' + t.dataset.tab).classList.add('active');
+        });
+      });
+
+      // ---- 时钟 ----
+      function tick() {
+        const d = new Date();
+        const pad = n => String(n).padStart(2, '0');
+        document.getElementById('ov-clock').textContent = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      }
+      tick(); setInterval(tick, 30000);
+
+      // ---- 项目看板 KPI ----
+      const done = P.filter(p => p.stage === '项目完结').length;
+      const risk = P.filter(p => p.risk !== 'ok' && p.stage !== '项目完结').length;
+      document.getElementById('k-total').textContent = P.length;
+      document.getElementById('k-active').textContent = P.length - done;
+      document.getElementById('k-done').textContent = done;
+      document.getElementById('k-risk').textContent = risk;
+
+      // ---- 流程简图 ----
+      const stages = ['需求收集', '平面确认', '3D意向', '全屋3D', '项目完结'];
+      const flow = document.getElementById('flow-mini');
+      stages.forEach((s, i) => {
+        const cnt = P.filter(p => p.stage === s).length;
+        const span = document.createElement('span');
+        span.className = 'f-step' + (cnt ? ' hot' : '');
+        span.textContent = `${s} (${cnt})`;
+        span.style.cursor = 'pointer';
+        span.addEventListener('click', () => { stageFilter = (stageFilter === s ? '' : s); renderPipe(); });
+        flow.appendChild(span);
+        if (i < stages.length - 1) { const a = document.createElement('span'); a.className = 'f-arrow'; a.textContent = '→'; flow.appendChild(a); }
+      });
+
+      // ---- 项目流水线 ----
+      function riskTag(r) {
+        return r === 'danger' ? '<span class="tag tag-danger">超期</span>'
+          : r === 'warning' ? '<span class="tag tag-warning">预警</span>'
+            : '<span class="tag tag-success">正常</span>';
+      }
+      function renderPipe() {
+        const body = document.getElementById('pipe-body');
+        const rows = P.filter(p => !stageFilter || p.stage === stageFilter);
+        document.getElementById('pipe-filter-label').textContent = stageFilter ? `筛选：${stageFilter}` : '';
+        body.innerHTML = rows.map(p => {
+          const c = MOCK.getCustomer(p.customer);
+          const barCls = p.progress >= 100 ? 'success' : p.risk === 'danger' ? 'danger' : p.risk === 'warning' ? 'warning' : '';
+          return `<tr style="cursor:pointer;" onclick="location.href='./detail.html?id=${p.id}'">
+            <td><div style="font-weight:500;">${p.name}</div><div class="text-sm text-secondary">${p.code} · ${c.name}</div></td>
+            <td><span class="tag">${p.type}</span></td>
+            <td>${p.area}㎡</td>
+            <td>${p.stage}</td>
+            <td style="min-width:120px;"><div class="progress"><div class="progress-bar ${barCls}" style="width:${p.progress}%;"></div></div><div class="text-sm text-secondary" style="margin-top:2px;">${p.progress}%</div></td>
+            <td>${riskTag(p.risk)}</td>
+          </tr>`;
+        }).join('');
+      }
+      window.clearStage = () => { stageFilter = ''; renderPipe(); };
+      renderPipe();
+
+      // ---- 阶段分布 funnel ----
+      const funnelColors = ['#6366F1', '#3B82F6', '#0EA5E9', '#10B981', '#22C55E'];
+      const maxC = Math.max(...stages.map(s => P.filter(p => p.stage === s).length), 1);
+      document.getElementById('funnel').innerHTML = stages.map((s, i) => {
+        const c = P.filter(p => p.stage === s).length;
+        return `<div class="funnel-row">
+          <div class="fr-label">${s}</div>
+          <div class="fr-track"><div class="fr-fill" style="width:${Math.max(c / maxC * 100, 6)}%;background:${funnelColors[i]};">${c || ''}</div></div>
+          <div class="fr-count">${c}</div>
+        </div>`;
+      }).join('');
+
+      // ---- TOP5 设计师 ----
+      const top = [...D].sort((a, b) => b.monthCommission - a.monthCommission).slice(0, 5);
+      document.getElementById('top-designers').innerHTML = top.map((d, i) => {
+        const cls = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
+        return `<div class="rank-item">
+          <div class="rank-num ${cls}">${i + 1}</div>
+          <div class="avatar sm" data-color="${colorFrom(d.name)}">${initials(d.name)}</div>
+          <div style="flex:1;"><div style="font-weight:500;font-size:13px;">${d.name} <span class="text-secondary" style="font-size:11px;">${d.dept}·${d.role}·${d.level}</span></div><div class="text-sm text-secondary">在途 ${d.activeProjects} 单 · ⭐ ${d.avgScore.toFixed(1)}</div></div>
+          <div style="text-align:right;font-weight:600;font-variant-numeric:tabular-nums;">${formatMoney(d.monthCommission)}</div>
+        </div>`;
+      }).join('');
+
+      // ---- 人效看板 ----
+      function statusOf(cap) { return cap < 40 ? 'idle' : cap <= 70 ? 'normal' : cap <= 85 ? 'busy' : 'over'; }
+      const statusMeta = {
+        idle: { label: '空闲', color: 'var(--success)', bg: 'var(--success-bg)', icon: '🟢' },
+        normal: { label: '正常', color: 'var(--brand-primary)', bg: 'var(--brand-primary-bg)', icon: '🔵' },
+        busy: { label: '饱和', color: '#B4530A', bg: 'var(--warning-bg)', icon: '🟡' },
+        over: { label: '过载', color: 'var(--danger)', bg: 'var(--danger-bg)', icon: '🔴' }
+      };
+      const counts = { idle: 0, normal: 0, busy: 0, over: 0 };
+      D.forEach(d => counts[statusOf(d.capacity)]++);
+      document.getElementById('eff-summary').innerHTML = Object.keys(statusMeta).map(k => {
+        const m = statusMeta[k];
+        return `<div class="eff-card"><div class="ec-dot" style="background:${m.bg};">${m.icon}</div><div><div class="ec-num" style="color:${m.color};">${counts[k]}</div><div class="ec-label">${m.label}（${k === 'idle' ? '<40%' : k === 'normal' ? '40-70%' : k === 'busy' ? '70-85%' : '>85%'}）</div></div></div>`;
+      }).join('');
+
+      const effDeptSel = document.getElementById('eff-dept');
+      MOCK.DEPARTMENTS.forEach(dp => effDeptSel.insertAdjacentHTML('beforeend', `<option>${dp}</option>`));
+
+      let effRole = '', effStatus = '', effDept = '';
+      function renderWall() {
+        const list = D.filter(d => (!effRole || d.role === effRole) && (!effStatus || statusOf(d.capacity) === effStatus) && (!effDept || d.dept === effDept));
+        document.getElementById('eff-count').textContent = `（${list.length} 人）`;
+        document.getElementById('dcard-wall').innerHTML = list.map(d => {
+          const st = statusOf(d.capacity); const m = statusMeta[st];
+          return `<div class="dcard" onclick="toast('${d.name} · ${d.dept} · ${d.role} · 负载 ${d.capacity}%','info')">
+            <div class="dc-head">
+              <div class="avatar" data-color="${colorFrom(d.name)}">${initials(d.name)}</div>
+              <div><div class="dc-name">${d.name} <span class="tag tag-purple" style="font-size:10px;">${d.dept}</span></div><div class="dc-sub">${d.role} · ${d.level} · ${d.city}</div></div>
+              <span class="status-chip" style="background:${m.bg};color:${m.color};">${m.label}</span>
+            </div>
+            <div class="load-bar"><div class="load-fill" style="width:${d.capacity}%;background:${m.color};"></div></div>
+            <div class="text-sm text-secondary" style="display:flex;justify-content:space-between;"><span>负载 ${d.capacity}%</span><span>在途 ${d.activeProjects} 单</span></div>
+            <div class="text-sm text-secondary" style="margin-top:4px;">⭐ ${d.avgScore.toFixed(1)} · ${d.skills.slice(0, 2).join('/')}</div>
+          </div>`;
+        }).join('');
+      }
+      document.getElementById('eff-role').addEventListener('change', e => { effRole = e.target.value; renderWall(); });
+      document.getElementById('eff-status').addEventListener('change', e => { effStatus = e.target.value; renderWall(); });
+      document.getElementById('eff-dept').addEventListener('change', e => { effDept = e.target.value; renderWall(); });
+      renderWall();
+    })();
+  </script>
+</body>
+</html>

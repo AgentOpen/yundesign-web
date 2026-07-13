@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>定价管理 · 敬城设计云</title>
+  <link rel="stylesheet" href="../assets/css/tokens.css" />
+  <link rel="stylesheet" href="../assets/css/base.css" />
+  <link rel="stylesheet" href="../assets/css/layout.css" />
+  <link rel="stylesheet" href="../assets/css/components.css" />
+  <style>
+    .tab-panel { display: none; } .tab-panel.active { display: block; }
+    .weight-row { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+    .weight-row .wr-label { width: 130px; font-size: 14px; flex-shrink: 0; }
+    .weight-row input[type=range] { flex: 1; accent-color: var(--brand-primary); }
+    .weight-row .wr-val { width: 56px; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .weight-total { padding: 12px 16px; border-radius: var(--radius-lg); font-weight: 600; text-align: center; }
+    .weight-total.ok { background: var(--success-bg); color: var(--success); }
+    .weight-total.bad { background: var(--danger-bg); color: var(--danger); }
+    .calc-box { background: var(--bg-page); border-radius: var(--radius-lg); padding: 20px; }
+    .calc-line { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed var(--divider); font-size: 14px; }
+    .calc-line:last-child { border-bottom: none; }
+    .calc-total { font-size: 22px; font-weight: 700; color: var(--brand-primary); }
+    .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+    @media (max-width: 720px) { .form-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="page-header">
+      <div class="page-breadcrumb">
+        <a href="../workbench/dashboard.html">工作台</a><span class="sep">/</span>
+        <span class="current">M10 · 定价管理</span>
+      </div>
+      <div class="page-title-bar">
+        <div>
+          <div class="page-title">定价管理</div>
+          <div class="page-title-desc">按「设计内容 × 阶段权重 × 复杂度系数」三维定价，设计费用自动计算（FR-M10-11 ~ 14）</div>
+        </div>
+        <button class="btn btn-primary" onclick="toast('定价规则已保存并生成新版本 v3','success')">保存规则</button>
+      </div>
+    </div>
+
+    <div class="page-body">
+      <div class="pill-tabs" style="margin-bottom:20px;">
+        <div class="pill-tab active" data-tab="base">内容基准价</div>
+        <div class="pill-tab" data-tab="weight">阶段权重</div>
+        <div class="pill-tab" data-tab="factor">复杂度系数</div>
+        <div class="pill-tab" data-tab="calc">费用试算</div>
+      </div>
+
+      <!-- 内容基准价 -->
+      <div class="tab-panel active" id="panel-base">
+        <div class="card">
+          <div class="card-header"><div class="card-title">设计内容基准价</div><span class="text-sm text-secondary">支持分区域差异化定价</span></div>
+          <div class="card-body" style="padding:0;">
+            <table class="data-table">
+              <thead><tr><th>设计内容</th><th>计价单位</th><th>基准价</th><th>海外系数</th><th>状态</th><th class="col-actions">操作</th></tr></thead>
+              <tbody id="base-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- 阶段权重 -->
+      <div class="tab-panel" id="panel-weight">
+        <div class="card" style="max-width:720px;">
+          <div class="card-header"><div class="card-title">设计阶段定价权重</div><span class="text-sm text-secondary">各阶段完成后按比例结算</span></div>
+          <div class="card-body">
+            <div id="weight-list"></div>
+            <div class="weight-total ok" id="weight-total">合计 100%</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 复杂度系数 -->
+      <div class="tab-panel" id="panel-factor">
+        <div class="two-col" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div class="card"><div class="card-header"><div class="card-title">户型复杂度</div></div><div class="card-body" style="padding:0;"><table class="data-table"><tbody id="f-huxing"></tbody></table></div></div>
+          <div class="card"><div class="card-header"><div class="card-title">风格复杂度</div></div><div class="card-body" style="padding:0;"><table class="data-table"><tbody id="f-style"></tbody></table></div></div>
+          <div class="card"><div class="card-header"><div class="card-title">定制化程度</div></div><div class="card-body" style="padding:0;"><table class="data-table"><tbody id="f-custom"></tbody></table></div></div>
+          <div class="card"><div class="card-body" style="display:flex;flex-direction:column;justify-content:center;gap:8px;">
+            <div class="text-sm text-secondary">系数可叠加，设置上限保护</div>
+            <div style="font-size:14px;">叠加上限：<b style="color:var(--brand-primary);">max 3.0</b></div>
+            <div class="text-sm text-secondary" style="margin-top:8px;line-height:1.7;">最终系数 = 户型 × 风格 × 定制化，超过上限按 3.0 计。示例：异形(1.2) × 新中式(1.3) × 全定制(1.8) = 2.81</div>
+          </div></div>
+        </div>
+      </div>
+
+      <!-- 费用试算 -->
+      <div class="tab-panel" id="panel-calc">
+        <div class="two-col" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div class="card">
+            <div class="card-header"><div class="card-title">试算输入</div></div>
+            <div class="card-body">
+              <div class="form-grid">
+                <div><label class="form-label">设计内容</label><select class="filter-select" id="c-content" style="width:100%;"><option value="120">全案设计 120 元/㎡</option><option value="80">软装设计 80 元/㎡</option></select></div>
+                <div><label class="form-label">面积 (㎡)</label><input class="input" id="c-area" type="number" value="320" /></div>
+                <div><label class="form-label">户型系数</label><select class="filter-select" id="c-hx" style="width:100%;"><option value="1">方正 1.0</option><option value="1.2">异形 1.2</option><option value="1.5">复式 1.5</option><option value="2" selected>别墅 2.0</option></select></div>
+                <div><label class="form-label">风格系数</label><select class="filter-select" id="c-st" style="width:100%;"><option value="1">简约 1.0</option><option value="1.1">轻奢 1.1</option><option value="1.3" selected>新中式 1.3</option><option value="1.5">混搭 1.5</option></select></div>
+                <div><label class="form-label">定制系数</label><select class="filter-select" id="c-cu" style="width:100%;"><option value="1">标准 1.0</option><option value="1.3">半定制 1.3</option><option value="1.8" selected>全定制 1.8</option></select></div>
+                <div><label class="form-label">海外系数</label><select class="filter-select" id="c-ov" style="width:100%;"><option value="1">国内 1.0</option><option value="1.25" selected>海外 1.25</option></select></div>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">计算结果</div></div>
+            <div class="card-body">
+              <div class="calc-box" id="calc-out"></div>
+              <div class="text-sm text-secondary" style="margin-top:12px;line-height:1.7;">
+                费用超出预算 ±20% 将自动触发审批流（分单管理员 → 设计总监 → 总经理），并与合同约定的设计费上限联动校验。
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/js/utils.js"></script>
+  <script src="../assets/js/mock-data.js"></script>
+  <script src="../assets/js/shell.js"></script>
+  <script>
+    (function () {
+      document.querySelectorAll('.pill-tab').forEach(t => t.addEventListener('click', () => {
+        document.querySelectorAll('.pill-tab').forEach(x => x.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(x => x.classList.remove('active'));
+        t.classList.add('active');
+        document.getElementById('panel-' + t.dataset.tab).classList.add('active');
+      }));
+
+      // 基准价
+      const base = [
+        { name: '全案设计', unit: '元/㎡', price: 120, ov: 1.25 },
+        { name: '定制柜深化', unit: '元/延米', price: 380, ov: 1.2 },
+        { name: '门窗深化', unit: '元/樘', price: 260, ov: 1.15 },
+        { name: '卫浴深化', unit: '元/套', price: 1500, ov: 1.2 },
+        { name: '软装设计', unit: '元/㎡', price: 80, ov: 1.25 },
+        { name: '效果图', unit: '元/张', price: 800, ov: 1.1 }
+      ];
+      document.getElementById('base-body').innerHTML = base.map(b => `<tr>
+        <td style="font-weight:500;">${b.name}</td><td>${b.unit}</td>
+        <td><b style="color:var(--brand-primary);">¥${b.price}</b></td>
+        <td>×${b.ov}</td>
+        <td><span class="tag tag-success">生效中</span></td>
+        <td class="col-actions"><button class="btn btn-xs btn-text" onclick="toast('编辑 ${b.name} 基准价','info')">编辑</button></td>
+      </tr>`).join('');
+
+      // 阶段权重
+      const weights = [
+        { name: '概念方案', val: 25 }, { name: '深化方案', val: 30 },
+        { name: '施工图/BOM', val: 25 }, { name: '效果图', val: 15 }, { name: '项目配合', val: 5 }
+      ];
+      function renderWeights() {
+        document.getElementById('weight-list').innerHTML = weights.map((w, i) => `<div class="weight-row">
+          <div class="wr-label">${w.name}</div>
+          <input type="range" min="0" max="60" value="${w.val}" data-i="${i}" />
+          <div class="wr-val">${w.val}%</div>
+        </div>`).join('');
+        document.querySelectorAll('#weight-list input').forEach(inp => inp.addEventListener('input', e => {
+          weights[+e.target.dataset.i].val = +e.target.value;
+          e.target.nextElementSibling.textContent = e.target.value + '%';
+          updateTotal();
+        }));
+        updateTotal();
+      }
+      function updateTotal() {
+        const t = weights.reduce((s, w) => s + w.val, 0);
+        const el = document.getElementById('weight-total');
+        el.textContent = `合计 ${t}%` + (t === 100 ? ' ✓' : '（需等于 100%）');
+        el.className = 'weight-total ' + (t === 100 ? 'ok' : 'bad');
+      }
+      renderWeights();
+
+      // 复杂度系数
+      const factorRow = (arr) => arr.map(x => `<tr><td>${x[0]}</td><td style="text-align:right;font-weight:600;color:var(--brand-primary);">×${x[1]}</td></tr>`).join('');
+      document.getElementById('f-huxing').innerHTML = factorRow([['方正', '1.0'], ['异形', '1.2'], ['复式', '1.5'], ['别墅', '2.0']]);
+      document.getElementById('f-style').innerHTML = factorRow([['简约', '1.0'], ['轻奢', '1.1'], ['新中式', '1.3'], ['混搭', '1.5']]);
+      document.getElementById('f-custom').innerHTML = factorRow([['标准化', '1.0'], ['半定制', '1.3'], ['全定制', '1.8']]);
+
+      // 费用试算
+      function calc() {
+        const price = +document.getElementById('c-content').value;
+        const area = +document.getElementById('c-area').value || 0;
+        const hx = +document.getElementById('c-hx').value, st = +document.getElementById('c-st').value, cu = +document.getElementById('c-cu').value, ov = +document.getElementById('c-ov').value;
+        let factor = hx * st * cu; if (factor > 3) factor = 3;
+        const map = { '概念方案': 0.25, '深化方案': 0.30, '施工图/BOM': 0.25, '效果图': 0.15, '项目配合': 0.05 };
+        const total = price * area * factor * ov;
+        document.getElementById('calc-out').innerHTML = `
+          <div class="calc-line"><span>基准价 × 面积</span><span>¥${price} × ${area} = ¥${formatMoney(price * area)}</span></div>
+          <div class="calc-line"><span>复杂度系数（上限3.0）</span><span>×${factor.toFixed(2)}</span></div>
+          <div class="calc-line"><span>海外系数</span><span>×${ov}</span></div>
+          <div class="calc-line" style="margin-top:6px;"><span><b>设计费用总额</b></span><span class="calc-total">¥${formatMoney(Math.round(total))}</span></div>
+          <div style="margin-top:12px;font-size:12px;color:var(--text-secondary);">各阶段应结算：${Object.keys(map).map(k => `${k} ¥${formatMoney(Math.round(total * map[k]))}`).join(' · ')}</div>`;
+      }
+      ['c-content', 'c-area', 'c-hx', 'c-st', 'c-cu', 'c-ov'].forEach(id => {
+        document.getElementById(id).addEventListener('input', calc);
+        document.getElementById(id).addEventListener('change', calc);
+      });
+      calc();
+    })();
+  </script>
+</body>
+</html>

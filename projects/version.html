@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>版本管理与溯源 · 敬城设计云</title>
+  <link rel="stylesheet" href="../assets/css/tokens.css" />
+  <link rel="stylesheet" href="../assets/css/base.css" />
+  <link rel="stylesheet" href="../assets/css/layout.css" />
+  <link rel="stylesheet" href="../assets/css/components.css" />
+  <style>
+    .layout { display: grid; grid-template-columns: 300px 1fr; gap: 16px; }
+    @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+    .proj-list { background: white; border-radius: 8px; padding: 12px; overflow-y: auto; max-height: 620px; }
+    .proj-item { padding: 10px; border-radius: 6px; cursor: pointer; margin-bottom: 4px; }
+    .proj-item:hover { background: var(--bg-hover); }
+    .proj-item.active { background: var(--brand-primary-bg); color: var(--brand-primary); }
+    .proj-item .p-name { font-weight: 500; font-size: 13px; }
+    .proj-item .p-meta { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+
+    .version-timeline { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+    .v-card { background: white; border-radius: 8px; padding: 16px; border: 1px solid var(--border); position: relative; }
+    .v-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; border-radius: 4px 0 0 4px; background: var(--brand-primary); }
+    .v-card.confirmed::before { background: var(--success); }
+    .v-card.milestone::before { background: var(--accent); }
+    .v-tag { font-family: var(--font-mono); background: var(--brand-primary-bg); color: var(--brand-primary); padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+    .change-item { padding: 6px 10px; background: var(--bg-hover); border-radius: 4px; font-size: 12px; margin-top: 6px; }
+    .change-item b { color: var(--brand-primary); }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="page-header">
+      <div class="page-breadcrumb">
+        <a href="./list.html">项目</a><span class="sep">/</span>
+        <span class="current">版本管理与溯源</span>
+      </div>
+      <div class="page-title-bar">
+        <div>
+          <div class="page-title">版本管理与溯源</div>
+          <div class="page-title-desc">跨项目查询任一交付物历史版本，追溯 <b>是谁 · 什么时间 · 改了哪个空间 · 具体改了什么</b>。</div>
+        </div>
+        <div class="flex gap-2">
+          <button class="btn btn-default" onclick="toast('对比 V3.1 vs V3.2','info')">↔ 版本对比</button>
+          <button class="btn btn-primary" onclick="toast('已导出该项目所有版本','success')">导出版本档案</button>
+        </div>
+      </div>
+    </div>
+    <div class="page-body">
+      <div class="filter-bar">
+        <div class="filter-item"><span class="filter-label">交付物类型</span>
+          <select class="filter-select"><option>全部</option><option>平面布局</option><option>3D 意向</option><option>全屋 3D</option><option>需求文档</option></select>
+        </div>
+        <div class="filter-item"><span class="filter-label">修改人</span>
+          <select class="filter-select"><option>全部</option><option>张三</option><option>王五</option><option>李四</option></select>
+        </div>
+        <div class="filter-item"><span class="filter-label">时间</span>
+          <select class="filter-select"><option>最近 30 天</option><option>本季</option><option>本年</option></select>
+        </div>
+        <input class="filter-search" placeholder="搜索项目 / 客户 / 关键词" />
+        <label class="checkbox" style="margin-left:auto;"><input type="checkbox" /> 只看里程碑版本</label>
+      </div>
+
+      <div class="layout">
+        <div class="proj-list">
+          <div style="padding:0 6px 8px;font-weight:500;">📁 项目 (${'8'})</div>
+          <div id="proj-list"></div>
+        </div>
+        <div>
+          <div class="card" style="padding:16px;margin-bottom:12px;" id="proj-header">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div>
+                <div style="font-size:18px;font-weight:600;" id="cur-name">-</div>
+                <div class="text-sm text-secondary" id="cur-meta">-</div>
+              </div>
+              <div style="text-align:right;">
+                <div class="text-sm text-secondary">版本总数</div>
+                <div style="font-size:24px;font-weight:700;color:var(--brand-primary);font-family:var(--font-mono);" id="cur-count">0</div>
+              </div>
+            </div>
+          </div>
+          <div class="version-timeline" id="v-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/js/utils.js"></script>
+  <script src="../assets/js/mock-data.js"></script>
+  <script src="../assets/js/shell.js"></script>
+  <script>
+    (function () {
+      let curId = MOCK.PROJECTS[0].id;
+
+      const listBox = document.getElementById('proj-list');
+      MOCK.PROJECTS.forEach(p => {
+        const cust = MOCK.getCustomer(p.customer);
+        const el2 = document.createElement('div');
+        el2.className = 'proj-item' + (p.id === curId ? ' active' : '');
+        el2.dataset.id = p.id;
+        const vc = MOCK.VERSIONS.filter(v => v.project === p.id).length;
+        el2.innerHTML = `
+          <div class="p-name">${p.name}</div>
+          <div class="p-meta">${p.code} · ${cust.name} · ${vc} 个版本</div>
+        `;
+        el2.addEventListener('click', () => {
+          curId = p.id;
+          document.querySelectorAll('.proj-item').forEach(x => x.classList.remove('active'));
+          el2.classList.add('active');
+          render();
+        });
+        listBox.appendChild(el2);
+      });
+
+      function render() {
+        const p = MOCK.getProject(curId);
+        const cust = MOCK.getCustomer(p.customer);
+        document.getElementById('cur-name').textContent = p.name;
+        document.getElementById('cur-meta').textContent = `${p.code} · ${p.type} · ${p.region} · 客户 ${cust.name}`;
+        const versions = MOCK.VERSIONS.filter(v => v.project === p.id);
+        document.getElementById('cur-count').textContent = versions.length;
+
+        const box = document.getElementById('v-list');
+        box.innerHTML = '';
+        versions.forEach(v => {
+          const d = MOCK.getDesigner(v.designer);
+          const confirmed = v.major < 3 || (v.deliverable === '3D意向' && v.major === 1);
+          const card = document.createElement('div');
+          card.className = 'v-card' + (confirmed ? ' confirmed' : '') + (v.minor === 0 && v.major > 1 ? ' milestone' : '');
+          card.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+              <span class="v-tag">${v.deliverable} V${v.major}.${v.minor}</span>
+              ${confirmed ? '<span class="tag tag-success">✓ 客户确认</span>' : v.minor === 0 && v.major > 1 ? '<span class="tag tag-warning">📌 里程碑</span>' : '<span class="tag">进行中</span>'}
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+              <div class="avatar sm" data-color="${colorFrom(d.name)}">${initials(d.name)}</div>
+              <div>
+                <div style="font-size:13px;font-weight:500;">${d.name}</div>
+                <div class="text-sm text-secondary">${d.role} · ${d.level}</div>
+              </div>
+              <div style="margin-left:auto;text-align:right;font-size:11px;color:var(--text-secondary);">
+                <div>${v.ts.split(' ')[0]}</div>
+                <div>${v.ts.split(' ')[1]}</div>
+              </div>
+            </div>
+            ${v.feedback ? `<div class="text-sm text-secondary" style="margin-bottom:6px;">💬 ${v.feedback}</div>` : ''}
+            ${v.changes.length ? v.changes.map(c => `
+              <div class="change-item"><b>${c.space}</b>：${c.points.join('；')}</div>
+            `).join('') : '<div class="text-sm text-placeholder">- 无变更点记录 -</div>'}
+            <div style="display:flex;gap:6px;margin-top:12px;">
+              <button class="btn btn-default btn-sm" style="flex:1;" onclick="toast('打开预览','info')">👁 预览</button>
+              <button class="btn btn-ghost btn-sm" onclick="toast('版本对比','info')">↔</button>
+              <button class="btn btn-ghost btn-sm" onclick="toast('设为里程碑','success')">📌</button>
+            </div>
+          `;
+          box.appendChild(card);
+        });
+
+        if (versions.length === 0) {
+          box.innerHTML = `<div class="empty" style="grid-column:1/-1;"><div class="empty-title">该项目暂无版本记录</div></div>`;
+        }
+      }
+
+      render();
+    })();
+  </script>
+</body>
+</html>

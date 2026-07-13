@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>用户与权限 · 敬城设计云</title>
+  <link rel="stylesheet" href="../assets/css/tokens.css" />
+  <link rel="stylesheet" href="../assets/css/base.css" />
+  <link rel="stylesheet" href="../assets/css/layout.css" />
+  <link rel="stylesheet" href="../assets/css/components.css" />
+  <style>
+    .tab-panel { display: none; } .tab-panel.active { display: block; }
+    .perm-yes { color: var(--success); font-weight: 700; }
+    .perm-read { color: var(--info); }
+    .perm-no { color: var(--text-placeholder); }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="page-header">
+      <div class="page-breadcrumb">
+        <a href="../workbench/dashboard.html">工作台</a><span class="sep">/</span>
+        <span class="current">用户与权限</span>
+      </div>
+      <div class="page-title-bar">
+        <div>
+          <div class="page-title">用户与权限</div>
+          <div class="page-title-desc">RBAC 角色权限模型（对应需求文档 2.1 用户角色与 2.2 权限矩阵）</div>
+        </div>
+        <button class="btn btn-primary" onclick="toast('新增用户演示中','info')">+ 新增用户</button>
+      </div>
+    </div>
+
+    <div class="page-body">
+      <div class="tabs" style="margin-bottom:16px;">
+        <div class="tab-item active" data-tab="role">角色定义</div>
+        <div class="tab-item" data-tab="matrix">权限矩阵（M9/M10）</div>
+      </div>
+
+      <div class="tab-panel active" id="panel-role">
+        <div class="card">
+          <div class="card-body" style="padding:0;">
+            <table class="data-table">
+              <thead><tr><th>角色 ID</th><th>角色名称</th><th>所属中心</th><th>核心职责</th><th>规模</th></tr></thead>
+              <tbody id="role-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="panel-matrix">
+        <div class="card">
+          <div class="card-header"><div class="card-title">M9 / M10 关键功能权限</div><span class="text-sm text-secondary">✅ 可操作 · 👁 只读 · — 无权限</span></div>
+          <div class="card-body" style="padding:0;overflow-x:auto;">
+            <table class="data-table">
+              <thead><tr><th>功能</th><th>设计师</th><th>协调员</th><th>分单管理员</th><th>设计总监</th><th>财务</th></tr></thead>
+              <tbody id="matrix-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/js/utils.js"></script>
+  <script src="../assets/js/mock-data.js"></script>
+  <script src="../assets/js/shell.js"></script>
+  <script>
+    (function () {
+      document.querySelectorAll('.tab-item').forEach(t => t.addEventListener('click', () => {
+        document.querySelectorAll('.tab-item').forEach(x => x.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(x => x.classList.remove('active'));
+        t.classList.add('active');
+        document.getElementById('panel-' + t.dataset.tab).classList.add('active');
+      }));
+
+      const roles = [
+        ['R01', '全案设计师', '全案设计中心', '空间方案设计、效果图输出、L1 BOM', '10-15'],
+        ['R07', '品类设计总监', '品类设计中心', '深化审核、跨品类冲突检测、BOM 校验', '2-3'],
+        ['R10', '营销 / 创客（PM）', '营销中心', '对接客户、需求录入、项目发起', '20-30'],
+        ['R14', '设计运营 / 分单管理员', '设计中心', '设计单接收分单、规则配置、工作量管理、分成规则维护', '1-2'],
+        ['R15', '财务结算人员', '财务中心', '分成核算审核、结算执行、分成报表', '1-2'],
+        ['-', '协调员', '设计中心', '客户需求对接、图纸收集、沟通记录、按提成方案', '5-8'],
+        ['R16', '3D 效果图设计师', '设计中心', '3D 意向 / 全屋效果图、720° 全景', '8-12'],
+        ['R13', '系统管理员', 'IT / 数字化中心', '用户管理、权限配置、系统运维', '1-2']
+      ];
+      document.getElementById('role-body').innerHTML = roles.map(r => `<tr>
+        <td><span class="tag tag-brand">${r[0]}</span></td>
+        <td style="font-weight:500;">${r[1]}</td><td>${r[2]}</td>
+        <td class="text-sm text-secondary">${r[3]}</td><td>${r[4]} 人</td>
+      </tr>`).join('');
+
+      const P = (v) => v === 1 ? '<span class="perm-yes">✅</span>' : v === 0.5 ? '<span class="perm-read">👁</span>' : '<span class="perm-no">—</span>';
+      const matrix = [
+        ['设计单接收与分单', 0, 0, 1, 0.5, 0],
+        ['项目进度 / 里程碑', 0.5, 0.5, 1, 1, 0],
+        ['任务接单 / 拒接', 1, 1, 0.5, 0.5, 0],
+        ['设计工作量填报', 1, 1, 0.5, 0.5, 0],
+        ['设计定价与分成规则', 0, 0, 1, 0.5, 0.5],
+        ['分成核算与结算', 0, 0, 0.5, 0.5, 1],
+        ['分成审批', 0, 0, 1, 1, 1],
+        ['运营总览 / 人效看板', 0.5, 0, 1, 1, 0.5]
+      ];
+      document.getElementById('matrix-body').innerHTML = matrix.map(m => `<tr>
+        <td style="font-weight:500;">${m[0]}</td>
+        <td>${P(m[1])}</td><td>${P(m[2])}</td><td>${P(m[3])}</td><td>${P(m[4])}</td><td>${P(m[5])}</td>
+      </tr>`).join('');
+    })();
+  </script>
+</body>
+</html>
