@@ -165,6 +165,7 @@
               <div class="calc-row"><span>应分</span><span>¥${formatMoney(c.dueAmount, 2)}</span></div>
               <div class="calc-row"><span>× 质量系数</span><span>${c.qualityFactor.toFixed(2)}</span></div>
               <div class="calc-row"><span>× 时效系数</span><span>${c.timelinessFactor.toFixed(2)}</span></div>
+              ${(function () { const pj = MOCK.getProject(c.project); const act = MOCK.projectHours(c.project); const base = ['需求收集', '平面布局图', '3D 意向', '全屋 3D'].reduce((s, n) => s + MOCK.stageBaseline(pj || { area: 120 }, n), 0); const ratio = base ? Math.round(act / base * 100) : 0; return `<div class="calc-row" style="font-size:12px;color:var(--text-secondary);"><span>　└ 工时依据</span><span>${act}h / 基准 ${base}h（${ratio}%）</span></div>`; })()}
               <div class="calc-row"><span>× 满意度系数</span><span>${c.satisfactionFactor.toFixed(2)}</span></div>
               <div class="calc-row"><span>× 回款系数</span><span>${c.paymentFactor.toFixed(2)}</span></div>
               <div class="calc-row hl"><span>实分</span><span>¥${formatMoney(c.actualAmount, 2)}</span></div>

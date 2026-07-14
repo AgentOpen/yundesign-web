@@ -337,7 +337,7 @@
             </div>
             <div class="load-bar"><div class="load-fill" style="width:${d.capacity}%;background:${m.color};"></div></div>
             <div class="text-sm text-secondary" style="display:flex;justify-content:space-between;"><span>负载 ${d.capacity}%</span><span>在途 ${d.activeProjects} 单</span></div>
-            <div class="text-sm text-secondary" style="margin-top:4px;">⭐ ${d.avgScore.toFixed(1)} · ${d.skills.slice(0, 2).join('/')}</div>
+            <div class="text-sm text-secondary" style="display:flex;justify-content:space-between;margin-top:4px;"><span>⭐ ${d.avgScore.toFixed(1)} · ${d.skills.slice(0, 2).join('/')}</span><span>本周 ${MOCK.designerWeekHours(d.id)}h</span></div>
           </div>`;
         }).join('') : `<div class="empty" style="grid-column:1/-1;"><div class="empty-title">该部门/条件下暂无设计师</div></div>`;
       }

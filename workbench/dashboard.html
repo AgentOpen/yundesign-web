@@ -99,6 +99,10 @@
 
         <!-- Quick actions -->
         <div style="display:grid;gap:16px;">
+          <div class="card" id="week-hours-card">
+            <div class="card-header"><div class="card-title">⏱ 本周工时</div></div>
+            <div class="card-body" id="week-hours-body"></div>
+          </div>
           <div class="card">
             <div class="card-header"><div class="card-title">⚡ 快捷操作</div></div>
             <div class="card-body" style="display:grid;gap:10px;">
@@ -174,23 +178,53 @@
   <script>
     (function () {
       const list = document.getElementById('todo-list');
-      MOCK.TODOS.forEach(t => {
+
+      // 项目评价待办（仅设计负责人 / 部门负责人；已结算项目不出现）
+      const evalTodos = MOCK.canEvaluate()
+        ? MOCK.pendingEvalProjects().slice(0, 5).map(p => ({
+            id: 'eval-' + p.id, title: p.name + ' 待质量评价', project: p.id,
+            type: '项目评价', priority: 'medium', due: '本周', evalTarget: true
+          }))
+        : [];
+
+      const todos = evalTodos.concat(MOCK.TODOS);
+      todos.forEach(t => {
         const project = t.project ? MOCK.getProject(t.project) : null;
         const item = el('div', { class: 'todo-item' }, [
           el('div', { class: 'todo-priority ' + t.priority }),
           el('div', { style: { flex: 1 } }, [
             el('div', { style: { fontWeight: 500, fontSize: '14px' } }, t.title),
             el('div', { style: { fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' } },
-              [t.type, ' · ', el('span', { class: 'tag tag-info' }, project ? project.name : '订单池'), ' · 截止 ', t.due])
+              [
+                el('span', { class: 'tag ' + (t.evalTarget ? 'tag-purple' : 'tag-info') }, t.type),
+                ' · ', el('span', { class: 'tag tag-info' }, project ? project.name : '订单池'),
+                ' · 截止 ', t.due
+              ])
           ]),
-          el('button', { class: 'btn btn-default btn-sm', onClick: () => toast('打开: ' + t.title, 'info') }, '处理'),
+          el('button', { class: 'btn btn-default btn-sm', onClick: (e) => { e.stopPropagation(); go(t, project); } }, t.evalTarget ? '去评价' : '处理'),
         ]);
-        item.addEventListener('click', () => {
-          if (project) location.href = '../projects/detail.html?id=' + project.id;
-          else location.href = '../ops/order-pool.html';
-        });
+        item.addEventListener('click', () => go(t, project));
         list.appendChild(item);
       });
+
+      function go(t, project) {
+        if (t.evalTarget) { location.href = '../projects/detail.html?id=' + t.project + '&tab=quality'; return; }
+        if (project) location.href = '../projects/detail.html?id=' + project.id;
+        else location.href = '../ops/order-pool.html';
+      }
+
+      // 本周已填报工时统计
+      const wh = MOCK.weekTimesheetHours();
+      const r = MOCK.currentRole();
+      const scopeTxt = (r.scope === 'self' || r.scope === 'coord') ? '本人' : (r.scope === 'dept' ? r.dept : '全部门');
+      document.getElementById('week-hours-body').innerHTML = `
+        <div style="display:flex;align-items:baseline;gap:6px;">
+          <div style="font-size:32px;font-weight:700;color:var(--brand-primary);font-family:var(--font-mono);">${wh}</div>
+          <div style="color:var(--text-secondary);">小时 · ${scopeTxt}</div>
+        </div>
+        <div style="font-size:12px;color:var(--text-secondary);margin:6px 0 12px;">统计范围：本周（周一至今）已填报工时</div>
+        <a href="../workbench/my-tasks.html?tab=accepted" class="btn btn-primary" style="width:100%;justify-content:center;">立即去填报</a>`;
+
       // 更新头部欢迎
       document.getElementById('hello-user').textContent = MOCK.CURRENT_USER.name;
     })();

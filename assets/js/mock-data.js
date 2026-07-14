@@ -130,6 +130,19 @@
     { id: 'cm003', project: 'p005', projectName: '刘宅家装', designer: 'u002', designerName: '李四', role: '平面 2D', designFee: 28000, dueRate: 0.4, dueAmount: 11200, qualityFactor: 1.0, timelinessFactor: 1.0, satisfactionFactor: 1.0, paymentFactor: 1.0, actualAmount: 11200, status: '已审批', calcAt: '2026-07-10 15:00' }
   ];
 
+  // ===== 工时填报（设计师按里程碑阶段填报，负责人审核，汇总为项目总工时）=====
+  // status: 待审核 / 已通过 / 已驳回
+  const TIMESHEETS = [
+    { id: 'wh001', project: 'p001', designerId: 'u004', designerName: '赵六', dept: '海外设计部', stage: '需求收集', hours: 16, note: '整理客户需求文档、画像、参考图', date: '2026-07-07', mode: '日报', status: '已通过' },
+    { id: 'wh002', project: 'p001', designerId: 'u001', designerName: '张三', dept: '海外设计部', stage: '平面布局图', hours: 16, note: '完成 V1 首版平面布局', date: '2026-07-06', mode: '日报', status: '已通过' },
+    { id: 'wh003', project: 'p001', designerId: 'u001', designerName: '张三', dept: '海外设计部', stage: '平面布局图', hours: 24, note: 'V2/V3 户型分区调整', date: '2026-07-08', mode: '日报', status: '已通过' },
+    { id: 'wh004', project: 'p001', designerId: 'u001', designerName: '张三', dept: '海外设计部', stage: '平面布局图', hours: 12, note: 'V3.1/V3.2 客户反馈修改', date: '2026-07-11', mode: '日报', status: '已通过' },
+    { id: 'wh005', project: 'p001', designerId: 'u003', designerName: '王五', dept: '海外设计部', stage: '3D意向', hours: 40, note: '出 3 个空间 720° 意向', date: '2026-07-09', mode: '日报', status: '已通过' },
+    { id: 'wh006', project: 'p001', designerId: 'u003', designerName: '王五', dept: '海外设计部', stage: '3D意向', hours: 20, note: '意向风格调整', date: '2026-07-13', mode: '日报', status: '待审核' },
+    { id: 'wh007', project: 'p003', designerId: 'u001', designerName: '张三', dept: '海外设计部', stage: '平面布局图', hours: 8, note: 'Kumar 别墅平面深化', date: '2026-07-14', mode: '日报', status: '待审核' },
+    { id: 'wh008', project: 'p005', designerId: 'u002', designerName: '李四', dept: '平面设计一部', stage: '平面布局图', hours: 6, note: '刘宅平面收尾', date: '2026-07-13', mode: '日报', status: '已通过' }
+  ];
+
   // ===== 里程碑质量评价（设计总监/负责人对各节点设计产出评分）=====
   // score 1-5；关联设计师 designerId，作为分单权重 & 分成质量系数输入
   const MILESTONE_EVALS = [
@@ -195,7 +208,7 @@
   }
 
   // ===================== 持久化（localStorage）=====================
-  const STATE_VERSION = 5;   // 基础数据结构变更时递增，自动失效旧缓存
+  const STATE_VERSION = 6;   // 基础数据结构变更时递增，自动失效旧缓存
   const LS_KEY = 'yd_demo_state';
 
   function replaceArr(target, src) { if (Array.isArray(src)) { target.length = 0; src.forEach(x => target.push(x)); } }
@@ -204,7 +217,7 @@
     try {
       localStorage.setItem(LS_KEY, JSON.stringify({
         version: STATE_VERSION,
-        DESIGNERS, PROJECTS, DESIGN_ORDERS, MY_TASKS, AUDIT_LOGS, MILESTONE_EVALS, PROFILES, TASK_TIMELINES
+        DESIGNERS, PROJECTS, DESIGN_ORDERS, MY_TASKS, AUDIT_LOGS, MILESTONE_EVALS, PROFILES, TASK_TIMELINES, TIMESHEETS
       }));
     } catch (e) { /* 隐私模式等忽略 */ }
   }
@@ -222,6 +235,7 @@
       replaceArr(MY_TASKS, snap.MY_TASKS);
       replaceArr(AUDIT_LOGS, snap.AUDIT_LOGS);
       replaceArr(MILESTONE_EVALS, snap.MILESTONE_EVALS);
+      replaceArr(TIMESHEETS, snap.TIMESHEETS);
       if (snap.PROFILES) { Object.keys(snap.PROFILES).forEach(k => { PROFILES[k] = snap.PROFILES[k]; }); }
       if (snap.TASK_TIMELINES) { Object.keys(TASK_TIMELINES).forEach(k => delete TASK_TIMELINES[k]); Object.keys(snap.TASK_TIMELINES).forEach(k => { TASK_TIMELINES[k] = snap.TASK_TIMELINES[k]; }); }
     } catch (e) { /* ignore */ }
@@ -407,7 +421,10 @@
     });
   }
   function getTaskTimelineFor(pid, proj) { if (!TASK_TIMELINES[pid]) TASK_TIMELINES[pid] = genTimeline(proj); return TASK_TIMELINES[pid]; }
-  function getTaskTimeline(pid) { return TASK_TIMELINES[pid] || []; }
+  function getTaskTimeline(pid) {
+    if (!TASK_TIMELINES[pid]) { const p = PROJECTS.find(x => x.id === pid); if (p) TASK_TIMELINES[pid] = genTimeline(p); }
+    return TASK_TIMELINES[pid] || [];
+  }
   function projectByName(name) { return PROJECTS.find(p => p.name === name) || null; }
   function timelineLatest(tl) {
     let t = '';
@@ -461,6 +478,94 @@
     const ver = node.versions.find(v => v.id === versionId); if (ver) { ver.status = 'accepted'; persist(); }
   }
 
+  // ===== 工时逻辑 =====
+  // 项目总工时（含待审核，用于详情页 KPI 实时反映填报）
+  function projectHours(pid) { return TIMESHEETS.filter(t => t.project === pid && t.status !== '已驳回').reduce((s, t) => s + (Number(t.hours) || 0), 0); }
+  function projectTimesheets(pid) { return TIMESHEETS.filter(t => t.project === pid).slice().sort((a, b) => (b.date + b.id).localeCompare(a.date + a.id)); }
+  // 本周一（周一为起始）YYYY-MM-DD
+  function weekStart() {
+    const d = new Date(); const day = (d.getDay() + 6) % 7; d.setDate(d.getDate() - day);
+    const p = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  }
+  // 当前角色本周已填报工时：设计师=本人；负责人/总监=其数据范围内全部设计师汇总
+  function weekTimesheetHours() {
+    const r = currentRole(); const start = weekStart();
+    const ids = (r.scope === 'self' || r.scope === 'coord') ? [r.selfId] : scopeDesigners().map(d => d.id);
+    return TIMESHEETS.filter(t => ids.indexOf(t.designerId) >= 0 && t.date >= start).reduce((s, t) => s + (Number(t.hours) || 0), 0);
+  }
+  function designerWeekHours(id) {
+    const start = weekStart();
+    return TIMESHEETS.filter(t => t.designerId === id && t.date >= start).reduce((s, t) => s + (Number(t.hours) || 0), 0);
+  }
+  function addTimesheet(o) {
+    const r = currentRole();
+    const ts = {
+      id: 'wh' + Date.now().toString().slice(-6),
+      project: o.project, designerId: o.designerId || r.selfId, designerName: o.designerName || r.name,
+      dept: o.dept || (getDesigner(o.designerId || r.selfId).dept || '-'),
+      stage: o.stage || '-', hours: Number(o.hours) || 0, note: o.note || '',
+      date: o.date || today(), mode: o.mode || '日报', status: '待审核'
+    };
+    TIMESHEETS.unshift(ts);
+    const p = PROJECTS.find(x => x.id === o.project);
+    addLog('工时填报', (p ? p.name : o.project) + ' · ' + ts.stage, `${ts.designerName} 填报 ${ts.hours}h（${ts.mode}）`);
+    persist(); return ts;
+  }
+  function approveTimesheet(id) {
+    const t = TIMESHEETS.find(x => x.id === id); if (!t) return;
+    t.status = '已通过'; t.rejectReason = '';
+    const p = PROJECTS.find(x => x.id === t.project);
+    addLog('工时审核', (p ? p.name : t.project) + ' · ' + t.stage, `${currentRole().name} 通过 ${t.designerName} ${t.hours}h`);
+    persist();
+  }
+  function rejectTimesheet(id, reason) {
+    const t = TIMESHEETS.find(x => x.id === id); if (!t) return;
+    t.status = '已驳回'; t.rejectReason = reason || '工时与产出不符，请核对后重填';
+    const p = PROJECTS.find(x => x.id === t.project);
+    addLog('工时审核', (p ? p.name : t.project) + ' · ' + t.stage, `${currentRole().name} 驳回 ${t.designerName} ${t.hours}h：${t.rejectReason}`);
+    persist();
+  }
+  function getDesigner(id) { return DESIGNERS.find(d => d.id === id) || { name: id, level: '-', role: '-', dept: '-' }; }
+  // 阶段归一化（填报短名 与 里程碑全名 对齐）
+  function stageKey(name) {
+    name = String(name || '');
+    if (/需求/.test(name)) return '需求收集';
+    if (/平面/.test(name)) return '平面布局';
+    if (/意向/.test(name)) return '3D意向';
+    if (/全屋|3D/.test(name)) return '全屋3D';
+    if (/确认|签认/.test(name)) return '客户确认';
+    return '其他';
+  }
+  // 阶段基准工时（按面积估算，用于超工时预警）
+  function stageBaseline(project, name) {
+    const area = (project && project.area) || 120;
+    switch (stageKey(name)) {
+      case '需求收集': return 16;
+      case '平面布局': return Math.round(area * 0.12);
+      case '3D意向': return Math.round(area * 0.10);
+      case '全屋3D': return Math.round(area * 0.25);
+      default: return 4;
+    }
+  }
+  function stageActualHours(pid, name) {
+    const k = stageKey(name);
+    return TIMESHEETS.filter(t => t.project === pid && t.status !== '已驳回' && stageKey(t.stage) === k).reduce((s, t) => s + (Number(t.hours) || 0), 0);
+  }
+
+  // ===== 分成结算判断 & 待评价项目（负责人待办）=====
+  function isProjectSettled(pid) {
+    return COMMISSIONS.some(c => c.project === pid && ['已审批', '已结算', '已发放'].indexOf(c.status) >= 0);
+  }
+  // 数据范围内、未结算、且存在“已完成但未评分”的设计里程碑 → 需负责人评价
+  function pendingEvalProjects() {
+    return scopeProjects(PROJECTS).filter(p => {
+      if (isProjectSettled(p.id)) return false;
+      const tl = getTaskTimeline(p.id);
+      return tl.some(n => n.design && n.status === 'done' && !milestoneEval(p.id, n.code));
+    });
+  }
+
   // Export
   global.MOCK = {
     DEPARTMENTS, DESIGNERS, CUSTOMERS, PROJECTS, DESIGN_ORDERS, TODOS,
@@ -471,6 +576,9 @@
     getProfile, saveProfile,
     // 我的任务 · 里程碑/版本时间轴
     myTaskProjects, getTaskTimeline, addTaskVersion, completeVersion, acceptRequirement,
+    // 工时填报 & 项目评价待办
+    TIMESHEETS, projectHours, projectTimesheets, weekTimesheetHours, designerWeekHours, addTimesheet, approveTimesheet, rejectTimesheet,
+    stageBaseline, stageActualHours, isProjectSettled, pendingEvalProjects,
     getDesigner: id => DESIGNERS.find(d => d.id === id) || { name: id, level: '-', role: '-', dept: '-' },
     getCustomer: id => CUSTOMERS.find(c => c.id === id) || { name: id, level: '', address: '' },
     getProject: id => PROJECTS.find(p => p.id === id) || null,
@@ -480,7 +588,7 @@
     names: ids => (ids || []).map(id => nameOf(id)).join('、'),
     deptShort: dept => DEPT_SHORT[dept] || dept,
     // 业务动作
-    assignOrder, persist, resetDemo, addLog, nowStr,
+    assignOrder, persist, resetDemo, addLog, nowStr, today,
     // 角色 & 数据范围
     ROLES, currentRole, setRole, scopeProjects, scopeDesigners, projectDepts
   };

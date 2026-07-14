@@ -202,6 +202,38 @@
     </div>
   </div>
 
+  <!-- 工时填报弹窗 -->
+  <div class="modal-mask" id="ts-modal">
+    <div class="modal modal-md">
+      <div class="modal-header">
+        <div class="modal-title">工时填报 · <span id="ts-proj-name"></span></div>
+        <div class="modal-close" onclick="closeModal('ts-modal')">✕</div>
+      </div>
+      <div class="modal-body">
+        <div class="form-item">
+          <label class="form-label">里程碑阶段 <span class="required">*</span></label>
+          <select class="input" id="ts-stage"></select>
+        </div>
+        <div class="form-item">
+          <label class="form-label">填报日期</label>
+          <input class="input" type="date" id="ts-date" />
+        </div>
+        <div class="form-item">
+          <label class="form-label">工时（小时）<span class="required">*</span></label>
+          <input class="input" type="number" step="0.5" min="0" id="ts-hours" placeholder="例如 4.5" />
+        </div>
+        <div class="form-item" style="margin-bottom:0;">
+          <label class="form-label">工作内容备注</label>
+          <textarea class="textarea" id="ts-note" rows="3" placeholder="简述本次完成的具体工作…"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-default" onclick="closeModal('ts-modal')">取消</button>
+        <button class="btn btn-primary" id="ts-submit">提交填报</button>
+      </div>
+    </div>
+  </div>
+
   <script src="../assets/js/utils.js"></script>
   <script src="../assets/js/mock-data.js"></script>
   <script src="../assets/js/shell.js"></script>
@@ -386,12 +418,18 @@
       function renderTimeline(item) {
         const editable = currentTab === 'accepted';
         const p = item.project;
+        const hrs = MOCK.projectHours(item.id);
         document.getElementById('mt-detail-head').innerHTML = `
           <div>
             <div class="card-title">${item.name}</div>
-            <div class="text-sm text-secondary" style="margin-top:2px;">${p ? p.code + ' · ' + p.type + ' · ' + p.area + ' ㎡' : '历史项目'} · 我的角色：<b>${item.task.role}</b></div>
+            <div class="text-sm text-secondary" style="margin-top:2px;">${p ? p.code + ' · ' + p.type + ' · ' + p.area + ' ㎡' : '历史项目'} · 我的角色：<b>${item.task.role}</b> · 累计工时 <b style="color:var(--brand-primary);">${hrs}h</b></div>
           </div>
-          ${p ? `<a class="btn btn-default btn-sm" href="../projects/detail.html?id=${p.id}">项目详情 →</a>` : ''}`;
+          <div style="display:flex;gap:8px;">
+            ${editable ? `<button class="btn btn-primary btn-sm" id="mt-fill-ts" data-pid="${item.id}" data-pname="${item.name}">⏱ 工时填报</button>` : ''}
+            ${p ? `<a class="btn btn-default btn-sm" href="../projects/detail.html?id=${p.id}">项目详情 →</a>` : ''}
+          </div>`;
+        const fillBtn = document.getElementById('mt-fill-ts');
+        if (fillBtn) fillBtn.addEventListener('click', () => openTs(fillBtn.dataset.pid, fillBtn.dataset.pname));
 
         const tl = MOCK.getTaskTimeline(item.id);
         const host = document.getElementById('mt-timeline');
@@ -471,6 +509,27 @@
           </div>
         </div>`;
       }
+
+      // ============ 内联工时填报 ============
+      let tsPid = null;
+      function openTs(pid, pname) {
+        tsPid = pid;
+        document.getElementById('ts-proj-name').textContent = pname;
+        const stageSel = document.getElementById('ts-stage');
+        stageSel.innerHTML = MOCK.MILESTONE_TEMPLATE.map(m => `<option value="${m.name}">${m.name}</option>`).join('');
+        document.getElementById('ts-date').value = MOCK.today();
+        document.getElementById('ts-hours').value = '';
+        document.getElementById('ts-note').value = '';
+        openModal('ts-modal');
+      }
+      document.getElementById('ts-submit').addEventListener('click', () => {
+        const hours = parseFloat(document.getElementById('ts-hours').value);
+        if (!hours || hours <= 0) { toast('请输入有效工时', 'warning'); return; }
+        MOCK.addTimesheet({ project: tsPid, stage: document.getElementById('ts-stage').value, hours, note: document.getElementById('ts-note').value.trim(), date: document.getElementById('ts-date').value || undefined });
+        closeModal('ts-modal');
+        toast('工时已提交，等待负责人审核', 'success');
+        render();
+      });
 
       // ============ 附件预览 / 下载 ============
       function openFile(name, type) {
@@ -552,6 +611,13 @@
           render();
         }
       });
+
+      // 支持 URL ?tab= 直达（如待办“立即去填报”跳转到进行中）
+      const wantTab = getQuery('tab');
+      if (wantTab && ['pending', 'accepted', 'rejected', 'done'].indexOf(wantTab) >= 0) {
+        currentTab = wantTab;
+        document.querySelectorAll('.tab-item').forEach(x => x.classList.toggle('active', x.dataset.tab === wantTab));
+      }
 
       render();
     })();

@@ -9,23 +9,47 @@
   <link rel="stylesheet" href="../assets/css/layout.css" />
   <link rel="stylesheet" href="../assets/css/components.css" />
   <style>
-    .layout { display: grid; grid-template-columns: 300px 1fr; gap: 16px; }
+    .layout { display: grid; grid-template-columns: 280px 1fr; gap: 16px; align-items: start; }
     @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
-    .proj-list { background: white; border-radius: 8px; padding: 12px; overflow-y: auto; max-height: 620px; }
-    .proj-item { padding: 10px; border-radius: 6px; cursor: pointer; margin-bottom: 4px; }
+    .proj-list { background: #fff; border-radius: var(--radius-lg); padding: 10px; overflow-y: auto; max-height: 680px; }
+    .proj-item { padding: 10px; border-radius: 6px; cursor: pointer; margin-bottom: 4px; border: 1px solid transparent; }
     .proj-item:hover { background: var(--bg-hover); }
-    .proj-item.active { background: var(--brand-primary-bg); color: var(--brand-primary); }
+    .proj-item.active { background: var(--brand-primary-bg); border-color: #BCD0FA; }
     .proj-item .p-name { font-weight: 500; font-size: 13px; }
     .proj-item .p-meta { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
 
-    .version-timeline { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
-    .v-card { background: white; border-radius: 8px; padding: 16px; border: 1px solid var(--border); position: relative; }
-    .v-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; border-radius: 4px 0 0 4px; background: var(--brand-primary); }
-    .v-card.confirmed::before { background: var(--success); }
-    .v-card.milestone::before { background: var(--accent); }
-    .v-tag { font-family: var(--font-mono); background: var(--brand-primary-bg); color: var(--brand-primary); padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
-    .change-item { padding: 6px 10px; background: var(--bg-hover); border-radius: 4px; font-size: 12px; margin-top: 6px; }
-    .change-item b { color: var(--brand-primary); }
+    /* 客户确认版本一览 */
+    .final-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+    .final-card { border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px; background: #fff; position: relative; overflow: hidden; }
+    .final-card.done { border-color: #A7E3C6; background: linear-gradient(180deg, #F2FBF6 0%, #fff 60%); }
+    .final-card.active { border-color: #BCD0FA; background: linear-gradient(180deg, #F1F6FF 0%, #fff 60%); }
+    .final-card .fc-stage { font-size: 13px; color: var(--text-secondary); }
+    .final-card .fc-ver { font-size: 22px; font-weight: 700; font-family: var(--font-mono); margin-top: 2px; }
+    .final-card .fc-req { font-size: 12px; color: var(--text-secondary); margin-top: 6px; line-height: 1.5; min-height: 34px; }
+    .final-card .fc-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; font-size: 12px; color: var(--text-secondary); }
+
+    /* 阶段分组 */
+    .stage-sec { margin-top: 16px; }
+    .stage-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: var(--radius-lg) var(--radius-lg) 0 0; background: var(--bg-hover); border: 1px solid var(--border); border-bottom: none; }
+    .stage-head .st-name { font-weight: 600; font-size: 15px; }
+    .stage-body { border: 1px solid var(--border); border-radius: 0 0 var(--radius-lg) var(--radius-lg); padding: 14px; background: #fff; }
+
+    .v-row { border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px 14px; margin-bottom: 10px; }
+    .v-row:last-child { margin-bottom: 0; }
+    .v-row.final { border-color: #A7E3C6; box-shadow: 0 0 0 3px rgba(37,178,109,.08); }
+    .v-row.current { border-color: #BCD0FA; box-shadow: 0 0 0 3px rgba(78,124,246,.08); }
+    .v-row.pending { border-color: #F0B429; background: var(--warning-bg); }
+    .v-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+    .v-tag { font-family: var(--font-mono); background: var(--brand-primary-bg); color: var(--brand-primary); padding: 2px 10px; border-radius: 4px; font-size: 13px; font-weight: 700; }
+    .v-who { display: flex; align-items: center; gap: 8px; }
+    .v-block { margin-top: 8px; font-size: 13px; line-height: 1.6; }
+    .v-block .lbl { color: var(--text-tertiary); font-size: 11px; }
+    .chip-file { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; background: var(--bg-hover); border: 1px solid var(--border); border-radius: var(--radius-round); padding: 3px 10px; cursor: pointer; margin: 4px 6px 0 0; }
+    .chip-file:hover { border-color: var(--brand-primary); color: var(--brand-primary); }
+    .v-actions { display: flex; gap: 6px; margin-top: 10px; }
+    .cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .cmp .col { border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px; }
+    .cmp .col h5 { margin-bottom: 6px; }
   </style>
 </head>
 <body>
@@ -38,50 +62,73 @@
       <div class="page-title-bar">
         <div>
           <div class="page-title">版本管理与溯源</div>
-          <div class="page-title-desc">跨项目查询任一交付物历史版本，追溯 <b>是谁 · 什么时间 · 改了哪个空间 · 具体改了什么</b>。</div>
+          <div class="page-title-desc">按 <b>设计阶段</b> 分组查看版本，一眼定位 <b>客户最终意向（定稿）</b>，追溯每版<b>谁 · 何时 · 客户需求 · 改了什么</b>。</div>
         </div>
         <div class="flex gap-2">
-          <button class="btn btn-default" onclick="toast('对比 V3.1 vs V3.2','info')">↔ 版本对比</button>
-          <button class="btn btn-primary" onclick="toast('已导出该项目所有版本','success')">导出版本档案</button>
+          <button class="btn btn-primary" id="btn-export">导出版本档案</button>
         </div>
       </div>
     </div>
     <div class="page-body">
       <div class="filter-bar">
-        <div class="filter-item"><span class="filter-label">交付物类型</span>
-          <select class="filter-select"><option>全部</option><option>平面布局</option><option>3D 意向</option><option>全屋 3D</option><option>需求文档</option></select>
+        <div class="filter-item"><span class="filter-label">设计阶段</span>
+          <select class="filter-select" id="f-stage"><option value="">全部阶段</option></select>
         </div>
         <div class="filter-item"><span class="filter-label">修改人</span>
-          <select class="filter-select"><option>全部</option><option>张三</option><option>王五</option><option>李四</option></select>
+          <select class="filter-select" id="f-person"><option value="">全部</option></select>
         </div>
-        <div class="filter-item"><span class="filter-label">时间</span>
-          <select class="filter-select"><option>最近 30 天</option><option>本季</option><option>本年</option></select>
-        </div>
-        <input class="filter-search" placeholder="搜索项目 / 客户 / 关键词" />
-        <label class="checkbox" style="margin-left:auto;"><input type="checkbox" /> 只看里程碑版本</label>
+        <input class="filter-search" id="f-search" placeholder="搜索客户需求 / 修改内容关键词" />
+        <label class="checkbox" style="margin-left:auto;"><input type="checkbox" id="f-final" /> 只看客户确认版本</label>
       </div>
 
       <div class="layout">
         <div class="proj-list">
-          <div style="padding:0 6px 8px;font-weight:500;">📁 项目 (${'8'})</div>
+          <div style="padding:0 6px 8px;font-weight:500;" id="proj-count">📁 项目</div>
           <div id="proj-list"></div>
         </div>
         <div>
-          <div class="card" style="padding:16px;margin-bottom:12px;" id="proj-header">
-            <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div class="card" style="padding:16px;margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
               <div>
                 <div style="font-size:18px;font-weight:600;" id="cur-name">-</div>
                 <div class="text-sm text-secondary" id="cur-meta">-</div>
               </div>
               <div style="text-align:right;">
-                <div class="text-sm text-secondary">版本总数</div>
-                <div style="font-size:24px;font-weight:700;color:var(--brand-primary);font-family:var(--font-mono);" id="cur-count">0</div>
+                <div class="text-sm text-secondary">当前阶段</div>
+                <div id="cur-stage"></div>
               </div>
             </div>
           </div>
-          <div class="version-timeline" id="v-list"></div>
+
+          <div class="card" style="padding:16px;margin-bottom:4px;">
+            <div class="card-title" style="margin-bottom:12px;">🎯 客户确认版本一览（各阶段最终意向）</div>
+            <div class="final-grid" id="final-grid"></div>
+          </div>
+
+          <div id="stages"></div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- 附件预览 -->
+  <div class="modal-mask" id="file-modal">
+    <div class="modal modal-md">
+      <div class="modal-header"><div class="modal-title" id="fm-title">附件预览</div><div class="modal-close" onclick="closeModal('file-modal')">✕</div></div>
+      <div class="modal-body">
+        <div id="fm-preview" style="height:180px;border:1px dashed var(--border);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--text-secondary);background:var(--bg-page);"></div>
+        <div class="text-sm text-secondary" id="fm-meta" style="margin-top:10px;"></div>
+      </div>
+      <div class="modal-footer"><button class="btn btn-default" onclick="closeModal('file-modal')">关闭</button><button class="btn btn-primary" id="fm-dl">⬇ 下载</button></div>
+    </div>
+  </div>
+
+  <!-- 版本对比 -->
+  <div class="modal-mask" id="cmp-modal">
+    <div class="modal modal-lg">
+      <div class="modal-header"><div class="modal-title">版本对比</div><div class="modal-close" onclick="closeModal('cmp-modal')">✕</div></div>
+      <div class="modal-body" id="cmp-body"></div>
+      <div class="modal-footer"><button class="btn btn-default" onclick="closeModal('cmp-modal')">关闭</button></div>
     </div>
   </div>
 
@@ -90,76 +137,150 @@
   <script src="../assets/js/shell.js"></script>
   <script>
     (function () {
-      let curId = MOCK.PROJECTS[0].id;
+      const P = MOCK.scopeProjects(MOCK.PROJECTS);
+      let curId = getQuery('id') || (P[0] && P[0].id);
+      if (!P.find(p => p.id === curId)) curId = P[0] && P[0].id;
 
-      const listBox = document.getElementById('proj-list');
-      MOCK.PROJECTS.forEach(p => {
-        const cust = MOCK.getCustomer(p.customer);
-        const el2 = document.createElement('div');
-        el2.className = 'proj-item' + (p.id === curId ? ' active' : '');
-        el2.dataset.id = p.id;
-        const vc = MOCK.VERSIONS.filter(v => v.project === p.id).length;
-        el2.innerHTML = `
-          <div class="p-name">${p.name}</div>
-          <div class="p-meta">${p.code} · ${cust.name} · ${vc} 个版本</div>
-        `;
-        el2.addEventListener('click', () => {
-          curId = p.id;
-          document.querySelectorAll('.proj-item').forEach(x => x.classList.remove('active'));
-          el2.classList.add('active');
-          render();
-        });
-        listBox.appendChild(el2);
-      });
+      function designStages(pid) { return MOCK.getTaskTimeline(pid).filter(n => n.design); }
+      function fileIcon(t) { return ({ pdf: '📄', dwg: '📐', zip: '🗜️', img: '🖼️' })[t] || '📎'; }
+      function starsVerCount(pid) { let c = 0; designStages(pid).forEach(n => c += n.versions.length); return c; }
+
+      // 左侧项目列表
+      function renderProjects() {
+        document.getElementById('proj-count').textContent = `📁 项目（${P.length}）`;
+        const box = document.getElementById('proj-list');
+        box.innerHTML = P.map(p => {
+          const cust = MOCK.getCustomer(p.customer);
+          return `<div class="proj-item ${p.id === curId ? 'active' : ''}" data-id="${p.id}">
+            <div class="p-name">${p.name}</div>
+            <div class="p-meta">${p.code} · ${cust.name} · ${starsVerCount(p.id)} 个版本</div>
+          </div>`;
+        }).join('');
+        box.querySelectorAll('.proj-item').forEach(el => el.addEventListener('click', () => { curId = el.dataset.id; render(); }));
+      }
+
+      // 阶段内版本状态判定
+      function labelFor(node, v, lastDone) {
+        if (v.status !== 'done') return { t: '客户需求 · 待处理', c: 'tag-warning', cls: 'pending' };
+        if (v === lastDone) return node.status === 'done'
+          ? { t: '✓ 客户最终意向 · 定稿', c: 'tag-success', cls: 'final' }
+          : { t: '当前版本 · 待客户确认', c: 'tag-brand', cls: 'current' };
+        return { t: '历史版本', c: '', cls: '' };
+      }
+      function lastDoneOf(node) { const d = node.versions.filter(v => v.status === 'done'); return d[d.length - 1] || null; }
+
+      function chip(f) { return `<span class="chip-file" data-fname="${f.name}" data-ftype="${f.type}">${fileIcon(f.type)} ${f.name}</span>`; }
+
+      function verRowHtml(node, v, lastDone) {
+        const lab = labelFor(node, v, lastDone);
+        const d = MOCK.DESIGNERS.find(x => x.name === v.completedBy) || null;
+        return `<div class="v-row ${lab.cls}">
+          <div class="v-top">
+            <div style="display:flex;align-items:center;gap:8px;"><span class="v-tag">${v.v}</span><span class="tag ${lab.c}">${lab.t}</span></div>
+            <div class="v-who">
+              ${v.status === 'done' ? `<div class="avatar sm" data-color="${colorFrom(v.completedBy || '设计师')}">${initials(v.completedBy || '师')}</div><span class="text-sm">${v.completedBy || '—'}${d ? ' · ' + MOCK.deptShort(d.dept) : ''}</span><span class="text-sm text-secondary">${v.completedAt || ''}</span>` : `<span class="text-sm text-secondary">👤 ${v.requestedBy || ''} · ${v.requestedAt || ''}</span>`}
+            </div>
+          </div>
+          <div class="v-block"><span class="lbl">📩 客户需求：</span>${v.customerReq || '—'}</div>
+          ${v.status === 'done' ? `<div class="v-block"><span class="lbl">🎨 本版改动（${v.reason || '—'}）：</span>${v.changes || '—'}</div>` : '<div class="v-block" style="color:#B4530A;">⏳ 待设计师产出</div>'}
+          ${v.deliverables && v.deliverables.length ? `<div>${v.deliverables.map(chip).join('')}</div>` : ''}
+          ${v.status === 'done' ? `<div class="v-actions">
+            <button class="btn btn-default btn-sm" data-preview="1">👁 预览</button>
+            <button class="btn btn-ghost btn-sm" data-cmp="${node.code}::${v.id}">↔ 对比上一版</button>
+            <button class="btn btn-ghost btn-sm" data-milestone="1">📌 设为定稿</button>
+          </div>` : ''}
+        </div>`;
+      }
 
       function render() {
         const p = MOCK.getProject(curId);
+        renderProjects();
         const cust = MOCK.getCustomer(p.customer);
         document.getElementById('cur-name').textContent = p.name;
         document.getElementById('cur-meta').textContent = `${p.code} · ${p.type} · ${p.region} · 客户 ${cust.name}`;
-        const versions = MOCK.VERSIONS.filter(v => v.project === p.id);
-        document.getElementById('cur-count').textContent = versions.length;
+        document.getElementById('cur-stage').innerHTML = `<span class="tag tag-brand">${p.stage} · ${p.progress}%</span>`;
 
-        const box = document.getElementById('v-list');
-        box.innerHTML = '';
-        versions.forEach(v => {
-          const d = MOCK.getDesigner(v.designer);
-          const confirmed = v.major < 3 || (v.deliverable === '3D意向' && v.major === 1);
-          const card = document.createElement('div');
-          card.className = 'v-card' + (confirmed ? ' confirmed' : '') + (v.minor === 0 && v.major > 1 ? ' milestone' : '');
-          card.innerHTML = `
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-              <span class="v-tag">${v.deliverable} V${v.major}.${v.minor}</span>
-              ${confirmed ? '<span class="tag tag-success">✓ 客户确认</span>' : v.minor === 0 && v.major > 1 ? '<span class="tag tag-warning">📌 里程碑</span>' : '<span class="tag">进行中</span>'}
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-              <div class="avatar sm" data-color="${colorFrom(d.name)}">${initials(d.name)}</div>
-              <div>
-                <div style="font-size:13px;font-weight:500;">${d.name}</div>
-                <div class="text-sm text-secondary">${d.role} · ${d.level}</div>
-              </div>
-              <div style="margin-left:auto;text-align:right;font-size:11px;color:var(--text-secondary);">
-                <div>${v.ts.split(' ')[0]}</div>
-                <div>${v.ts.split(' ')[1]}</div>
-              </div>
-            </div>
-            ${v.feedback ? `<div class="text-sm text-secondary" style="margin-bottom:6px;">💬 ${v.feedback}</div>` : ''}
-            ${v.changes.length ? v.changes.map(c => `
-              <div class="change-item"><b>${c.space}</b>：${c.points.join('；')}</div>
-            `).join('') : '<div class="text-sm text-placeholder">- 无变更点记录 -</div>'}
-            <div style="display:flex;gap:6px;margin-top:12px;">
-              <button class="btn btn-default btn-sm" style="flex:1;" onclick="toast('打开预览','info')">👁 预览</button>
-              <button class="btn btn-ghost btn-sm" onclick="toast('版本对比','info')">↔</button>
-              <button class="btn btn-ghost btn-sm" onclick="toast('设为里程碑','success')">📌</button>
-            </div>
-          `;
-          box.appendChild(card);
-        });
+        const stages = designStages(curId);
 
-        if (versions.length === 0) {
-          box.innerHTML = `<div class="empty" style="grid-column:1/-1;"><div class="empty-title">该项目暂无版本记录</div></div>`;
+        // 阶段筛选下拉
+        const fStage = document.getElementById('f-stage');
+        if (fStage.dataset.pid !== curId) {
+          fStage.dataset.pid = curId;
+          fStage.innerHTML = '<option value="">全部阶段</option>' + stages.map(n => `<option value="${n.code}">${n.name}</option>`).join('');
+          // 修改人
+          const persons = [...new Set(stages.flatMap(n => n.versions.filter(v => v.status === 'done').map(v => v.completedBy)).filter(Boolean))];
+          document.getElementById('f-person').innerHTML = '<option value="">全部</option>' + persons.map(x => `<option>${x}</option>`).join('');
         }
+        const fs = fStage.value, fp = document.getElementById('f-person').value, kw = document.getElementById('f-search').value.trim(), onlyFinal = document.getElementById('f-final').checked;
+
+        // 客户确认版本一览
+        document.getElementById('final-grid').innerHTML = stages.map(n => {
+          const ld = lastDoneOf(n);
+          const done = n.status === 'done';
+          if (!ld) return `<div class="final-card"><div class="fc-stage">${n.name}</div><div class="fc-ver" style="font-size:15px;color:var(--text-secondary);">尚未产出</div><div class="fc-req">该阶段暂无版本</div></div>`;
+          return `<div class="final-card ${done ? 'done' : 'active'}">
+            <div class="fc-stage">${n.name}</div>
+            <div class="fc-ver">${ld.v} <span class="tag ${done ? 'tag-success' : 'tag-brand'}" style="vertical-align:middle;">${done ? '客户定稿' : '待确认'}</span></div>
+            <div class="fc-req">📩 ${ld.customerReq || '—'}</div>
+            <div class="fc-foot"><span>🎨 ${ld.completedBy || '—'}</span><span>${(ld.completedAt || '').slice(0, 10)}</span></div>
+          </div>`;
+        }).join('') || '<div class="text-sm text-secondary">该项目暂无设计阶段版本</div>';
+
+        // 阶段分组
+        const host = document.getElementById('stages');
+        const visStages = stages.filter(n => !fs || n.code === fs);
+        host.innerHTML = visStages.map(n => {
+          const ld = lastDoneOf(n);
+          let vers = n.versions.slice().reverse(); // 新→旧
+          if (fp) vers = vers.filter(v => v.completedBy === fp);
+          if (kw) vers = vers.filter(v => (v.customerReq || '').includes(kw) || (v.changes || '').includes(kw));
+          if (onlyFinal) vers = vers.filter(v => v.status === 'done' && v === ld);
+          const stTag = n.status === 'done' ? '<span class="tag tag-success">已定稿</span>' : n.status === 'active' ? '<span class="tag tag-brand">进行中</span>' : '<span class="tag">未开始</span>';
+          const body = vers.length ? vers.map(v => verRowHtml(n, v, ld)).join('') : '<div class="text-sm text-placeholder" style="padding:8px 0;">无符合条件的版本</div>';
+          return `<div class="stage-sec">
+            <div class="stage-head"><span style="font-size:18px;">${n.code === 'ms3' ? '📐' : n.code === 'ms5' ? '🎨' : '🏠'}</span><span class="st-name">${n.name}</span>${stTag}<span class="text-sm text-secondary" style="margin-left:auto;">${n.versions.length} 版</span></div>
+            <div class="stage-body">${body}</div>
+          </div>`;
+        }).join('') || '<div class="empty" style="padding:40px 0;"><div class="empty-title">该项目暂无设计阶段版本</div></div>';
+
+        bindActions();
       }
+
+      function bindActions() {
+        document.querySelectorAll('#stages .chip-file').forEach(c => c.addEventListener('click', () => openFile(c.dataset.fname, c.dataset.ftype)));
+        document.querySelectorAll('#stages [data-preview]').forEach(b => b.addEventListener('click', () => toast('打开版本预览（演示占位）', 'info')));
+        document.querySelectorAll('#stages [data-milestone]').forEach(b => b.addEventListener('click', () => toast('已标记为定稿版本', 'success')));
+        document.querySelectorAll('#stages [data-cmp]').forEach(b => b.addEventListener('click', () => openCompare(b.dataset.cmp)));
+      }
+
+      function openFile(name, type) {
+        document.getElementById('fm-title').textContent = name;
+        const map = { pdf: 'PDF 文档', dwg: 'CAD 图纸', img: '图片 / 720°', zip: '压缩包' };
+        document.getElementById('fm-preview').innerHTML = `<div style="font-size:44px;">${fileIcon(type)}</div><div>${map[type] || '附件'} 预览（演示占位）</div>`;
+        document.getElementById('fm-meta').textContent = '文件：' + name;
+        openModal('file-modal');
+      }
+      document.getElementById('fm-dl').addEventListener('click', () => { closeModal('file-modal'); toast('下载中（演示占位文件）', 'info'); });
+
+      function openCompare(key) {
+        const [code, vid] = key.split('::');
+        const node = designStages(curId).find(n => n.code === code);
+        const dones = node.versions.filter(v => v.status === 'done');
+        const idx = dones.findIndex(v => v.id === vid);
+        const cur = dones[idx], prev = idx > 0 ? dones[idx - 1] : null;
+        const colHtml = (v, title) => v ? `<div class="col"><h5>${title} · <span class="v-tag">${v.v}</span></h5>
+          <div class="v-block"><span class="lbl">📩 客户需求：</span>${v.customerReq || '—'}</div>
+          <div class="v-block"><span class="lbl">🎨 本版改动：</span>${v.changes || '—'}</div>
+          <div class="v-block"><span class="lbl">产出物：</span>${(v.deliverables || []).map(f => fileIcon(f.type) + ' ' + f.name).join('、') || '—'}</div>
+          <div class="text-sm text-secondary" style="margin-top:6px;">${v.completedBy || ''} · ${v.completedAt || ''}</div></div>` : `<div class="col"><h5>${title}</h5><div class="text-sm text-placeholder">无上一版（首版方案）</div></div>`;
+        document.getElementById('cmp-body').innerHTML = `<div class="text-sm text-secondary" style="margin-bottom:10px;">${node.name} · 对比相邻两个已产出版本</div><div class="cmp">${colHtml(prev, '上一版')}${colHtml(cur, '当前版')}</div>`;
+        openModal('cmp-modal');
+      }
+
+      ['f-stage', 'f-person'].forEach(id => document.getElementById(id).addEventListener('change', render));
+      document.getElementById('f-search').addEventListener('input', debounce(render, 200));
+      document.getElementById('f-final').addEventListener('change', render);
+      document.getElementById('btn-export').addEventListener('click', () => toast('已导出「' + MOCK.getProject(curId).name + '」全部版本档案（演示）', 'success'));
 
       render();
     })();

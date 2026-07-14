@@ -27,6 +27,11 @@
     .star-pick span.hot { color: #F59E0B; }
     .q-layout { display: grid; grid-template-columns: 380px 1fr; gap: 20px; }
     @media (max-width: 900px) { .q-layout { grid-template-columns: 1fr; } }
+    .ts-layout { display: grid; grid-template-columns: 380px 1fr; gap: 20px; }
+    @media (max-width: 900px) { .ts-layout { grid-template-columns: 1fr; } }
+    .seg { display: inline-flex; background: var(--bg-hover); border-radius: 999px; padding: 3px; }
+    .seg button { border: none; background: transparent; padding: 6px 16px; border-radius: 999px; font-size: 13px; cursor: pointer; color: var(--text-secondary); }
+    .seg button.on { background: var(--brand-primary); color: #fff; }
     .form-group { margin-bottom: 14px; }
     .form-input { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 14px; font-family: inherit; background: #fff; box-sizing: border-box; }
     textarea.form-input { resize: vertical; }
@@ -91,6 +96,7 @@
           <div class="tab-item" data-tab="files">📁 文件</div>
           <div class="tab-item" data-tab="log">📜 操作日志</div>
           <div class="tab-item" data-tab="quality">⭐ 质量评价</div>
+          <div class="tab-item" data-tab="timesheet">⏱ 工时填报</div>
         </div>
 
         <div style="padding:20px;">
@@ -145,6 +151,9 @@
           <!-- Quality -->
           <div class="tab-panel" data-panel="quality" id="panel-quality">...</div>
 
+          <!-- Timesheet 工时填报 -->
+          <div class="tab-panel" data-panel="timesheet" id="panel-timesheet">...</div>
+
         </div>
       </div>
     </div>
@@ -194,7 +203,7 @@
           <div class="kpi"><div class="kpi-l">团队规模</div><div class="kpi-v">${p.team.length} 人</div></div>
           <div class="kpi"><div class="kpi-l">变更次数</div><div class="kpi-v">${p.changesCount}</div></div>
           <div class="kpi"><div class="kpi-l">交付物</div><div class="kpi-v">${p.deliverables} 件</div></div>
-          <div class="kpi"><div class="kpi-l">已用工时</div><div class="kpi-v">128 h</div></div>
+          <div class="kpi"><div class="kpi-l">已用工时</div><div class="kpi-v" id="kpi-hours">${MOCK.projectHours(p.id)} h</div></div>
           <div class="kpi"><div class="kpi-l">预算</div><div class="kpi-v">¥${p.budget} 万</div></div>
           <div class="kpi"><div class="kpi-l">距截止</div><div class="kpi-v" style="color:${p.risk === 'danger' ? 'var(--danger)' : ''};">${Math.max(0, Math.ceil((new Date(p.deadline) - new Date()) / 86400000))} 天</div></div>
         </div>
@@ -486,6 +495,115 @@
       }
       renderQuality();
 
+      // Timesheet 工时填报
+      let tsMode = '日报';
+      function refreshHours() { document.getElementById('kpi-hours').textContent = MOCK.projectHours(p.id) + ' h'; }
+      function statusTag(t) {
+        if (t.status === '已通过') return '<span class="tag tag-success">已通过</span>';
+        if (t.status === '已驳回') return `<span class="tag tag-danger">已驳回</span>${t.rejectReason ? `<div class="text-sm" style="color:var(--danger);margin-top:2px;">${t.rejectReason}</div>` : ''}`;
+        return '<span class="tag tag-warning">待审核</span>';
+      }
+      // 阶段工时 vs 基准（超工时预警）
+      function baselineBlock() {
+        const stages = ['需求收集 & 文档', '平面布局图 V1', '3D 意向 1-3 空间', '全屋 3D'];
+        const cells = stages.map(name => {
+          const base = MOCK.stageBaseline(p, name);
+          const act = MOCK.stageActualHours(p.id, name);
+          const over = base > 0 ? Math.round((act - base) / base * 100) : 0;
+          const warn = act > base;
+          const label = name.replace(/ (V1|1-3 空间| & 文档)/, '');
+          return `<div class="card" style="flex:1;padding:12px;">
+            <div class="text-sm text-secondary">${label}</div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:4px;">
+              <span style="font-family:var(--font-mono);font-weight:600;">${act}h</span>
+              <span class="text-sm ${warn ? 'text-warning' : 'text-secondary'}">/ 基准 ${base}h</span>
+            </div>
+            ${act > 0 ? `<div class="text-sm ${warn ? 'text-warning' : 'text-success'}" style="margin-top:2px;">${warn ? '▲ 超 ' + over + '%' : '✓ 达标'}</div>` : '<div class="text-sm text-secondary" style="margin-top:2px;">未开始</div>'}
+          </div>`;
+        }).join('');
+        return `<div style="margin-bottom:16px;"><h4 style="font-size:14px;margin-bottom:8px;">📊 阶段工时 vs 基准（超工时预警）</h4><div style="display:flex;gap:10px;flex-wrap:wrap;">${cells}</div></div>`;
+      }
+      function renderTimesheet() {
+        const can = MOCK.canEvaluate(); // 负责人/总监可审核
+        const list = MOCK.projectTimesheets(p.id);
+        const total = MOCK.projectHours(p.id);
+        const rows = list.length ? list.map(t => `
+          <tr>
+            <td class="text-sm">${t.date.slice(5)}</td>
+            <td class="text-sm"><span class="tag tag-purple">${MOCK.deptShort(t.dept)}</span> ${t.designerName}</td>
+            <td class="text-sm">${t.stage}</td>
+            <td class="text-sm" style="font-family:var(--font-mono);">${t.hours}h</td>
+            <td>${statusTag(t)}</td>
+            <td style="text-align:right;white-space:nowrap;">${(can && t.status === '待审核') ? `<button class="btn btn-default btn-sm" data-appr="${t.id}">通过</button> <button class="btn btn-ghost btn-sm" data-rej="${t.id}">驳回</button>` : '<span class="text-sm text-secondary">—</span>'}</td>
+          </tr>`).join('') : `<tr><td colspan="6"><div class="empty" style="padding:24px 0;"><div class="empty-title">暂无填报记录</div></div></td></tr>`;
+
+        document.getElementById('panel-timesheet').innerHTML = `
+          <div class="ts-layout">
+            <div class="card">
+              <div class="card-header"><div class="card-title">工时填报 <span class="tag tag-brand" style="margin-left:6px;">FR-M10-08</span></div></div>
+              <div class="card-body">
+                <div class="form-group">
+                  <div class="seg" id="ts-mode"><button data-m="日报" class="on">日报模式</button><button data-m="周报">周报模式</button></div>
+                </div>
+                <div class="form-group"><label class="form-label">关联设计单</label>
+                  <input class="form-input" value="${p.code} · ${p.name}" readonly style="background:var(--bg-hover);" />
+                </div>
+                <div class="form-group"><label class="form-label">里程碑阶段</label>
+                  <select class="form-input" id="ts-stage">${MOCK.MILESTONE_TEMPLATE.map(m => `<option value="${m.name}">${m.name}</option>`).join('')}</select>
+                </div>
+                <div class="form-group"><label class="form-label" id="ts-date-l">填报日期</label>
+                  <input type="date" class="form-input" id="ts-date" value="${MOCK.today ? MOCK.today() : ''}" />
+                </div>
+                <div class="form-group"><label class="form-label">工时（小时）</label>
+                  <input type="number" step="0.5" min="0" class="form-input" id="ts-hours" placeholder="例如 4.5" />
+                </div>
+                <div class="form-group"><label class="form-label">工作内容备注</label>
+                  <textarea class="form-input" id="ts-note" rows="3" placeholder="简述本次完成的具体工作…"></textarea>
+                </div>
+                <button class="btn btn-primary" id="ts-submit">提交填报</button>
+              </div>
+            </div>
+            <div>
+              ${baselineBlock()}
+              <div class="card">
+                <div class="card-header">
+                  <div class="card-title">填报审核记录</div>
+                  <div class="text-sm text-secondary">项目累计工时 <b style="color:var(--brand-primary);font-family:var(--font-mono);">${total} h</b></div>
+                </div>
+                <div class="card-body" style="padding:0;">
+                  <table class="data-table"><thead><tr><th>日期</th><th>设计师</th><th>阶段</th><th>工时</th><th>状态</th><th style="text-align:right;">操作</th></tr></thead><tbody>${rows}</tbody></table>
+                </div>
+              </div>
+            </div>
+          </div>`;
+
+        document.querySelectorAll('#ts-mode button').forEach(b => b.addEventListener('click', () => {
+          document.querySelectorAll('#ts-mode button').forEach(x => x.classList.remove('on'));
+          b.classList.add('on'); tsMode = b.dataset.m;
+          document.getElementById('ts-date-l').textContent = tsMode === '周报' ? '填报周（起始日）' : '填报日期';
+        }));
+        document.getElementById('ts-submit').addEventListener('click', () => {
+          const hours = parseFloat(document.getElementById('ts-hours').value);
+          if (!hours || hours <= 0) { toast('请输入有效工时', 'warning'); return; }
+          MOCK.addTimesheet({ project: p.id, stage: document.getElementById('ts-stage').value, hours, note: document.getElementById('ts-note').value.trim(), date: document.getElementById('ts-date').value || undefined, mode: tsMode });
+          toast('工时已提交，等待负责人审核', 'success');
+          renderTimesheet(); refreshHours();
+        });
+        document.querySelectorAll('[data-appr]').forEach(b => b.addEventListener('click', () => {
+          MOCK.approveTimesheet(b.dataset.appr);
+          toast('已通过该工时填报', 'success');
+          renderTimesheet(); refreshHours();
+        }));
+        document.querySelectorAll('[data-rej]').forEach(b => b.addEventListener('click', () => {
+          const reason = prompt('请输入驳回原因（设计师将收到通知并可重新填报）：', '工时与产出不符，请核对后重填');
+          if (reason === null) return;
+          MOCK.rejectTimesheet(b.dataset.rej, reason.trim());
+          toast('已驳回该工时填报', 'info');
+          renderTimesheet(); refreshHours();
+        }));
+      }
+      renderTimesheet();
+
       // Tab 切换
       document.querySelectorAll('.tab-item').forEach(t => {
         t.addEventListener('click', () => {
@@ -495,6 +613,10 @@
           document.querySelector('[data-panel="' + t.dataset.tab + '"]').classList.add('active');
         });
       });
+
+      // 从 URL 直达指定 Tab（如待办跳转到质量评价）
+      const wantTab = getQuery('tab');
+      if (wantTab) { const el2 = document.querySelector('.tab-item[data-tab="' + wantTab + '"]'); if (el2) el2.click(); }
     })();
   </script>
 </body>
