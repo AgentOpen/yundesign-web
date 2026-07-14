@@ -50,6 +50,42 @@
       </div>`;
     document.body.appendChild(wrap);
     wrap.addEventListener('click', (e) => { if (e.target === wrap) closeModal(MODAL_ID); });
+
+    // 附件预览弹层（叠在需求清单之上）
+    const fm = document.createElement('div');
+    fm.className = 'modal-mask';
+    fm.id = 'od-file-modal';
+    fm.style.zIndex = '1200';
+    fm.innerHTML = `
+      <div class="modal modal-md">
+        <div class="modal-header">
+          <div class="modal-title" id="odf-title">附件预览</div>
+          <div class="modal-close" onclick="closeModal('od-file-modal')">✕</div>
+        </div>
+        <div class="modal-body">
+          <div id="odf-preview" style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:28px 0;background:var(--bg-hover);border-radius:8px;"></div>
+          <div class="text-sm text-secondary" id="odf-meta" style="margin-top:10px;"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-default" onclick="closeModal('od-file-modal')">关闭</button>
+          <button class="btn btn-primary" id="odf-download">⬇ 下载</button>
+        </div>
+      </div>`;
+    document.body.appendChild(fm);
+    fm.addEventListener('click', (e) => { if (e.target === fm) closeModal('od-file-modal'); });
+    fm.querySelector('#odf-download').addEventListener('click', () => {
+      closeModal('od-file-modal');
+      if (typeof global.toast === 'function') global.toast('下载中（演示环境为占位文件）', 'info');
+    });
+  }
+
+  function previewFile(name, type) {
+    ensureModal();
+    const map = { pdf: 'PDF 需求文档', dwg: 'CAD 图纸（DWG）', img: '图片 / 720° 全景', xls: 'Excel 表格', zip: '压缩包', doc: 'Word 文档' };
+    document.getElementById('odf-title').textContent = name;
+    document.getElementById('odf-preview').innerHTML = `<div style="font-size:52px;">${ATT_ICON[type] || '📎'}</div><div>${map[type] || '附件'} · 预览（演示占位）</div>`;
+    document.getElementById('odf-meta').textContent = '文件：' + name + ' · 类型：' + (map[type] || type);
+    openModal('od-file-modal');
   }
 
   function urgencyBadge(u) {
@@ -168,10 +204,8 @@
     document.getElementById('od-title').textContent = (model.name || '项目') + ' · 项目需求清单';
     const body = document.getElementById('od-body');
     body.innerHTML = bodyHtml(model);
-    // 附件预览
-    body.querySelectorAll('.od-chip').forEach(c => c.addEventListener('click', () => {
-      if (typeof global.toast === 'function') global.toast('预览 / 下载：' + c.dataset.fname, 'info');
-    }));
+    // 附件预览（真实预览弹层）
+    body.querySelectorAll('.od-chip').forEach(c => c.addEventListener('click', () => previewFile(c.dataset.fname, c.dataset.ftype)));
     // Footer 按钮
     const footer = document.getElementById('od-footer');
     footer.innerHTML = '';

@@ -400,13 +400,48 @@
     return {
       avatar: p.avatar || nameOf(designerId).slice(0, 1),
       displayName: p.displayName || d.name || designerId,
-      styles: p.styles || (d.skills || []).slice(),
+      styles: p.styles || ['现代', '轻奢'],
+      skills: p.skills || (d.skills || []).slice(),
+      serviceRegions: p.serviceRegions || (d.city ? [d.city] : []),
       bio: p.bio || `${d.dept || ''} · ${d.role || ''} · ${d.level || ''}`
     };
   }
   function saveProfile(designerId, data) {
     PROFILES[designerId] = Object.assign({}, PROFILES[designerId], data);
+    // 技能标签 / 擅长地域 回写设计师主档，直接影响智能分单匹配
+    const d = DESIGNERS.find(x => x.id === designerId);
+    if (d) {
+      if (data.skills) d.skills = data.skills.slice();
+      if (data.serviceRegions && data.serviceRegions.length) d.city = d.city || data.serviceRegions[0];
+    }
     persist();
+  }
+
+  // ===== 自动分单规则（分单管理员可配置优先级与权重）=====
+  const ASSIGN_RULES = [
+    { key: 'skill', label: '技能标签匹配', weight: 30, priority: 1, desc: '柜体 / 门窗 / 卫浴 / 软装 等标签与设计单范围匹配' },
+    { key: 'load', label: '工作量负载', weight: 25, priority: 2, desc: '在途设计单数量，负载越低越优先' },
+    { key: 'quality', label: '历史设计质量', weight: 20, priority: 3, desc: '里程碑质量评分均值' },
+    { key: 'region', label: '地域匹配', weight: 15, priority: 4, desc: '擅长地域 / 城市与项目所在地匹配' },
+    { key: 'rotation', label: '均衡轮转', weight: 10, priority: 5, desc: '距上次分单时间越久越优先' }
+  ];
+  // 设计师"分单竞争力画像"：结合自填技能/风格/地域 + 历史评分/负载/轮转，输出各维度 0-100 及加权总分
+  function designerReadiness(designerId) {
+    const d = DESIGNERS.find(x => x.id === designerId) || {};
+    const pf = getProfile(designerId);
+    const evs = designerEvals(designerId);
+    const avg = evs.length ? (evs.reduce((s, e) => s + e.score, 0) / evs.length) : (d.avgScore || 0);
+    const days = d.lastAssignAt ? Math.max(0, Math.round((Date.now() - new Date(d.lastAssignAt)) / 86400000)) : 30;
+    const dims = {
+      skill: Math.min(100, (pf.skills.length) * 22),        // 约 5 个标签满分
+      load: Math.max(0, 100 - (d.capacity || 0)),           // 负载越低越高
+      quality: Math.round((avg / 5) * 100),
+      region: Math.min(100, (pf.serviceRegions.length) * 34), // 约 3 个地域满分
+      rotation: Math.min(100, days * 12)                    // 约 8+ 天满分
+    };
+    let total = 0;
+    ASSIGN_RULES.forEach(r => { total += (dims[r.key] || 0) * (r.weight / 100); });
+    return { dims, total: Math.round(total), avg: Number(avg).toFixed(1), days, activeProjects: d.activeProjects || 0, capacity: d.capacity || 0, lastAssignAt: d.lastAssignAt || '—' };
   }
 
   // ===================== 我的任务 · 里程碑/版本时间轴 =====================
@@ -620,7 +655,7 @@
     CURRENT_USER,
     // 质量评价 & 个人中心
     canEvaluate, milestoneEvals, milestoneEval, designerEvals, msResponsible, addMilestoneEval,
-    getProfile, saveProfile,
+    getProfile, saveProfile, ASSIGN_RULES, designerReadiness,
     // 我的任务 · 里程碑/版本时间轴
     myTaskProjects, getTaskTimeline, addTaskVersion, completeVersion, acceptRequirement,
     // 工时填报 & 项目评价待办

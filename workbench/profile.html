@@ -31,6 +31,27 @@
     .form-group { margin-bottom: 14px; }
     .form-input { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 14px; font-family: inherit; background: #fff; box-sizing: border-box; }
     textarea.form-input { resize: vertical; }
+    /* 彩色标签 */
+    .ctag { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; line-height: 1.7; }
+    .ctag .x { cursor: pointer; font-weight: 700; opacity: .55; }
+    .ctag .x:hover { opacity: 1; }
+    /* 标签输入器 */
+    .taginput { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; border: 1px solid var(--border); border-radius: var(--radius-md); padding: 7px 8px; min-height: 42px; background: #fff; cursor: text; }
+    .taginput.focus { border-color: var(--brand-primary); box-shadow: 0 0 0 3px var(--brand-primary-bg); }
+    .taginput input { border: none; outline: none; flex: 1; min-width: 90px; font-size: 14px; padding: 2px; background: transparent; }
+    .form-hint { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+    /* 左卡分块 */
+    .pf-block { margin-top: 16px; }
+    .pf-block .pf-bl-t { font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; font-weight: 600; }
+    /* 分单画像 */
+    .rd-score { text-align: center; padding: 4px 0 14px; }
+    .rd-score .n { font-size: 42px; font-weight: 800; color: var(--brand-primary); line-height: 1; font-family: var(--font-mono); }
+    .rd-score .l { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+    .rd-row { margin-bottom: 12px; }
+    .rd-row .rh { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; margin-bottom: 4px; gap: 8px; }
+    .rd-row .rh .w { color: var(--text-secondary); font-size: 11px; }
+    .rd-bar { height: 8px; background: var(--bg-hover); border-radius: 999px; overflow: hidden; }
+    .rd-bar > div { height: 100%; border-radius: 999px; transition: width .4s; }
   </style>
 </head>
 <body>
@@ -62,11 +83,21 @@
               <div class="pf-bio" id="pf-bio"></div>
             </div>
             <div class="pf-stats" id="pf-stats"></div>
+            <div class="pf-block"><div class="pf-bl-t">🏷 技能标签（影响智能分单）</div><div class="pf-tags" id="pf-skills" style="justify-content:flex-start;"></div></div>
+            <div class="pf-block"><div class="pf-bl-t">📍 擅长地域</div><div class="pf-tags" id="pf-regions" style="justify-content:flex-start;"></div></div>
           </div>
         </div>
 
-        <!-- 右：历史项目 + 评价 -->
+        <!-- 右：分单画像 + 历史项目 + 评价 -->
         <div style="display:grid;gap:16px;">
+          <div class="card">
+            <div class="card-header"><div class="card-title">🎯 分单匹配画像</div><span class="text-sm text-secondary">结合自填标签 + 历史数据</span></div>
+            <div class="card-body">
+              <div class="rd-score"><div class="n" id="rd-total">0</div><div class="l">综合分单就绪度（0-100，越高越易被系统推荐）</div></div>
+              <div id="rd-rows"></div>
+              <div class="text-sm text-secondary" id="rd-tip" style="margin-top:6px;"></div>
+            </div>
+          </div>
           <div class="card">
             <div class="card-header"><div class="card-title">历史项目</div><span class="text-sm text-secondary" id="proj-count"></span></div>
             <div class="card-body" style="padding:0;">
@@ -95,7 +126,21 @@
           <div class="emoji-pick" id="emoji-pick"></div>
         </div>
         <div class="form-group"><label class="form-label">昵称</label><input class="form-input" id="ed-name" /></div>
-        <div class="form-group"><label class="form-label">设计风格（逗号分隔）</label><input class="form-input" id="ed-styles" placeholder="如：现代,轻奢,东南亚" /></div>
+        <div class="form-group">
+          <label class="form-label">设计风格</label>
+          <div class="taginput" id="ti-styles"><input type="text" placeholder="输入后按空格生成标签，如：现代 轻奢 东南亚" /></div>
+          <div class="form-hint">输入文字后按 <b>空格 / 回车</b> 固定为标签，点标签上的 × 删除</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">技能标签 <span style="color:var(--brand-primary);">（影响智能分单匹配）</span></label>
+          <div class="taginput" id="ti-skills"><input type="text" placeholder="如：柜体 门窗 卫浴 软装 别墅 家装" /></div>
+          <div class="form-hint">分单引擎按此标签与设计单「设计范围/类型」做匹配打分（规则①）</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">擅长地域 / 城市</label>
+          <div class="taginput" id="ti-regions"><input type="text" placeholder="如：曼谷 上海 泰国 深圳" /></div>
+          <div class="form-hint">用于分单「地域匹配」维度（规则③）</div>
+        </div>
         <div class="form-group"><label class="form-label">个人简介</label><textarea class="form-input" id="ed-bio" rows="3" placeholder="介绍你的擅长领域与设计理念…"></textarea></div>
       </div>
       <div class="modal-footer">
@@ -118,6 +163,67 @@
       function starsHtml(n) { let s = ''; for (let i = 1; i <= 5; i++) s += `<span class="${i <= n ? 'on' : ''}">★</span>`; return `<span class="stars">${s}</span>`; }
       function isEmoji(s) { return s && /\p{Emoji}/u.test(s); }
 
+      // 彩色标签
+      const TAG_PALETTE = [
+        ['#EEF3FE', '#1E4FD8'], ['#F1ECFB', '#8B5CF6'], ['#E8F7F0', '#0E9F6E'],
+        ['#FEF3E2', '#B4530A'], ['#FDECEF', '#E11D48'], ['#E9F5FB', '#0E7490'],
+        ['#F3F0E8', '#8A6D1F'], ['#EAF0FA', '#3557B7']
+      ];
+      function tagColor(t) { let h = 0; for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) >>> 0; return TAG_PALETTE[h % TAG_PALETTE.length]; }
+      function colorTags(list, empty) {
+        if (!list || !list.length) return `<span class="text-placeholder text-sm">${empty || '未设置'}</span>`;
+        return list.map(t => { const c = tagColor(t); return `<span class="ctag" style="background:${c[0]};color:${c[1]};">${t}</span>`; }).join('');
+      }
+
+      // 标签输入器：输入 + 空格/回车 固定标签，× 删除
+      function makeTagInput(boxId, initial) {
+        const box = document.getElementById(boxId);
+        const input = box.querySelector('input');
+        let tags = (initial || []).slice();
+        function render() {
+          box.querySelectorAll('.ctag').forEach(n => n.remove());
+          tags.forEach(t => {
+            const c = tagColor(t);
+            const span = document.createElement('span');
+            span.className = 'ctag';
+            span.style.background = c[0]; span.style.color = c[1];
+            span.innerHTML = `${t}<span class="x">×</span>`;
+            span.querySelector('.x').addEventListener('click', (e) => { e.stopPropagation(); tags = tags.filter(x => x !== t); render(); });
+            box.insertBefore(span, input);
+          });
+        }
+        function commit() { const v = input.value.trim().replace(/[,，\s]+$/, ''); if (v && tags.indexOf(v) < 0) tags.push(v); input.value = ''; render(); }
+        box.addEventListener('click', () => input.focus());
+        input.addEventListener('focus', () => box.classList.add('focus'));
+        input.addEventListener('blur', () => { commit(); box.classList.remove('focus'); });
+        input.addEventListener('keydown', (e) => {
+          if (e.key === ' ' || e.key === 'Enter' || e.key === ',' || e.key === '，') { e.preventDefault(); commit(); }
+          else if (e.key === 'Backspace' && !input.value && tags.length) { tags.pop(); render(); }
+        });
+        render();
+        return { get: () => tags.slice(), set: (arr) => { tags = (arr || []).slice(); render(); } };
+      }
+      const tiStyles = makeTagInput('ti-styles', []);
+      const tiSkills = makeTagInput('ti-skills', []);
+      const tiRegions = makeTagInput('ti-regions', []);
+
+      function renderReadiness() {
+        const rd = MOCK.designerReadiness(selfId);
+        document.getElementById('rd-total').textContent = rd.total;
+        const extra = { skill: '', load: `在途 ${rd.activeProjects} 单 · 负载 ${rd.capacity}%`, quality: `均分 ${rd.avg}`, region: '', rotation: `距上次 ${rd.days} 天` };
+        document.getElementById('rd-rows').innerHTML = MOCK.ASSIGN_RULES.map(r => {
+          const v = rd.dims[r.key] || 0;
+          const c = v >= 75 ? 'var(--success)' : v >= 45 ? 'var(--brand-primary)' : 'var(--warning)';
+          return `<div class="rd-row">
+            <div class="rh"><span>${r.label} <span class="w">权重 ${r.weight}% · P${r.priority}</span></span><span style="font-weight:600;">${v}${extra[r.key] ? ` · ${extra[r.key]}` : ''}</span></div>
+            <div class="rd-bar"><div style="width:${v}%;background:${c};"></div></div>
+          </div>`;
+        }).join('');
+        const low = MOCK.ASSIGN_RULES.map(r => ({ r, v: rd.dims[r.key] || 0 })).sort((a, b) => a.v - b.v)[0];
+        const tips = { skill: '补充更多技能标签（柜体/门窗/卫浴/软装）可提升匹配命中率', load: '当前负载偏高，完成在途单后就绪度会回升', quality: '提升里程碑质量评分可提高分单权重', region: '补充擅长地域可覆盖更多区域项目', rotation: '最近刚分过单，轮转分暂时较低（系统均衡轮转）' };
+        document.getElementById('rd-tip').textContent = '💡 ' + (tips[low.r.key] || '');
+      }
+
       function myProjects() {
         return MOCK.PROJECTS.filter(p => (p.d2d || []).includes(selfId) || (p.d3d || []).includes(selfId) || p.coord === selfId);
       }
@@ -135,8 +241,10 @@
         av.textContent = isEmoji(pf.avatar) ? pf.avatar : (pf.avatar || pf.displayName.slice(0, 1));
         document.getElementById('pf-name').textContent = pf.displayName;
         document.getElementById('pf-sub').innerHTML = `<span class="tag tag-purple">${MOCK.deptShort(d.dept)}</span> ${d.role || '—'} · ${d.level || '—'} · ${d.city || ''}`;
-        document.getElementById('pf-tags').innerHTML = (pf.styles.length ? pf.styles : ['未设置风格']).map(s => `<span class="tag tag-brand">${s}</span>`).join('');
+        document.getElementById('pf-tags').innerHTML = colorTags(pf.styles, '未设置风格');
         document.getElementById('pf-bio').textContent = pf.bio || '这位设计师还没有填写简介~';
+        document.getElementById('pf-skills').innerHTML = colorTags(pf.skills, '未设置技能标签');
+        document.getElementById('pf-regions').innerHTML = colorTags(pf.serviceRegions, '未设置擅长地域');
 
         const evs = MOCK.designerEvals(selfId);
         const avg = evs.length ? (evs.reduce((s, e) => s + e.score, 0) / evs.length).toFixed(1) : (d.avgScore || '—');
@@ -173,6 +281,8 @@
             <div class="text-sm text-secondary" style="margin-top:2px;">— ${e.reviewer} · ${e.ts}</div>
           </div>`;
         }).join('') : `<div class="empty" style="padding:24px 0;"><div class="empty-title">暂无评价</div><div class="empty-desc">设计总监将在各里程碑节点对你的设计产出进行评分</div></div>`;
+
+        renderReadiness();
       }
 
       function statusTag(s) {
@@ -191,7 +301,9 @@
           document.querySelectorAll('#emoji-pick span').forEach(x => x.classList.toggle('sel', x === sp));
         }));
         document.getElementById('ed-name').value = pf.displayName;
-        document.getElementById('ed-styles').value = pf.styles.join(',');
+        tiStyles.set(pf.styles);
+        tiSkills.set(pf.skills);
+        tiRegions.set(pf.serviceRegions);
         document.getElementById('ed-bio').value = pf.bio;
         openModal('edit-modal');
       });
@@ -201,11 +313,13 @@
         MOCK.saveProfile(selfId, {
           avatar: curAvatar,
           displayName: name,
-          styles: document.getElementById('ed-styles').value.split(/[,，]/).map(s => s.trim()).filter(Boolean),
+          styles: tiStyles.get(),
+          skills: tiSkills.get(),
+          serviceRegions: tiRegions.get(),
           bio: document.getElementById('ed-bio').value.trim()
         });
         window.closeEdit();
-        toast('资料已保存', 'success');
+        toast('资料已保存，技能标签已同步至智能分单', 'success');
         render();
       };
 
