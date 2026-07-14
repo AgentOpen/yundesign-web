@@ -22,6 +22,12 @@
     .task-meta .meta-value { color: var(--text-primary); font-weight: 500; }
     .task-footer { display: flex; align-items: center; justify-content: space-between; padding-top: 16px; border-top: 1px solid var(--divider); }
     .space-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+    .req-pack { background: var(--bg-hover); border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; }
+    .req-pack .rp-row { display: flex; gap: 10px; font-size: 13px; padding: 4px 0; }
+    .req-pack .rp-row + .rp-row { border-top: 1px dashed var(--divider); }
+    .req-pack .rp-l { flex-shrink: 0; width: 64px; color: var(--text-secondary); }
+    .req-pack .rp-v { flex: 1; color: var(--text-primary); }
+    .req-pack .rp-v.att { display: flex; flex-wrap: wrap; gap: 6px; }
 
     /* 双栏时间轴 */
     .mt-layout { display: grid; grid-template-columns: 300px 1fr; gap: 16px; align-items: start; }
@@ -236,6 +242,7 @@
 
   <script src="../assets/js/utils.js"></script>
   <script src="../assets/js/mock-data.js"></script>
+  <script src="../assets/js/order-detail.js"></script>
   <script src="../assets/js/shell.js"></script>
   <script>
     (function () {
@@ -318,13 +325,29 @@
             extra += `<div style="margin-top:12px;background:var(--success-bg);color:var(--success);padding:10px 12px;border-radius:6px;font-size:13px;">✓ 已于 ${t.doneAt} 交付并通过验收</div>`;
           }
 
+          const vip = t.custLevel === 'VIP' ? '<span class="tag tag-warning" style="margin-left:4px;">★ VIP</span>' : '';
+          const scopeTags = (t.scope || []).map(s => `<span class="tag" style="margin-left:4px;">${s}</span>`).join('');
+          const atts = (t.attachments || []).length
+            ? (t.attachments).map(f => `<span class="mat-chip" data-fname="${f.name}" data-ftype="${f.type}">${fileIcon(f.type)} ${f.name}</span>`).join('')
+            : '<span class="text-secondary text-sm">无附件</span>';
+          const teamBits = [`PM ${t.pm || '-'}`, `协调员 ${t.coordName || '-'}`];
+          if (t.teammates2D && t.teammates2D.length) teamBits.push('平面 ' + t.teammates2D.join('/'));
+          if (t.teammates3D && t.teammates3D.length) teamBits.push('3D ' + t.teammates3D.join('/'));
+          const reqPack = `
+            <div class="req-pack">
+              <div class="rp-row"><span class="rp-l">设计方向</span><span class="rp-v">${t.remark || '—'}</span></div>
+              <div class="rp-row"><span class="rp-l">需求附件</span><span class="rp-v att">${atts}</span></div>
+              <div class="rp-row"><span class="rp-l">协作团队</span><span class="rp-v">${teamBits.join(' · ')}</span></div>
+            </div>`;
+
           card.innerHTML = `
             <div class="task-header">
               <div>
                 <div class="task-title">${t.project}</div>
                 <div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">
-                  ${t.order} · ${t.customer} · <span class="tag tag-${t.urgency === '紧急' ? 'danger' : (t.urgency === '加急' ? 'warning' : 'info')}">${t.urgency === '紧急' ? '🚨 紧急' : (t.urgency === '加急' ? '🚩 加急' : '正常')}</span>
+                  ${t.order} · ${t.customer}${vip} · <span class="tag tag-${t.urgency === '紧急' ? 'danger' : (t.urgency === '加急' ? 'warning' : 'info')}">${t.urgency === '紧急' ? '🚨 紧急' : (t.urgency === '加急' ? '🚩 加急' : '正常')}</span>
                 </div>
+                <div style="margin-top:6px;"><span class="tag tag-brand">${t.type || '-'}</span>${scopeTags}</div>
               </div>
               <div style="text-align:right;">
                 <div class="tag tag-brand">${t.role}</div>
@@ -337,6 +360,7 @@
               <div><div class="meta-label">期望完成</div><div class="meta-value">${t.deadline}</div></div>
               ${metaFourth}
             </div>
+            ${reqPack}
             ${extra}
             <div class="task-footer">${footer}</div>
           `;
@@ -369,7 +393,20 @@
         });
         list.querySelectorAll('[data-detail]').forEach(btn => {
           btn.addEventListener('click', () => {
-            toast('打开设计单详情演示中', 'info');
+            const t = tasks.find(x => x.id === btn.dataset.detail);
+            if (!t) return;
+            let actions = [];
+            if (t.status === 'pending') {
+              actions = [
+                { label: '拒接...', danger: true, onClick: () => { closeModal('order-detail-modal'); currentRejectId = t.id; document.getElementById('reject-reason').value = ''; document.getElementById('reject-detail').value = ''; openModal('reject-modal'); } },
+                { label: '✓ 接受任务', primary: true, onClick: async () => {
+                    closeModal('order-detail-modal');
+                    const ok = await confirmDialog('确认接受任务？', `确认在期望完成时间 <b>${t.deadline}</b> 前交付 <b>${t.role} · ${t.project}</b> V1 版本？`);
+                    if (ok) { t.status = 'accepted'; toast('已接受任务：' + t.project + '，已通知运营与协调员', 'success'); render(); }
+                  } }
+              ];
+            }
+            OrderDetail.openTask(t, actions);
           });
         });
         list.querySelectorAll('[data-upload]').forEach(btn => {
@@ -378,6 +415,8 @@
         list.querySelectorAll('[data-reapply]').forEach(btn => {
           btn.addEventListener('click', () => toast('已提交复议，运营将重新评估该派单', 'success'));
         });
+        // 需求附件预览
+        list.querySelectorAll('.mat-chip').forEach(c => c.addEventListener('click', () => openFile(c.dataset.fname, c.dataset.ftype)));
       }
 
       // ============ 进行中 / 已完成：双栏（左项目 + 右里程碑时间轴）============

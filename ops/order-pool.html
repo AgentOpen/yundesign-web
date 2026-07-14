@@ -122,6 +122,7 @@
 
   <script src="../assets/js/utils.js"></script>
   <script src="../assets/js/mock-data.js"></script>
+  <script src="../assets/js/order-detail.js"></script>
   <script src="../assets/js/shell.js"></script>
   <script>
     (function () {
@@ -174,7 +175,8 @@
             <td><span class="font-mono text-sm">${o.code}</span></td>
             <td>
               <div style="font-weight:500;">${o.projectName}</div>
-              <div class="text-sm text-secondary">${o.customer}</div>
+              <div class="text-sm text-secondary">${o.customer} ${o.custLevel === 'VIP' ? '<span class="tag tag-warning" style="font-size:10px;">★ VIP</span>' : ''}</div>
+              <div class="text-sm text-secondary">PM 许光${(o.attachments && o.attachments.length) ? ` · 📎 ${o.attachments.length}` : ''}${o.needCoord === false ? ' · 无需协调员' : ''}</div>
             </td>
             <td>
               <div>${o.type}</div>
@@ -183,7 +185,7 @@
             <td>${o.area} ㎡</td>
             <td>${o.budget} 万</td>
             <td>${o.region}</td>
-            <td>-</td>
+            <td class="text-sm">${o.deadline || '-'}${o.duration ? `<div style="font-size:11px;color:var(--text-secondary);">${o.duration} 天</div>` : ''}</td>
             <td><span class="tag tag-${uColor}">${uIcon} ${o.urgency}</span></td>
             <td><span class="source-badge source-${o.source}">${o.source}</span></td>
             <td class="text-sm text-secondary">${o.createdAt}</td>
@@ -211,7 +213,14 @@
           });
         });
         tbody.querySelectorAll('[data-view]').forEach(b => {
-          b.addEventListener('click', (e) => { e.stopPropagation(); toast('打开设计单详情','info'); });
+          b.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const o = MOCK.DESIGN_ORDERS.find(x => x.id === b.dataset.view);
+            if (!o) return;
+            OrderDetail.openOrder(o, [
+              { label: '🎯 智能分单', primary: true, onClick: () => { closeModal('order-detail-modal'); location.href = './assign-board.html?order=' + o.id; } }
+            ]);
+          });
         });
       }
 

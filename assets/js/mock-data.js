@@ -67,23 +67,29 @@
     { id: 'p009', code: 'P-20260702-009', name: 'Tanaka Residence', type: '别墅', customer: 'c008', region: '日本·东京', area: 260, budget: 210, scope: ['全案', '定制柜'], urgency: '加急', source: '手动创建', stage: '全屋3D', progress: 88, risk: 'ok', d2d: ['u018'], d3d: ['u020'], coord: 'u021', leadPm: 'u015', deadline: '2026-08-05', createdAt: '2026-07-02', changesCount: 9, deliverables: 7 },
     { id: 'p010', code: 'P-20260708-010', name: 'Sophia Flat', type: '家装', customer: 'c009', region: '英国·伦敦', area: 145, budget: 120, scope: ['全案', '软装'], urgency: '正常', source: 'CRM', stage: '需求收集', progress: 10, risk: 'ok', d2d: ['u019'], d3d: [], coord: 'u021', leadPm: 'u015', deadline: '2026-09-25', createdAt: '2026-07-08', changesCount: 1, deliverables: 0 }
   ];
+  // 项目 → 源设计单 关联（用于溯源）
+  const ORDER_LINK = { p001: 'D-20260707-001', p003: 'D-20260705-001' };
   PROJECTS.forEach(p => {
     p.status = statusFromStage(p.stage, p.progress);
     // 兼容旧字段：team = 平面 + 3D + 协调员
     p.team = [...(p.d2d || []), ...(p.d3d || []), p.coord].filter(Boolean);
+    // 关联设计单号 + 期望工期（天），贯穿全链路
+    p.orderCode = ORDER_LINK[p.id] || p.code.replace(/^P-/, 'D-');
+    p.duration = Math.max(1, Math.round((new Date(p.deadline) - new Date(p.createdAt)) / 86400000));
   });
 
   // ===== 设计单（订单池）=====
+  // 设计单主数据：创建时录入的全量业务字段，贯穿"单池→分单→立项"全链路只增不减
   const DESIGN_ORDERS = [
-    { id: 'o001', code: 'D-20260709-001', projectName: '梅斯 · 双层复式', type: '家装', scope: ['全案', '定制柜'], urgency: '加急', customer: '梅先生', area: 165, budget: '80-100', region: '泰国·清迈', source: '手动创建', status: '待分派', createdAt: '2026-07-09 14:20', pm: 'u015' },
-    { id: 'o002', code: 'D-20260709-002', projectName: 'Sunny Villa', type: '别墅', scope: ['全案'], urgency: '正常', customer: 'Sunny Family', area: 380, budget: '260-320', region: '越南·胡志明市', source: 'CRM', status: '待分派', createdAt: '2026-07-09 11:30', pm: 'u015' },
-    { id: 'o003', code: 'D-20260710-001', projectName: '龙湖春江天玺', type: '家装', scope: ['全案', '软装'], urgency: '正常', customer: '龙湖客户 A17', area: 138, budget: '50-70', region: '中国·上海', source: 'OMS', status: '待分派', createdAt: '2026-07-10 09:15', pm: 'u015' },
-    { id: 'o004', code: 'D-20260710-002', projectName: '中东豪宅设计', type: '别墅', scope: ['全案', '定制柜', '门窗'], urgency: '紧急', customer: 'Sheikh Ahmed', area: 890, budget: '600-800', region: '沙特·利雅得', source: '手动创建', status: '待分派', createdAt: '2026-07-10 10:45', pm: 'u015' },
-    { id: 'o005', code: 'D-20260710-003', projectName: '朗诗尚东三期 B座', type: '工装', scope: ['软装'], urgency: '正常', customer: '朗诗物业', area: 320, budget: '15-25', region: '中国·南京', source: 'CRM', status: '待分派', createdAt: '2026-07-10 13:00', pm: 'u015' },
-    { id: 'o006', code: 'D-20260711-001', projectName: 'Mumbai Kingfisher 别墅', type: '别墅', scope: ['全案'], urgency: '加急', customer: 'Mr. Reddy', area: 420, budget: '300-380', region: '印度·孟买', source: '手动创建', status: '待分派', createdAt: '2026-07-11 09:00', pm: 'u015' },
+    { id: 'o001', code: 'D-20260709-001', projectName: '梅斯 · 双层复式', type: '家装', scope: ['全案', '定制柜'], urgency: '加急', customer: '梅先生', custLevel: '普通', contact: '138****2210', area: 165, budget: '80-100', region: '泰国·清迈', source: '手动创建', status: '待分派', createdAt: '2026-07-09 14:20', deadline: '2026-08-20', duration: 42, needCoord: true, pm: 'u015', remark: '现代简约，喜欢原木色调；主卧要大衣帽间。参考小红书收藏夹。', attachments: [{ name: '梅斯户型图.dwg', type: 'dwg' }, { name: '客户参考图集.zip', type: 'zip' }] },
+    { id: 'o002', code: 'D-20260709-002', projectName: 'Sunny Villa', type: '别墅', scope: ['全案'], urgency: '正常', customer: 'Sunny Family', custLevel: 'VIP', contact: '+84-****-3391', area: 380, budget: '260-320', region: '越南·胡志明市', source: 'CRM', status: '待分派', createdAt: '2026-07-09 11:30', deadline: '2026-09-30', duration: 75, needCoord: true, pm: 'u015', remark: '热带度假风，注重室内外通透与采光。', attachments: [{ name: 'SunnyVilla原始建筑图.pdf', type: 'pdf' }] },
+    { id: 'o003', code: 'D-20260710-001', projectName: '龙湖春江天玺', type: '家装', scope: ['全案', '软装'], urgency: '正常', customer: '龙湖客户 A17', custLevel: '普通', contact: '150****7788', area: 138, budget: '50-70', region: '中国·上海', source: 'OMS', status: '待分派', createdAt: '2026-07-10 09:15', deadline: '2026-09-10', duration: 55, needCoord: true, pm: 'u015', remark: '三口之家，需儿童房 + 老人房，轻奢风格。', attachments: [{ name: '标准户型.dwg', type: 'dwg' }] },
+    { id: 'o004', code: 'D-20260710-002', projectName: '中东豪宅设计', type: '别墅', scope: ['全案', '定制柜', '门窗'], urgency: '紧急', customer: 'Sheikh Ahmed', custLevel: 'VIP', contact: '+966-****-1120', area: 890, budget: '600-800', region: '沙特·利雅得', source: '手动创建', status: '待分派', createdAt: '2026-07-10 10:45', deadline: '2026-08-05', duration: 26, needCoord: true, pm: 'u015', remark: '奢华宫廷风，大量大理石与金属；女宾/男宾区分隔要求。', attachments: [{ name: '别墅建筑图.pdf', type: 'pdf' }, { name: '业主参考案例.zip', type: 'zip' }, { name: '面积清单.xls', type: 'xls' }] },
+    { id: 'o005', code: 'D-20260710-003', projectName: '朗诗尚东三期 B座', type: '工装', scope: ['软装'], urgency: '正常', customer: '朗诗物业', custLevel: '普通', contact: '025-****-6600', area: 320, budget: '15-25', region: '中国·南京', source: 'CRM', status: '待分派', createdAt: '2026-07-10 13:00', deadline: '2026-08-25', duration: 40, needCoord: false, pm: 'u015', remark: '售楼处样板间软装陈设，交付快、成本可控。', attachments: [{ name: '样板间平面.pdf', type: 'pdf' }] },
+    { id: 'o006', code: 'D-20260711-001', projectName: 'Mumbai Kingfisher 别墅', type: '别墅', scope: ['全案'], urgency: '加急', customer: 'Mr. Reddy', custLevel: 'VIP', contact: '+91-****-7745', area: 420, budget: '300-380', region: '印度·孟买', source: '手动创建', status: '待分派', createdAt: '2026-07-11 09:00', deadline: '2026-08-30', duration: 50, needCoord: true, pm: 'u015', remark: '印式融合现代，重视家庭祈祷室与客厅仪式感。', attachments: [{ name: 'Kingfisher户型.dwg', type: 'dwg' }] },
     // 已分派
-    { id: 'o007', code: 'D-20260707-001', projectName: '张宅全案', type: '别墅', scope: ['全案', '定制柜', '门窗'], urgency: '加急', customer: '张先生', area: 320, budget: '160-200', region: '泰国·曼谷', source: 'CRM', status: '已分派', createdAt: '2026-07-07 15:20', assignedTeam: ['u001', 'u003', 'u004'], projectId: 'p001', pm: 'u015' },
-    { id: 'o008', code: 'D-20260705-001', projectName: 'Kumar 别墅', type: '别墅', scope: ['全案'], urgency: '紧急', customer: 'Mr. Kumar', area: 480, budget: '350-400', region: '泰国·曼谷', source: '手动创建', status: '已分派', createdAt: '2026-07-05 10:40', assignedTeam: ['u001', 'u012', 'u003', 'u004'], projectId: 'p003', pm: 'u015' }
+    { id: 'o007', code: 'D-20260707-001', projectName: '张宅全案', type: '别墅', scope: ['全案', '定制柜', '门窗'], urgency: '加急', customer: '张先生', custLevel: 'VIP', contact: '139****4471', area: 320, budget: '160-200', region: '泰国·曼谷', source: 'CRM', status: '已分派', createdAt: '2026-07-07 15:20', deadline: '2026-08-15', duration: 39, needCoord: true, assignedTeam: ['u001', 'u003', 'u004'], projectId: 'p001', pm: 'u015', remark: '新中式，主卧衣帽间要大；书房需独立。', attachments: [{ name: '张宅户型图.dwg', type: 'dwg' }, { name: '需求文档.pdf', type: 'pdf' }] },
+    { id: 'o008', code: 'D-20260705-001', projectName: 'Kumar 别墅', type: '别墅', scope: ['全案'], urgency: '紧急', customer: 'Mr. Kumar', custLevel: 'VIP', contact: '+66-****-8890', area: 480, budget: '350-400', region: '泰国·曼谷', source: '手动创建', status: '已分派', createdAt: '2026-07-05 10:40', deadline: '2026-07-25', duration: 20, needCoord: true, assignedTeam: ['u001', 'u012', 'u003', 'u004'], projectId: 'p003', pm: 'u015', remark: '现代轻奢，1-3 个空间先出意向确认风格。', attachments: [{ name: 'Kumar别墅图纸.pdf', type: 'pdf' }] }
   ];
 
   // ===== 待办 =====
@@ -112,6 +118,19 @@
     { id: 'tk009', order: 'D-20260620-008', project: '万科示范样板房', customer: '陈总', area: 220, region: '中国·北京', dept: '平面设计一部', role: '平面 2D', task: '全案', taskArea: 220, responsibleSpaces: ['全部空间'], deadline: '2026-07-10', estimatedHours: 32, assigner: '王负责人', assignedAt: '20 天前', urgency: '正常', status: 'done', doneAt: '2026-07-10', score: 4.6 },
     { id: 'tk010', order: 'D-20260601-011', project: '绿城·桂语兰庭', customer: '孙女士', area: 140, region: '中国·杭州', dept: '平面设计一部', role: '平面 2D', task: '全案', taskArea: 140, responsibleSpaces: ['全部空间'], deadline: '2026-06-28', estimatedHours: 26, assigner: '王负责人', assignedAt: '35 天前', urgency: '正常', status: 'done', doneAt: '2026-06-27', score: 4.8 }
   ];
+  // 为待接单任务补齐"需求包"字段（类型/范围/设计方向/附件/客户等级/团队），优先取自源设计单
+  MY_TASKS.forEach(tk => {
+    const src = DESIGN_ORDERS.find(o => o.code === tk.order);
+    if (tk.type === undefined) tk.type = src ? src.type : '家装';
+    if (tk.scope === undefined) tk.scope = src ? src.scope.slice() : ['全案'];
+    if (tk.custLevel === undefined) tk.custLevel = src ? src.custLevel : '普通';
+    if (tk.remark === undefined) tk.remark = src ? src.remark : '客户需求以需求文档为准，注重实用性与整体风格统一。';
+    if (tk.attachments === undefined) tk.attachments = src ? src.attachments.slice() : [{ name: '户型图.dwg', type: 'dwg' }, { name: '需求说明.pdf', type: 'pdf' }];
+    if (tk.pm === undefined) tk.pm = '许光';
+    if (tk.coordName === undefined) tk.coordName = (src && src.needCoord === false) ? 'PM 自行对接' : '赵六';
+    if (tk.teammates2D === undefined) tk.teammates2D = tk.role.indexOf('3D') >= 0 ? ['张三'] : [];
+    if (tk.teammates3D === undefined) tk.teammates3D = tk.role.indexOf('平面') >= 0 ? ['王五'] : [];
+  });
 
   // ===== 版本流 =====
   const VERSIONS = [
@@ -208,7 +227,7 @@
   }
 
   // ===================== 持久化（localStorage）=====================
-  const STATE_VERSION = 6;   // 基础数据结构变更时递增，自动失效旧缓存
+  const STATE_VERSION = 7;   // 基础数据结构变更时递增，自动失效旧缓存
   const LS_KEY = 'yd_demo_state';
 
   function replaceArr(target, src) { if (Array.isArray(src)) { target.length = 0; src.forEach(x => target.push(x)); } }
@@ -271,11 +290,14 @@
     if (!proj) {
       const pid = 'p' + String(Date.now()).slice(-7);
       proj = {
-        id: pid, code: o.code.replace(/^D-/, 'P-'), name: o.projectName, type: o.type,
-        customer: o.customer, region: o.region, area: o.area, budget: 0, scope: o.scope,
-        urgency: o.urgency, source: o.source, stage: '需求收集', progress: 5, risk: 'ok',
+        id: pid, code: o.code.replace(/^D-/, 'P-'), orderCode: o.code, name: o.projectName, type: o.type,
+        customer: o.customer, custLevel: o.custLevel, contact: o.contact, region: o.region, area: o.area,
+        budget: o.budget || 0, scope: o.scope, urgency: o.urgency, source: o.source,
+        remark: o.remark || '', attachments: (o.attachments || []).slice(),
+        stage: '需求收集', progress: 5, risk: 'ok',
         d2d: d2d.map(m => m.id), d3d: d3d.map(m => m.id), coord: coordId, coordExternal: coordExt,
-        leadPm: o.pm, deadline: '待定', createdAt: today(), changesCount: 0, deliverables: 0, status: '进行中'
+        leadPm: o.pm, deadline: o.deadline || '待定', duration: o.duration || 30,
+        createdAt: today(), changesCount: 0, deliverables: 0, status: '进行中'
       };
       proj.team = [...proj.d2d, ...proj.d3d, proj.coord].filter(Boolean);
       PROJECTS.unshift(proj);
@@ -290,14 +312,19 @@
     o.assignedTeam = [...d2d.map(m => m.id), ...d3d.map(m => m.id), coordId].filter(Boolean);
 
     // 生成待接单任务 + 提升设计师负载
+    const pmName = nameOf(o.pm) === o.pm ? '许光' : nameOf(o.pm);
+    const coordName = coordId ? nameOf(coordId) : (coordExt ? coordExt + '（外部）' : '无需协调员');
+    const t2d = d2d.map(m => nameOf(m.id)), t3d = d3d.map(m => nameOf(m.id));
     const mk = (m, label) => {
       const d = DESIGNERS.find(x => x.id === m.id) || {};
       MY_TASKS.unshift({
         id: 'tk' + Math.random().toString(36).slice(2, 8),
-        order: o.code, project: o.projectName, customer: o.customer, area: o.area, region: o.region,
+        order: o.code, project: o.projectName, customer: o.customer, custLevel: o.custLevel, area: o.area, region: o.region,
+        type: o.type, scope: (o.scope || []).slice(), remark: o.remark || '', attachments: (o.attachments || []).slice(),
         dept: d.dept || '-', role: label, task: m.mode || '全案', taskArea: m.area || o.area,
         responsibleSpaces: (opt.spaces && opt.spaces.length) ? opt.spaces.slice() : ['全部空间'],
-        deadline: '待定', estimatedHours: Math.round((m.area || o.area) / 8),
+        pm: pmName, coordName: coordName, teammates2D: t2d, teammates3D: t3d,
+        deadline: o.deadline || '待定', estimatedHours: Math.round((m.area || o.area) / 8),
         assigner: CURRENT_USER.name, assignedAt: '刚刚', urgency: o.urgency, status: 'pending'
       });
       if (typeof d.activeProjects === 'number') { d.activeProjects += 1; d.capacity = Math.min(100, d.capacity + 8); }
@@ -310,6 +337,26 @@
       `协调员 ${coordTxt} · 平面 ${d2d.map(m => nameOf(m.id)).join('/') || '-'} · 3D ${d3d.map(m => nameOf(m.id)).join('/') || '-'}；项目 ${proj.code}`);
     persist();
     return proj;
+  }
+
+  // 创建设计单：把创建表单落成一条订单池主数据（创建 → 单池 闭环）
+  function createOrder(f) {
+    f = f || {};
+    const code = 'D-' + today().replace(/-/g, '') + '-' + String(Math.floor(100 + Math.random() * 900));
+    const o = {
+      id: 'o' + String(Date.now()).slice(-6), code, projectName: f.name || '未命名项目', type: f.type || '家装',
+      scope: (f.scope || []).slice(), urgency: f.urgency || '正常', customer: f.cust || f.customer || '-',
+      custLevel: f.custLevel || '普通', contact: f.phone || f.contact || '', area: Number(f.area) || 0,
+      budget: (f.budgetMin && f.budgetMax) ? (f.budgetMin + '-' + f.budgetMax) : (f.budgetMin || f.budget || ''),
+      region: f.country || f.region || '中国', source: f.source || '手动创建', status: '待分派',
+      createdAt: nowStr(), deadline: f.deadline || '', duration: Number(f.duration) || 30,
+      needCoord: f.needCoord !== 'no' && f.needCoord !== false, pm: 'u015',
+      remark: f.remark || '', attachments: (f.attachments || []).slice()
+    };
+    DESIGN_ORDERS.unshift(o);
+    addLog('创建设计单', code + ' ' + o.projectName, `来源 ${o.source} · 客户 ${o.customer} · ${o.area}㎡ · 附件 ${o.attachments.length}`);
+    persist();
+    return o;
   }
 
   function resetDemo() { try { localStorage.removeItem(LS_KEY); } catch (e) {} }
@@ -588,7 +635,7 @@
     names: ids => (ids || []).map(id => nameOf(id)).join('、'),
     deptShort: dept => DEPT_SHORT[dept] || dept,
     // 业务动作
-    assignOrder, persist, resetDemo, addLog, nowStr, today,
+    assignOrder, createOrder, persist, resetDemo, addLog, nowStr, today,
     // 角色 & 数据范围
     ROLES, currentRole, setRole, scopeProjects, scopeDesigners, projectDepts
   };

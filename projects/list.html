@@ -150,6 +150,7 @@
                 <th>平面设计师</th>
                 <th>3D设计师</th>
                 <th>协调员</th>
+                <th>PM</th>
                 <th>修改</th>
                 <th>状态</th>
                 <th>期望工期</th>
@@ -233,17 +234,21 @@
         const tbody = document.getElementById('table-body');
         tbody.innerHTML = '';
         const rows = filtered();
-        if (!rows.length) { tbody.innerHTML = `<tr><td colspan="16"><div class="empty"><div class="empty-title">没有符合条件的项目</div></div></td></tr>`; return; }
+        if (!rows.length) { tbody.innerHTML = `<tr><td colspan="17"><div class="empty"><div class="empty-title">没有符合条件的项目</div></div></td></tr>`; return; }
         rows.forEach(p => {
           const cust = MOCK.getCustomer(p.customer);
+          const custName = cust.name || p.customer;
+          const custLevel = cust.level || p.custLevel || '';
+          const vip = custLevel === 'VIP' ? '<span class="tag tag-warning" style="font-size:10px;">★ VIP</span>' : `<span style="font-size:11px;color:var(--text-secondary);">${custLevel}</span>`;
           const coord = p.coord ? (() => { const d = MOCK.getDesigner(p.coord); return `<div class="pc-row"><div class="avatar sm" data-color="${colorFrom(d.name)}">${initials(d.name)}</div><span class="text-sm">${d.name}</span></div>`; })() : (p.coordExternal ? `<span class="text-sm">${p.coordExternal}</span>` : '<span class="text-placeholder text-sm">无需</span>');
+          const pmD = MOCK.getDesigner(p.leadPm); const pmName = pmD.name === p.leadPm ? '许光' : pmD.name;
           const tr = document.createElement('tr');
           tr.style.cursor = 'pointer';
           tr.innerHTML = `
             <td><input type="checkbox" onclick="event.stopPropagation()" /></td>
-            <td><span class="font-mono text-sm">${p.code}</span><div style="font-size:12px;font-weight:500;">${p.name}</div></td>
+            <td><span class="font-mono text-sm">${p.code}</span><div style="font-size:12px;font-weight:500;">${p.name}</div><div style="font-size:11px;color:var(--text-placeholder);">源单 ${p.orderCode || '-'}</div></td>
             <td><span class="tag ${p.source === 'CRM' ? 'tag-info' : p.source === 'OMS' ? 'tag-purple' : ''}">${p.source}</span></td>
-            <td>${cust.name}${cust.level ? `<div style="font-size:11px;color:var(--text-secondary);">${cust.level}</div>` : ''}</td>
+            <td>${custName}<div>${vip}</div></td>
             <td class="text-sm">${regionShort(p.region)}</td>
             <td><span class="tag">${p.type}</span></td>
             <td>${p.area} ㎡</td>
@@ -252,9 +257,10 @@
             <td>${people(p.d2d)}</td>
             <td>${people(p.d3d)}</td>
             <td>${coord}</td>
+            <td class="text-sm">${pmName}</td>
             <td style="text-align:center;"><span class="tag ${p.changesCount > 10 ? 'tag-warning' : ''}">${p.changesCount}</span></td>
             <td>${statusTag(p.status)}</td>
-            <td class="text-sm" style="color:var(--text-secondary);white-space:nowrap;">${formatDate(p.deadline)}</td>
+            <td class="text-sm" style="white-space:nowrap;">${p.duration || '-'} 天<div style="font-size:11px;color:var(--text-secondary);">${formatDate(p.deadline)}</div></td>
             <td style="text-align:right;">
               <button class="btn btn-text" onclick="event.stopPropagation();location.href='./detail.html?id=${p.id}'">查看</button>
             </td>

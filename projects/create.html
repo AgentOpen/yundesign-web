@@ -99,6 +99,14 @@
                   <input class="input" id="f-name" placeholder="例：张宅全案 · 别墅" />
                 </div>
                 <div class="form-item">
+                  <label class="form-label">单据来源 <span class="required">*</span></label>
+                  <select class="input" id="f-source">
+                    <option value="手动创建">手动创建</option>
+                    <option value="CRM">CRM 导入</option>
+                    <option value="OMS">OMS 导入</option>
+                  </select>
+                </div>
+                <div class="form-item">
                   <label class="form-label">项目类型 <span class="required">*</span></label>
                   <select class="input" id="f-type">
                     <option>家装</option>
@@ -355,8 +363,8 @@
         </div>
       </div>
       <div class="modal-footer">
-        <a href="./list.html" class="btn btn-default">返回列表</a>
-        <a href="../ops/assign-board.html" class="btn btn-primary">前往智能分单 →</a>
+        <a href="../ops/order-pool.html" class="btn btn-default">查看订单池</a>
+        <a href="../ops/assign-board.html" class="btn btn-primary" id="submit-go">前往智能分单 →</a>
       </div>
     </div>
   </div>
@@ -368,7 +376,7 @@
     (function () {
       let step = 1;
       const form = {
-        name: '', type: '家装', scope: [], urgency: '正常', area: '', country: '中国', duration: '', remark: '',
+        name: '', source: '手动创建', type: '家装', scope: [], urgency: '正常', area: '', country: '中国', duration: '', remark: '',
         cust: '', phone: '', custLevel: '普通', budgetMin: '', budgetMax: '', deadline: '',
         pm: '许光（东南亚 · L5）', needCoord: 'yes', coord: '',
         team2D: [], team3D: [],
@@ -450,6 +458,7 @@
       document.getElementById('next-btn').addEventListener('click', () => {
         if (step === 1) {
           form.name = document.getElementById('f-name').value.trim();
+          form.source = document.getElementById('f-source').value;
           form.type = document.getElementById('f-type').value;
           form.urgency = document.querySelector('[name="urgency"]:checked').value;
           form.area = document.getElementById('f-area').value;
@@ -457,6 +466,7 @@
           form.duration = document.getElementById('f-duration').value;
           form.remark = document.getElementById('f-remark').value;
           if (!form.name || !form.area || form.scope.length === 0 || !form.duration) { toast('请完成必填项 (名称/面积/设计范围/工期)', 'warning'); return; }
+          if (form.attachments.length === 0) { toast('请至少上传 1 个需求附件（户型图 / CAD / 需求文档），否则设计师无法开工', 'warning'); return; }
         } else if (step === 2) {
           form.cust = document.getElementById('f-cust').value.trim();
           form.phone = document.getElementById('f-phone').value;
@@ -562,6 +572,7 @@
             <h4>项目信息</h4>
             <div class="kv">
               <div class="k">名称</div><div class="v">${form.name || '-'}</div>
+              <div class="k">来源</div><div class="v">${form.source}</div>
               <div class="k">类型 / 范围</div><div class="v">${form.type} · ${form.scope.join('、')}</div>
               <div class="k">面积 / 国家</div><div class="v">${form.area} ㎡ · ${form.country}</div>
               <div class="k">紧急 / 工期</div><div class="v">${form.urgency} · ${form.duration || '-'} 天</div>
@@ -591,10 +602,12 @@
 
       function submit() {
         const act = document.querySelector('[name="submit-action"]:checked').value;
-        const code = 'D-20260711-' + String(Math.floor(100 + Math.random() * 900));
+        const order = MOCK.createOrder(form);
         document.getElementById('submit-tip').textContent = act === 'assign'
-          ? `编号：${code}，即将进入"智能分单弹窗"`
-          : `编号：${code}，已存入订单池，等待分单员处理`;
+          ? `编号：${order.code}，已存入订单池，即将进入"智能分单"`
+          : `编号：${order.code}，已存入订单池，等待分单员处理`;
+        // 记住动作，供弹窗按钮跳转
+        window.__lastOrder = order; window.__lastAction = act;
         openModal('submit-modal');
       }
     })();
