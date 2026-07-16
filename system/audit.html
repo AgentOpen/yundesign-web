@@ -28,7 +28,7 @@
     <div class="page-body">
       <div class="filter-bar" style="margin-bottom:16px;">
         <div class="filter-item"><select class="filter-select" id="f-cat">
-          <option value="">全部类别</option><option>分单</option><option>改派</option><option>定价</option><option>分成规则</option><option>核算结算</option><option>审批</option>
+          <option value="">全部类别</option><option>分单</option><option>改派</option><option>定价</option><option>分成规则</option><option>核算结算</option><option>审批</option><option>客户退款</option><option>分成调整</option><option>分成审核</option>
         </select></div>
         <div class="filter-item" style="flex:1;"><input class="filter-search" id="f-search" placeholder="搜索操作人 / 对象 / 内容" style="width:100%;" /></div>
       </div>
@@ -49,7 +49,7 @@
   <script src="../assets/js/shell.js"></script>
   <script>
     (function () {
-      const catTag = { '分单': 'tag-brand', '改派': 'tag-warning', '定价': 'tag-info', '分成规则': 'tag-purple', '核算结算': 'tag-success', '审批': 'tag-info' };
+      const catTag = { '分单': 'tag-brand', '改派': 'tag-warning', '定价': 'tag-info', '分成规则': 'tag-purple', '核算结算': 'tag-success', '审批': 'tag-info', '客户退款': 'tag-danger', '分成调整': 'tag-warning', '分成审核': 'tag-success' };
       // 动态产生的操作（分单等）置顶
       const dynamic = (MOCK.AUDIT_LOGS || []).map(l => [l.ts, l.actor, l.cat, l.target, l.detail]);
       const logs = [

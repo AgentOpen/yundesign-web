@@ -11,7 +11,7 @@
   <style>
     .tab-panel { display: none; }
     .tab-panel.active { display: block; }
-    .ov-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+    .ov-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
     @media (max-width: 1100px) { .ov-grid { grid-template-columns: repeat(2, 1fr); } }
     .flow-mini { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin: 4px 0 8px; }
     .flow-mini .f-step { padding: 5px 12px; background: var(--bg-page); border: 1px solid var(--divider); border-radius: var(--radius-md); font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
@@ -104,6 +104,7 @@
           <div class="stat-card"><div class="stat-icon" style="background:var(--info-bg);color:var(--info);">进</div><div><div class="stat-value" id="k-active">0</div><div class="stat-label">进行中</div></div></div>
           <div class="stat-card"><div class="stat-icon" style="background:var(--success-bg);color:var(--success);">交</div><div><div class="stat-value" id="k-done">0</div><div class="stat-label">已交付</div></div></div>
           <div class="stat-card"><div class="stat-icon" style="background:var(--danger-bg);color:var(--danger);">险</div><div><div class="stat-value" id="k-risk">0</div><div class="stat-label">风险 / 超时</div></div></div>
+          <div class="stat-card"><div class="stat-icon" style="background:var(--danger-bg);color:var(--danger);">退</div><div><div class="stat-value" id="k-refund">0</div><div class="stat-label">客户退款</div></div></div>
         </div>
 
         <div class="card" style="margin-bottom:16px;">
@@ -250,9 +251,10 @@
         P = currentProjects();
         // KPI
         document.getElementById('k-total').textContent = P.length;
-        document.getElementById('k-active').textContent = P.filter(p => p.status === '进行中').length;
-        document.getElementById('k-done').textContent = P.filter(p => p.status === '已交付').length;
-        document.getElementById('k-risk').textContent = P.filter(p => p.risk !== 'ok' && p.status !== '已完成').length;
+        document.getElementById('k-active').textContent = P.filter(p => MOCK.projectStatus(p) === '进行中').length;
+        document.getElementById('k-done').textContent = P.filter(p => MOCK.projectStatus(p) === '已交付').length;
+        document.getElementById('k-risk').textContent = P.filter(p => p.risk !== 'ok' && MOCK.projectStatus(p) !== '已完成' && !p.refund).length;
+        document.getElementById('k-refund').textContent = P.filter(p => p.refund).length;
         // 流程简图
         const flow = document.getElementById('flow-mini');
         flow.innerHTML = '';

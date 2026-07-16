@@ -67,6 +67,7 @@
               <th style="text-align:right;">应分</th>
               <th style="text-align:right;">调节系数</th>
               <th style="text-align:right;">实分</th>
+              <th>调整/审核</th>
               <th>状态</th>
               <th style="text-align:right;">操作</th>
             </tr>
@@ -84,11 +85,7 @@
       <div class="modal-close" onclick="closeDrawer('detail-drawer')">✕</div>
     </div>
     <div class="drawer-body" id="detail-body"></div>
-    <div class="drawer-footer">
-      <button class="btn btn-default" onclick="closeDrawer('detail-drawer')">关闭</button>
-      <button class="btn btn-danger-ghost" onclick="toast('已标记异常，运营会介入','warning')">🚩 标记异常</button>
-      <button class="btn btn-primary" onclick="toast('已提交审批','success');closeDrawer('detail-drawer')">→ 提交审批</button>
-    </div>
+    <div class="drawer-footer" id="detail-footer"></div>
   </div>
 
   <script src="../assets/js/utils.js"></script>
@@ -97,25 +94,73 @@
   <script>
     (function () {
       const tbody = document.getElementById('tbody');
-      MOCK.COMMISSIONS.forEach(c => {
-        const tr = document.createElement('tr');
-        tr.style.cursor = 'pointer';
-        const factorSum = c.qualityFactor * c.timelinessFactor * c.satisfactionFactor * c.paymentFactor;
-        tr.innerHTML = `
-          <td><input type="checkbox" onclick="event.stopPropagation();" /></td>
-          <td><div style="font-weight:500;">${c.projectName}</div><div class="text-sm text-secondary">${c.project}</div></td>
-          <td><div style="display:flex;align-items:center;gap:6px;"><div class="avatar sm" data-color="${colorFrom(c.designerName)}">${initials(c.designerName)}</div>${c.designerName}</div></td>
-          <td><span class="tag tag-brand">${c.role}</span></td>
-          <td style="text-align:right;font-family:var(--font-mono);">¥${formatMoney(c.designFee, 0)}</td>
-          <td style="text-align:right;font-family:var(--font-mono);">¥${formatMoney(c.dueAmount, 0)}</td>
-          <td style="text-align:right;"><span class="tag ${factorSum > 1 ? 'tag-success' : factorSum < 1 ? 'tag-danger' : ''}">×${factorSum.toFixed(2)}</span></td>
-          <td style="text-align:right;font-family:var(--font-mono);font-weight:600;color:var(--brand-primary);">¥${formatMoney(c.actualAmount, 0)}</td>
-          <td><span class="tag ${c.status === '已审批' ? 'tag-success' : 'tag-warning'}">${c.status}</span></td>
-          <td style="text-align:right;"><button class="btn btn-text" data-id="${c.id}">查看</button></td>
-        `;
-        tr.addEventListener('click', () => openDetail(c));
-        tbody.appendChild(tr);
-      });
+      const isAdmin = MOCK.currentRole().scope === 'all'; // 平台负责人审批手动分成
+
+      function renderFooter(c) {
+        const foot = document.getElementById('detail-footer');
+        const pending = c.adjustType === '手动调整' && c.reviewStatus === '待审核';
+        let html = `<button class="btn btn-default" onclick="closeDrawer('detail-drawer')">关闭</button>`;
+        if (pending && isAdmin) {
+          html += `<button class="btn btn-danger-ghost" data-drawer-rej="${c.id}">驳回调整</button>
+                   <button class="btn btn-primary" data-drawer-pass="${c.id}">✓ 通过并生效</button>`;
+        } else if (pending && !isAdmin) {
+          html += `<span class="text-sm text-secondary" style="margin-left:auto;">该分成调整待平台负责人审批（当前角色只读）</span>`;
+        } else {
+          html += `<button class="btn btn-danger-ghost" onclick="toast('已标记异常，运营会介入','warning')">🚩 标记异常</button>`;
+        }
+        foot.innerHTML = html;
+        const pb = foot.querySelector('[data-drawer-pass]'); if (pb) pb.addEventListener('click', () => { MOCK.reviewCommission(c.id, true); toast('已通过分成调整，金额生效', 'success'); closeDrawer('detail-drawer'); renderRows(); });
+        const rb = foot.querySelector('[data-drawer-rej]'); if (rb) rb.addEventListener('click', () => { MOCK.reviewCommission(c.id, false); toast('已驳回分成调整', 'info'); closeDrawer('detail-drawer'); renderRows(); });
+      }
+
+      function adjustCell(c) {
+        if (c.adjustType !== '手动调整') return '<span class="text-sm text-secondary">系统自动</span>';
+        const rv = c.reviewStatus === '待审核' ? 'tag-warning' : c.reviewStatus === '已通过' ? 'tag-success' : c.reviewStatus === '已驳回' ? 'tag-danger' : '';
+        return `<div><span class="tag ${rv}">${c.reviewStatus}</span></div>
+          <div class="text-sm text-secondary" style="margin-top:2px;">${c.adjustReason || '其他'}${c.manualAmount != null ? ` · 拟 ¥${formatMoney(c.manualAmount, 0)}` : ''}</div>`;
+      }
+
+      function renderRows() {
+        tbody.innerHTML = '';
+        const rows = MOCK.scopeCommissions(MOCK.COMMISSIONS);
+        if (!rows.length) { tbody.innerHTML = `<tr><td colspan="11"><div class="empty" style="padding:32px 0;"><div class="empty-title">当前范围暂无核算记录</div></div></td></tr>`; return; }
+        rows.forEach(c => {
+          const tr = document.createElement('tr');
+          tr.style.cursor = 'pointer';
+          const factorSum = c.qualityFactor * c.timelinessFactor * c.satisfactionFactor * c.paymentFactor;
+          const pending = c.adjustType === '手动调整' && c.reviewStatus === '待审核';
+          const effective = MOCK.commissionFinal(c);
+          const actCell = pending
+            ? `<div style="text-decoration:line-through;color:var(--text-placeholder);font-size:12px;">¥${formatMoney(c.actualAmount, 0)}</div><div style="font-family:var(--font-mono);font-weight:600;color:var(--danger);">¥${formatMoney(c.manualAmount, 0)}</div>`
+            : `<span style="font-family:var(--font-mono);font-weight:600;color:var(--brand-primary);">¥${formatMoney(effective, 0)}</span>`;
+          const opBtns = (isAdmin && pending)
+            ? `<button class="btn btn-text" style="color:var(--success);" data-pass="${c.id}" onclick="event.stopPropagation();">通过</button>
+               <button class="btn btn-text" style="color:var(--danger);" data-rej="${c.id}" onclick="event.stopPropagation();">驳回</button>`
+            : `<button class="btn btn-text" data-id="${c.id}">查看</button>`;
+          tr.innerHTML = `
+            <td><input type="checkbox" onclick="event.stopPropagation();" /></td>
+            <td><div style="font-weight:500;">${c.projectName}</div><div class="text-sm text-secondary">${c.project}</div></td>
+            <td><div style="display:flex;align-items:center;gap:6px;"><div class="avatar sm" data-color="${colorFrom(c.designerName)}">${initials(c.designerName)}</div>${c.designerName}${c.resigned ? ' <span class="tag tag-danger" style="font-size:10px;">离职</span>' : ''}</div></td>
+            <td><span class="tag tag-brand">${c.role}</span></td>
+            <td style="text-align:right;font-family:var(--font-mono);">¥${formatMoney(c.designFee, 0)}</td>
+            <td style="text-align:right;font-family:var(--font-mono);">¥${formatMoney(c.dueAmount, 0)}</td>
+            <td style="text-align:right;"><span class="tag ${factorSum > 1 ? 'tag-success' : factorSum < 1 ? 'tag-danger' : ''}">×${factorSum.toFixed(2)}</span></td>
+            <td style="text-align:right;">${actCell}</td>
+            <td>${adjustCell(c)}</td>
+            <td><span class="tag ${c.status === '已审批' ? 'tag-success' : 'tag-warning'}">${c.status}</span></td>
+            <td style="text-align:right;white-space:nowrap;">${opBtns}</td>
+          `;
+          tr.addEventListener('click', () => openDetail(c));
+          tbody.appendChild(tr);
+        });
+        tbody.querySelectorAll('[data-pass]').forEach(b => b.addEventListener('click', () => {
+          MOCK.reviewCommission(b.dataset.pass, true); toast('已通过分成调整，金额生效', 'success'); renderRows();
+        }));
+        tbody.querySelectorAll('[data-rej]').forEach(b => b.addEventListener('click', () => {
+          MOCK.reviewCommission(b.dataset.rej, false); toast('已驳回分成调整', 'info'); renderRows();
+        }));
+      }
+      renderRows();
 
       function openDetail(c) {
         document.getElementById('detail-body').innerHTML = `
@@ -127,9 +172,12 @@
             </div>
             <div style="text-align:right;">
               <div class="text-sm text-secondary">实际分成金额</div>
-              <div style="font-size:28px;font-weight:700;color:var(--brand-primary);font-family:var(--font-mono);">¥${formatMoney(c.actualAmount, 2)}</div>
+              <div style="font-size:28px;font-weight:700;color:var(--brand-primary);font-family:var(--font-mono);">¥${formatMoney(MOCK.commissionFinal(c), 2)}</div>
             </div>
           </div>
+          ${c.adjustType === '手动调整' ? `<div style="background:#fef2f2;border:1px solid #fecaca;color:var(--danger);padding:12px;border-radius:8px;margin-bottom:16px;font-size:13px;">
+            ⚠ 本条为负责人<b>手动调整</b>（原因：${c.adjustReason || '其他'}）· 系统自动值 ¥${formatMoney(c.actualAmount, 0)} → 手动值 <b>¥${formatMoney(c.manualAmount != null ? c.manualAmount : c.actualAmount, 0)}</b> · 审核状态：${c.reviewStatus}${c.reviewer ? ' · ' + c.reviewer : ''}${c.reassignFrom ? ` · 接手自 ${MOCK.getDesigner(c.reassignFrom).name}` : ''}
+          </div>` : ''}
 
           <div class="three-col">
             <div class="calc-block">
@@ -189,6 +237,7 @@
             </div>
           </div>
         `;
+        renderFooter(c);
         openDrawer('detail-drawer');
       }
     })();

@@ -69,6 +69,8 @@
   ];
   // 项目 → 源设计单 关联（用于溯源）
   const ORDER_LINK = { p001: 'D-20260707-001', p003: 'D-20260705-001' };
+  // 设计费总额（元）——退款上限、分成基数
+  const DESIGN_FEE = { p001: 96000, p002: 42000, p003: 150000, p004: 180000, p005: 28000, p006: 165000, p007: 36000, p008: 45000, p009: 78000, p010: 60000 };
   PROJECTS.forEach(p => {
     p.status = statusFromStage(p.stage, p.progress);
     // 兼容旧字段：team = 平面 + 3D + 协调员
@@ -76,6 +78,10 @@
     // 关联设计单号 + 期望工期（天），贯穿全链路
     p.orderCode = ORDER_LINK[p.id] || p.code.replace(/^P-/, 'D-');
     p.duration = Math.max(1, Math.round((new Date(p.deadline) - new Date(p.createdAt)) / 86400000));
+    // 设计费总额 + 退款/状态覆盖（客户退款场景）
+    p.designFee = DESIGN_FEE[p.id] || Math.round((p.area || 100) * 300);
+    if (p.refund === undefined) p.refund = null;            // { amount, reason, at, by }
+    if (p.statusOverride === undefined) p.statusOverride = null; // 手动状态覆盖，如"客户退款"
   });
 
   // ===== 设计单（订单池）=====
@@ -146,8 +152,21 @@
   const COMMISSIONS = [
     { id: 'cm001', project: 'p008', projectName: '万科示范样板房', designer: 'u002', designerName: '李四', role: '平面 2D', designFee: 45000, dueRate: 0.4, dueAmount: 18000, qualityFactor: 1.1, timelinessFactor: 1.0, satisfactionFactor: 1.05, paymentFactor: 1.0, actualAmount: 20790, status: '待审批', calcAt: '2026-07-11 10:20' },
     { id: 'cm002', project: 'p008', projectName: '万科示范样板房', designer: 'u005', designerName: '钱七', role: '3D', designFee: 45000, dueRate: 0.3, dueAmount: 13500, qualityFactor: 1.0, timelinessFactor: 1.0, satisfactionFactor: 1.05, paymentFactor: 1.0, actualAmount: 14175, status: '待审批', calcAt: '2026-07-11 10:20' },
-    { id: 'cm003', project: 'p005', projectName: '刘宅家装', designer: 'u002', designerName: '李四', role: '平面 2D', designFee: 28000, dueRate: 0.4, dueAmount: 11200, qualityFactor: 1.0, timelinessFactor: 1.0, satisfactionFactor: 1.0, paymentFactor: 1.0, actualAmount: 11200, status: '已审批', calcAt: '2026-07-10 15:00' }
+    { id: 'cm003', project: 'p005', projectName: '刘宅家装', designer: 'u002', designerName: '李四', role: '平面 2D', designFee: 28000, dueRate: 0.4, dueAmount: 11200, qualityFactor: 1.0, timelinessFactor: 1.0, satisfactionFactor: 1.0, paymentFactor: 1.0, actualAmount: 11200, status: '已审批', calcAt: '2026-07-10 15:00' },
+    { id: 'cm004', project: 'p001', projectName: '张宅全案 · 别墅', designer: 'u001', designerName: '张三', role: '平面 2D', designFee: 96000, dueRate: 0.4, dueAmount: 38400, qualityFactor: 1.1, timelinessFactor: 0.95, satisfactionFactor: 1.0, paymentFactor: 1.0, actualAmount: 40128, status: '待审批', calcAt: '2026-07-12 09:30' }
   ];
+  // 分成序号 + 为存量记录补齐"人工调整/审核"相关字段
+  let _cmSeq = 100;
+  COMMISSIONS.forEach(c => {
+    c.adjustType = c.adjustType || '系统自动';           // 系统自动 / 手动调整
+    c.adjustReason = c.adjustReason || '';               // 客户退款 / 员工离职 / 离职转派 / 其他
+    c.adjustNote = c.adjustNote || '';
+    if (c.manualAmount === undefined) c.manualAmount = null; // 负责人手动录入的最终实分
+    c.reviewStatus = c.reviewStatus || '—';              // — / 待审核 / 已通过 / 已驳回
+    c.reviewer = c.reviewer || '';
+    c.resigned = c.resigned || false;                    // 该成员是否离职
+    if (c.reassignFrom === undefined) c.reassignFrom = null; // 接手行：来自哪位离职设计师
+  });
 
   // ===== 工时填报（设计师按里程碑阶段填报，负责人审核，汇总为项目总工时）=====
   // status: 待审核 / 已通过 / 已驳回
@@ -227,7 +246,7 @@
   }
 
   // ===================== 持久化（localStorage）=====================
-  const STATE_VERSION = 7;   // 基础数据结构变更时递增，自动失效旧缓存
+  const STATE_VERSION = 10;   // 基础数据结构变更时递增，自动失效旧缓存
   const LS_KEY = 'yd_demo_state';
 
   function replaceArr(target, src) { if (Array.isArray(src)) { target.length = 0; src.forEach(x => target.push(x)); } }
@@ -236,7 +255,7 @@
     try {
       localStorage.setItem(LS_KEY, JSON.stringify({
         version: STATE_VERSION,
-        DESIGNERS, PROJECTS, DESIGN_ORDERS, MY_TASKS, AUDIT_LOGS, MILESTONE_EVALS, PROFILES, TASK_TIMELINES, TIMESHEETS
+        DESIGNERS, PROJECTS, DESIGN_ORDERS, MY_TASKS, AUDIT_LOGS, MILESTONE_EVALS, PROFILES, TASK_TIMELINES, TIMESHEETS, ASSIGN_RULES, COMMISSIONS
       }));
     } catch (e) { /* 隐私模式等忽略 */ }
   }
@@ -255,6 +274,8 @@
       replaceArr(AUDIT_LOGS, snap.AUDIT_LOGS);
       replaceArr(MILESTONE_EVALS, snap.MILESTONE_EVALS);
       replaceArr(TIMESHEETS, snap.TIMESHEETS);
+      if (snap.COMMISSIONS) { replaceArr(COMMISSIONS, snap.COMMISSIONS); COMMISSIONS.forEach(c => { const n = parseInt(String(c.id).replace(/\D/g, ''), 10); if (n >= _cmSeq) _cmSeq = n + 1; }); }
+      if (snap.ASSIGN_RULES) replaceArr(ASSIGN_RULES, snap.ASSIGN_RULES);
       if (snap.PROFILES) { Object.keys(snap.PROFILES).forEach(k => { PROFILES[k] = snap.PROFILES[k]; }); }
       if (snap.TASK_TIMELINES) { Object.keys(TASK_TIMELINES).forEach(k => delete TASK_TIMELINES[k]); Object.keys(snap.TASK_TIMELINES).forEach(k => { TASK_TIMELINES[k] = snap.TASK_TIMELINES[k]; }); }
     } catch (e) { /* ignore */ }
@@ -442,6 +463,44 @@
     let total = 0;
     ASSIGN_RULES.forEach(r => { total += (dims[r.key] || 0) * (r.weight / 100); });
     return { dims, total: Math.round(total), avg: Number(avg).toFixed(1), days, activeProjects: d.activeProjects || 0, capacity: d.capacity || 0, lastAssignAt: d.lastAssignAt || '—' };
+  }
+  // 规则配置读写（分单管理员可视化配置）
+  function getAssignRules() { return ASSIGN_RULES.slice().sort((a, b) => a.priority - b.priority); }
+  function saveAssignRules(list) { replaceArr(ASSIGN_RULES, list.map(r => ({ key: r.key, label: r.label, weight: Number(r.weight) || 0, priority: r.priority, desc: r.desc }))); persist(); }
+  // 地域匹配
+  function _regionMatch(designer, order) {
+    const region = (order && order.region) || '', city = designer.city || '';
+    if (!region || !city) return false;
+    if (region.includes(city)) return true;
+    if (city === '曼谷' && region.includes('泰国')) return true;
+    return false;
+  }
+  // 共享打分：按 ASSIGN_RULES 权重对「设计师×设计单」做 0-100 加权匹配打分
+  function scoreDesigner(designer, order) {
+    order = order || {};
+    const reasons = [];
+    const scopeStr = (order.scope || []).join('') + (order.type || '');
+    const matched = (designer.skills || []).filter(s => scopeStr.includes(s) || s === order.type);
+    const skill = matched.length >= 2 ? 100 : matched.length === 1 ? 75 : 35;
+    if (matched.length) reasons.push({ text: '技能匹配 ' + matched.join('/'), warn: false });
+    else reasons.push({ text: '技能未直接匹配', warn: true });
+    const cap = designer.capacity || 0;
+    const load = Math.max(0, 100 - cap);
+    if (cap < 40) reasons.push({ text: '空闲 ' + cap + '%', warn: false });
+    else if (cap <= 70) reasons.push({ text: '正常负载 ' + cap + '%', warn: false });
+    else if (cap <= 85) reasons.push({ text: '较忙 ' + cap + '%', warn: false });
+    else reasons.push({ text: '过载 ' + cap + '%', warn: true });
+    const quality = Math.round(((designer.avgScore || 0) / 5) * 100);
+    if ((designer.avgScore || 0) >= 4.5) reasons.push({ text: '⭐ ' + designer.avgScore, warn: false });
+    const region = _regionMatch(designer, order) ? 100 : 40;
+    if (region === 100) reasons.push({ text: '同区域 ' + designer.city, warn: false });
+    const days = designer.lastAssignAt ? Math.max(0, Math.round((Date.now() - new Date(designer.lastAssignAt)) / 86400000)) : 30;
+    const rotation = Math.min(100, days * 12);
+    if (days >= 7) reasons.push({ text: '轮转优先（' + days + '天未分单）', warn: false });
+    const dims = { skill, load, quality, region, rotation };
+    let total = 0;
+    ASSIGN_RULES.forEach(r => { total += (dims[r.key] || 0) * (r.weight / 100); });
+    return { score: Math.round(total), dims, reasons };
   }
 
   // ===================== 我的任务 · 里程碑/版本时间轴 =====================
@@ -648,6 +707,125 @@
     });
   }
 
+  // ===================== 客户退款 & 分成人工调整 =====================
+  const ROLE_RATE = { '平面 2D': 0.4, '软装 2D': 0.35, '3D': 0.3, '协调员': 0.15 };
+  function getProjectRaw(id) { return PROJECTS.find(p => p.id === id) || null; }
+  function _p(p) { return (typeof p === 'string') ? getProjectRaw(p) : p; }
+  function projectDesignFee(p) { p = _p(p); return p ? (p.designFee || Math.round((p.area || 100) * 300)) : 0; }
+  // 有效状态：退款覆盖优先，其次阶段推导
+  function projectStatus(p) { p = _p(p); if (!p) return ''; return p.refund ? '客户退款' : (p.status || statusFromStage(p.stage, p.progress)); }
+  // 退款类型：全额 / 部分
+  function refundKind(p) { p = _p(p); if (!p || !p.refund) return ''; return p.refund.amount >= projectDesignFee(p) ? '全额退款' : '部分退款'; }
+  // 仅平台负责人/部门负责人可调整
+  function canAdjustCommission() { return ['all', 'dept'].indexOf(currentRole().scope) >= 0; }
+
+  function newCommission(pid, pname, designerId, role, fee, rate, due, actual) {
+    return {
+      id: 'cm' + (++_cmSeq), project: pid, projectName: pname, designer: designerId, designerName: nameOf(designerId), role: role,
+      designFee: fee, dueRate: rate, dueAmount: due, qualityFactor: 1, timelinessFactor: 1, satisfactionFactor: 1, paymentFactor: 1,
+      actualAmount: actual, status: '待审批', calcAt: nowStr(),
+      adjustType: '系统自动', adjustReason: '', adjustNote: '', manualAmount: null, reviewStatus: '—', reviewer: '', resigned: false, reassignFrom: null
+    };
+  }
+  // 若项目还没有分成行，则按团队(平面/3D/协调员)自动生成
+  function ensureCommissions(pid) {
+    let rows = COMMISSIONS.filter(c => c.project === pid);
+    if (rows.length) return rows;
+    const p = getProjectRaw(pid); if (!p) return [];
+    const fee = projectDesignFee(p);
+    const members = [];
+    (p.d2d || []).forEach(id => members.push({ id: id, role: '平面 2D' }));
+    (p.d3d || []).forEach(id => members.push({ id: id, role: '3D' }));
+    if (p.coord) members.push({ id: p.coord, role: '协调员' });
+    members.forEach(m => {
+      const rate = ROLE_RATE[m.role] || 0.3;
+      const due = Math.round(fee * rate);
+      COMMISSIONS.push(newCommission(pid, p.name, m.id, m.role, fee, rate, due, due));
+    });
+    return COMMISSIONS.filter(c => c.project === pid);
+  }
+  function commissionsByProject(pid) { return COMMISSIONS.filter(c => c.project === pid); }
+  // 部分退款后的建议分成 = 自动分成 × 剩余设计费比例
+  function refundSuggest(c) {
+    const p = getProjectRaw(c.project); const fee = projectDesignFee(p);
+    const remain = (p && p.refund) ? Math.max(0, fee - p.refund.amount) : fee;
+    const ratio = fee ? remain / fee : 1;
+    return Math.round(c.actualAmount * ratio);
+  }
+  // 生效分成：审核通过的手动值优先，否则自动值
+  function commissionFinal(c) { return (c.manualAmount != null && c.reviewStatus === '已通过') ? c.manualAmount : c.actualAmount; }
+
+  // 登记/撤销客户退款
+  function setRefund(pid, amount, reason) {
+    const p = getProjectRaw(pid); if (!p) return;
+    amount = Math.max(0, Math.min(Number(amount) || 0, projectDesignFee(p)));
+    p.refund = { amount: amount, reason: reason || '', at: nowStr(), by: CURRENT_USER.name };
+    p.statusOverride = '客户退款';
+    ensureCommissions(pid);
+    addLog('客户退款', p.name, `登记退款 ¥${amount}（${reason || '—'}）· ${refundKind(p)}`);
+    persist();
+  }
+  function clearRefund(pid) {
+    const p = getProjectRaw(pid); if (!p) return;
+    p.refund = null; p.statusOverride = null;
+    addLog('客户退款', p.name, '撤销退款状态'); persist();
+  }
+  // 手动覆盖某条分成的最终实分（进入待审核）
+  function overrideCommission(cid, amount, reason, note) {
+    const c = COMMISSIONS.find(x => x.id === cid); if (!c) return;
+    c.manualAmount = Math.max(0, Math.round(Number(amount) || 0));
+    c.adjustType = '手动调整'; c.adjustReason = reason || '其他'; c.adjustNote = note || '';
+    c.reviewStatus = '待审核'; c.reviewer = '';
+    addLog('分成调整', c.projectName, `${c.designerName} 手动分成 ¥${c.manualAmount}（${c.adjustReason}）· 待审核`);
+    persist();
+  }
+  // 标记成员离职并手动设定其分成
+  function resignCommission(cid, amount, note) {
+    const c = COMMISSIONS.find(x => x.id === cid); if (!c) return;
+    c.resigned = true;
+    overrideCommission(cid, amount, '员工离职', note);
+  }
+  // 离职岗位转派给接手设计师，默认 = 该岗位自动分成 − 离职者手动分成
+  function addReassignCommission(pid, fromCid, newDesignerId, amount) {
+    const from = COMMISSIONS.find(x => x.id === fromCid); const p = getProjectRaw(pid);
+    if (!from || !p) return null;
+    const amt = Math.max(0, Math.round(Number(amount) || 0));
+    const c = newCommission(pid, p.name, newDesignerId, from.role, from.designFee, from.dueRate, from.dueAmount, amt);
+    c.manualAmount = amt; c.adjustType = '手动调整'; c.adjustReason = '离职转派'; c.reviewStatus = '待审核'; c.reassignFrom = from.designer;
+    COMMISSIONS.push(c);
+    addLog('分成调整', p.name, `${nameOf(newDesignerId)} 接手 ${from.designerName} 岗位 · 分成 ¥${amt} 待审核`);
+    persist();
+    return c;
+  }
+  // 转派默认建议金额
+  function reassignDefault(fromCid) {
+    const from = COMMISSIONS.find(x => x.id === fromCid); if (!from) return 0;
+    const resignedAmt = from.manualAmount != null ? from.manualAmount : 0;
+    return Math.max(0, Math.round((from.actualAmount || 0) - resignedAmt));
+  }
+  // 按当前角色数据范围过滤分成行
+  function scopeCommissions(list) {
+    const r = currentRole(); list = list || COMMISSIONS;
+    if (r.scope === 'all') return list;
+    if (r.scope === 'self') return list.filter(c => c.designer === r.selfId);
+    if (r.scope === 'coord') { const pids = PROJECTS.filter(p => p.coord === r.selfId).map(p => p.id); return list.filter(c => pids.indexOf(c.project) >= 0); }
+    if (r.scope === 'dept') { const pids = PROJECTS.filter(p => projectDepts(p).indexOf(r.dept) >= 0).map(p => p.id); return list.filter(c => pids.indexOf(c.project) >= 0); }
+    return list;
+  }
+  // 待审核的手动分成（数据范围内）
+  function pendingReviewCommissions() { return scopeCommissions(COMMISSIONS).filter(c => c.reviewStatus === '待审核'); }
+  // 我的分成（当前登录设计师本人）
+  function myCommissions() { return COMMISSIONS.filter(c => c.designer === currentRole().selfId); }
+  // 负责人审核手动分成
+  function reviewCommission(cid, pass, reviewer) {
+    const c = COMMISSIONS.find(x => x.id === cid); if (!c) return;
+    c.reviewStatus = pass ? '已通过' : '已驳回';
+    c.reviewer = reviewer || CURRENT_USER.name;
+    if (pass && c.manualAmount != null) { c.actualAmount = c.manualAmount; c.status = '已审批'; }
+    addLog('分成审核', c.projectName, `${c.designerName} 分成调整${pass ? '已通过' : '已驳回'} · ${c.reviewer}`);
+    persist();
+  }
+
   // Export
   global.MOCK = {
     DEPARTMENTS, DESIGNERS, CUSTOMERS, PROJECTS, DESIGN_ORDERS, TODOS,
@@ -655,12 +833,16 @@
     CURRENT_USER,
     // 质量评价 & 个人中心
     canEvaluate, milestoneEvals, milestoneEval, designerEvals, msResponsible, addMilestoneEval,
-    getProfile, saveProfile, ASSIGN_RULES, designerReadiness,
+    getProfile, saveProfile, ASSIGN_RULES, designerReadiness, getAssignRules, saveAssignRules, scoreDesigner,
     // 我的任务 · 里程碑/版本时间轴
     myTaskProjects, getTaskTimeline, addTaskVersion, completeVersion, acceptRequirement,
     // 工时填报 & 项目评价待办
     TIMESHEETS, projectHours, projectTimesheets, weekTimesheetHours, designerWeekHours, addTimesheet, approveTimesheet, rejectTimesheet,
     stageBaseline, stageActualHours, isProjectSettled, pendingEvalProjects,
+    // 客户退款 & 分成人工调整
+    projectStatus, projectDesignFee, refundKind, canAdjustCommission, ensureCommissions, commissionsByProject,
+    refundSuggest, commissionFinal, setRefund, clearRefund, overrideCommission, resignCommission,
+    addReassignCommission, reassignDefault, reviewCommission, scopeCommissions, pendingReviewCommissions, myCommissions,
     getDesigner: id => DESIGNERS.find(d => d.id === id) || { name: id, level: '-', role: '-', dept: '-' },
     getCustomer: id => CUSTOMERS.find(c => c.id === id) || { name: id, level: '', address: '' },
     getProject: id => PROJECTS.find(p => p.id === id) || null,

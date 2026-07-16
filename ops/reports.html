@@ -142,7 +142,8 @@
         <div class="grid-3">
           <div class="stat-card"><div class="stat-label">本月分成总额</div><div class="stat-value font-mono" id="comm-total">¥0</div><div class="stat-delta up">▲ 11% 环比</div></div>
           <div class="stat-card"><div class="stat-label">人均分成</div><div class="stat-value font-mono" id="comm-avg">¥0</div><div class="stat-delta up">▲ 4%</div></div>
-          <div class="stat-card"><div class="stat-label">待核算/待审批</div><div class="stat-value font-mono">2<span class="stat-suffix">笔</span></div><div class="stat-delta">进行中</div></div>
+          <div class="stat-card"><div class="stat-label">分成调整待审核</div><div class="stat-value font-mono" id="comm-review">0<span class="stat-suffix">笔</span></div><div class="stat-delta">手动调整/退款/离职</div></div>
+          <div class="stat-card"><div class="stat-label">客户退款</div><div class="stat-value font-mono" id="comm-refund">¥0</div><div class="stat-delta" id="comm-refund-sub">0 个项目</div></div>
         </div>
         <div class="grid-2" style="margin-top:16px;">
           <div class="card"><div class="card-header"><div class="card-title">👥 各角色分成占比</div></div><div class="card-body" id="comm-role"></div></div>
@@ -256,6 +257,12 @@
       const total = ds.reduce((s, d) => s + d.monthCommission, 0);
       document.getElementById('comm-total').textContent = money(total);
       document.getElementById('comm-avg').textContent = money(Math.round(total / ds.length));
+      // 客户退款统计
+      const refundProjects = MOCK.PROJECTS.filter(p => p.refund);
+      const refundSum = refundProjects.reduce((s, p) => s + (p.refund.amount || 0), 0);
+      document.getElementById('comm-refund').textContent = money(refundSum);
+      document.getElementById('comm-refund-sub').textContent = refundProjects.length + ' 个项目（含全额/部分）';
+      document.getElementById('comm-review').textContent = MOCK.COMMISSIONS.filter(c => c.reviewStatus === '待审核').length;
       const byRole = {};
       ds.forEach(d => { byRole[d.role] = (byRole[d.role] || 0) + d.monthCommission; });
       const roleColor = { '2D': '', '3D': 'success', '协调员': 'warning' };

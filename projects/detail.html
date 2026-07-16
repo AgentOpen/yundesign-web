@@ -97,6 +97,7 @@
           <div class="tab-item" data-tab="log">📜 操作日志</div>
           <div class="tab-item" data-tab="quality">⭐ 质量评价</div>
           <div class="tab-item" data-tab="timesheet">⏱ 工时填报</div>
+          <div class="tab-item" data-tab="refund">💰 退款与分成</div>
         </div>
 
         <div style="padding:20px;">
@@ -154,6 +155,9 @@
           <!-- Timesheet 工时填报 -->
           <div class="tab-panel" data-panel="timesheet" id="panel-timesheet">...</div>
 
+          <!-- Refund & Commission 退款与分成 -->
+          <div class="tab-panel" data-panel="refund" id="panel-refund">...</div>
+
         </div>
       </div>
     </div>
@@ -161,6 +165,7 @@
 
   <script src="../assets/js/utils.js"></script>
   <script src="../assets/js/mock-data.js"></script>
+  <script src="../assets/js/commission-adjust.js"></script>
   <script src="../assets/js/shell.js"></script>
   <script>
     (function () {
@@ -191,7 +196,7 @@
         <div style="display:flex;justify-content:space-between;align-items:flex-start;">
           <div>
             <div style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;">当前阶段</div>
-            <div style="font-size:20px;font-weight:600;">${p.stage} <span class="tag tag-brand" style="margin-left:6px;font-size:12px;">进行中</span></div>
+            <div style="font-size:20px;font-weight:600;">${p.stage} ${MOCK.projectStatus(p) === '客户退款' ? `<span class="tag tag-danger" style="margin-left:6px;font-size:12px;">客户退款 · ${MOCK.refundKind(p)}</span>` : '<span class="tag tag-brand" style="margin-left:6px;font-size:12px;">进行中</span>'}</div>
           </div>
           <div style="text-align:right;">
             <div style="font-size:13px;color:var(--text-secondary);">项目进度</div>
@@ -199,12 +204,13 @@
           </div>
         </div>
         <div class="progress progress-lg" style="margin-top:12px;"><div class="progress-bar ${p.risk === 'danger' ? 'danger' : p.risk === 'warning' ? 'warning' : 'success'}" style="width:${p.progress}%"></div></div>
+        ${p.refund ? `<div style="background:#fef2f2;border:1px solid #fecaca;color:var(--danger);padding:10px 12px;border-radius:8px;margin-top:12px;font-size:13px;">💸 客户退款 ¥${MOCK.projectDesignFee(p) ? formatMoney(p.refund.amount, 0) : p.refund.amount}（${MOCK.refundKind(p)}）· 原因：${p.refund.reason || '—'} · ${p.refund.at} · 分成调整详见 <b>「💰 退款与分成」</b> 页签</div>` : ''}
         <div class="detail-kpis">
           <div class="kpi"><div class="kpi-l">团队规模</div><div class="kpi-v">${p.team.length} 人</div></div>
           <div class="kpi"><div class="kpi-l">变更次数</div><div class="kpi-v">${p.changesCount}</div></div>
           <div class="kpi"><div class="kpi-l">交付物</div><div class="kpi-v">${p.deliverables} 件</div></div>
           <div class="kpi"><div class="kpi-l">已用工时</div><div class="kpi-v" id="kpi-hours">${MOCK.projectHours(p.id)} h</div></div>
-          <div class="kpi"><div class="kpi-l">预算</div><div class="kpi-v">¥${p.budget} 万</div></div>
+          <div class="kpi"><div class="kpi-l">设计费总额</div><div class="kpi-v">¥${formatMoney(MOCK.projectDesignFee(p), 0)}</div></div>
           <div class="kpi"><div class="kpi-l">距截止</div><div class="kpi-v" style="color:${p.risk === 'danger' ? 'var(--danger)' : ''};">${Math.max(0, Math.ceil((new Date(p.deadline) - new Date()) / 86400000))} 天</div></div>
         </div>
       `;
@@ -603,6 +609,12 @@
         }));
       }
       renderTimesheet();
+
+      // 退款与分成
+      function renderRefund() {
+        if (window.CommissionAdjust) window.CommissionAdjust.renderInto(document.getElementById('panel-refund'), pid, () => { refreshHours(); });
+      }
+      renderRefund();
 
       // Tab 切换
       document.querySelectorAll('.tab-item').forEach(t => {

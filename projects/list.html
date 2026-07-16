@@ -84,6 +84,7 @@
             <option>进行中</option>
             <option>已交付</option>
             <option>已完成</option>
+            <option>客户退款</option>
           </select>
         </div>
         <div class="filter-item">
@@ -170,6 +171,7 @@
 
   <script src="../assets/js/utils.js"></script>
   <script src="../assets/js/mock-data.js"></script>
+  <script src="../assets/js/commission-adjust.js"></script>
   <script src="../assets/js/shell.js"></script>
   <script>
     (function () {
@@ -192,7 +194,7 @@
 
       function filtered() {
         return MOCK.scopeProjects(MOCK.PROJECTS).filter(p => {
-          if (filter.status && p.status !== filter.status) return false;
+          if (filter.status && MOCK.projectStatus(p) !== filter.status) return false;
           if (filter.type && p.type !== filter.type) return false;
           if (filter.urgency && p.urgency !== filter.urgency) return false;
           if (filter.region && !p.region.includes(filter.region)) return false;
@@ -208,7 +210,9 @@
         });
       }
 
-      function statusTag(s) {
+      function statusTag(p) {
+        const s = MOCK.projectStatus(p);
+        if (s === '客户退款') return `<span class="tag tag-danger">客户退款</span><div style="font-size:10px;color:var(--danger);margin-top:2px;">${MOCK.refundKind(p)}</div>`;
         return s === '已完成' ? '<span class="tag tag-success">已完成</span>'
           : s === '已交付' ? '<span class="tag tag-brand">已交付</span>'
             : '<span class="tag tag-info">进行中</span>';
@@ -259,10 +263,11 @@
             <td>${coord}</td>
             <td class="text-sm">${pmName}</td>
             <td style="text-align:center;"><span class="tag ${p.changesCount > 10 ? 'tag-warning' : ''}">${p.changesCount}</span></td>
-            <td>${statusTag(p.status)}</td>
+            <td>${statusTag(p)}</td>
             <td class="text-sm" style="white-space:nowrap;">${p.duration || '-'} 天<div style="font-size:11px;color:var(--text-secondary);">${formatDate(p.deadline)}</div></td>
-            <td style="text-align:right;">
+            <td style="text-align:right;white-space:nowrap;">
               <button class="btn btn-text" onclick="event.stopPropagation();location.href='./detail.html?id=${p.id}'">查看</button>
+              ${MOCK.canAdjustCommission() ? `<button class="btn btn-text ca-open" data-pid="${p.id}" onclick="event.stopPropagation()" style="color:var(--danger);">退款/调整</button>` : ''}
             </td>
           `;
           tr.addEventListener('click', () => location.href = './detail.html?id=' + p.id);
@@ -286,7 +291,10 @@
                 <div style="font-weight:600;font-size:16px;">${p.name}</div>
                 <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">${p.code}</div>
               </div>
-              <span class="tag ${p.urgency === '紧急' ? 'tag-danger' : (p.urgency === '加急' ? 'tag-warning' : '')}">${p.urgency}</span>
+              <div style="text-align:right;">
+                <span class="tag ${p.urgency === '紧急' ? 'tag-danger' : (p.urgency === '加急' ? 'tag-warning' : '')}">${p.urgency}</span>
+                ${p.refund ? `<div><span class="tag tag-danger" style="margin-top:4px;font-size:10px;">客户退款 · ${MOCK.refundKind(p)}</span></div>` : ''}
+              </div>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;color:var(--text-secondary);margin-bottom:12px;">
               <div>👤 ${cust.name}</div>
@@ -364,6 +372,14 @@
         filter.search = e.target.value;
         rerender();
       }, 200));
+
+      // 退款 / 分成调整入口（事件委托，兼容表格重渲染）
+      document.addEventListener('click', (e) => {
+        const btn = e.target.closest('.ca-open');
+        if (!btn) return;
+        e.stopPropagation();
+        window.CommissionAdjust.openModal(btn.dataset.pid, () => rerender());
+      });
 
       rerender();
     })();

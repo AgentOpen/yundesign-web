@@ -187,7 +187,15 @@
           }))
         : [];
 
-      const todos = evalTodos.concat(MOCK.TODOS);
+      // 分成调整待审核（仅平台负责人可审批）
+      const reviewTodos = (MOCK.currentRole().scope === 'all')
+        ? MOCK.pendingReviewCommissions().slice(0, 5).map(c => ({
+            id: 'rev-' + c.id, title: c.designerName + ' · ' + c.projectName + ' 分成调整待审核',
+            project: c.project, type: '分成审核', priority: 'high', due: '今日', reviewTarget: true
+          }))
+        : [];
+
+      const todos = evalTodos.concat(reviewTodos, MOCK.TODOS);
       todos.forEach(t => {
         const project = t.project ? MOCK.getProject(t.project) : null;
         const item = el('div', { class: 'todo-item' }, [
@@ -196,18 +204,19 @@
             el('div', { style: { fontWeight: 500, fontSize: '14px' } }, t.title),
             el('div', { style: { fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' } },
               [
-                el('span', { class: 'tag ' + (t.evalTarget ? 'tag-purple' : 'tag-info') }, t.type),
+                el('span', { class: 'tag ' + (t.reviewTarget ? 'tag-danger' : t.evalTarget ? 'tag-purple' : 'tag-info') }, t.type),
                 ' · ', el('span', { class: 'tag tag-info' }, project ? project.name : '订单池'),
                 ' · 截止 ', t.due
               ])
           ]),
-          el('button', { class: 'btn btn-default btn-sm', onClick: (e) => { e.stopPropagation(); go(t, project); } }, t.evalTarget ? '去评价' : '处理'),
+          el('button', { class: 'btn btn-default btn-sm', onClick: (e) => { e.stopPropagation(); go(t, project); } }, t.reviewTarget ? '去审核' : t.evalTarget ? '去评价' : '处理'),
         ]);
         item.addEventListener('click', () => go(t, project));
         list.appendChild(item);
       });
 
       function go(t, project) {
+        if (t.reviewTarget) { location.href = '../ops/calc-queue.html'; return; }
         if (t.evalTarget) { location.href = '../projects/detail.html?id=' + t.project + '&tab=quality'; return; }
         if (project) location.href = '../projects/detail.html?id=' + project.id;
         else location.href = '../ops/order-pool.html';

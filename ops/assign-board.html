@@ -53,6 +53,17 @@
     .rec-reason.warn { background: var(--warning-bg); color: #B4530A; }
 
     .space-picker { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 0; }
+    /* 规则配置 */
+    .rule-row { display: grid; grid-template-columns: 24px 1fr 220px 56px; gap: 12px; align-items: center; padding: 12px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 10px; background: #fff; }
+    .rule-row.dragging { opacity: .4; }
+    .rule-row.over { border-color: var(--brand-primary); box-shadow: 0 0 0 3px var(--brand-primary-bg); }
+    .rule-drag { cursor: grab; color: var(--text-placeholder); font-size: 18px; text-align: center; user-select: none; }
+    .rule-drag:active { cursor: grabbing; }
+    .rule-info .r-label { font-weight: 600; font-size: 14px; }
+    .rule-info .r-label .p-badge { font-size: 11px; color: var(--brand-primary); background: var(--brand-primary-bg); border-radius: 6px; padding: 1px 6px; margin-left: 6px; }
+    .rule-info .r-desc { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+    .rule-row input[type=range] { width: 100%; accent-color: var(--brand-primary); }
+    .rule-weight { font-family: var(--font-mono); font-weight: 700; text-align: right; color: var(--brand-primary); }
   </style>
 </head>
 <body>
@@ -70,6 +81,7 @@
         </div>
         <div class="flex gap-2">
           <a href="./order-pool.html" class="btn btn-default">← 返回订单池</a>
+          <button class="btn btn-default" onclick="openRuleConfig()">⚙ 规则配置</button>
           <button class="btn btn-primary" onclick="autoAssignAll()">⚡ 一键智能分单</button>
         </div>
       </div>
@@ -224,6 +236,33 @@
     </div>
   </div>
 
+  <!-- 分单规则可视化配置 -->
+  <div class="modal-mask" id="rule-modal">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">⚙ 自动分单规则配置</div>
+          <div class="text-sm text-secondary" style="margin-top:2px;">拖动 <b>⠿</b> 调整优先级顺序，滑块调整权重；权重合计需为 100%。保存后即时影响推荐打分。</div>
+        </div>
+        <div class="modal-close" onclick="closeModal('rule-modal')">✕</div>
+      </div>
+      <div class="modal-body">
+        <div id="rule-list"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:12px;border-top:1px solid var(--divider);">
+          <div class="text-sm">权重合计：<b id="rule-total" class="font-mono">100</b>%
+            <span id="rule-total-warn" class="tag tag-warning" style="margin-left:6px;display:none;">需为 100%</span>
+          </div>
+          <button class="btn btn-text" id="rule-normalize">按比例归一化到 100%</button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-text" id="rule-reset" style="margin-right:auto;">恢复默认</button>
+        <button class="btn btn-default" onclick="closeModal('rule-modal')">取消</button>
+        <button class="btn btn-primary" id="rule-save">保存规则</button>
+      </div>
+    </div>
+  </div>
+
   <script src="../assets/js/utils.js"></script>
   <script src="../assets/js/mock-data.js"></script>
   <script src="../assets/js/shell.js"></script>
@@ -285,27 +324,8 @@
         document.getElementById('q-count').textContent = sorted.length;
       }
 
-      function computeScore(designer, order) {
-        let score = 60;
-        const reasons = [];
-        // 技能匹配
-        const scopeStr = order.scope.join('') + order.type;
-        const matched = designer.skills.filter(s => scopeStr.includes(s) || (s === '别墅' && order.type === '别墅') || (s === '家装' && order.type === '家装') || (s === '工装' && order.type === '工装'));
-        if (matched.length) { score += 15; reasons.push({ text: '技能匹配 ' + matched.join('/'), warn: false }); }
-        // 区域
-        if (order.region.includes(designer.city) || (designer.city === '曼谷' && order.region.includes('泰国'))) {
-          score += 10; reasons.push({ text: '同区域 ' + designer.city, warn: false });
-        }
-        // 负载
-        if (designer.capacity < 40) { score += 10; reasons.push({ text: '空闲 ' + designer.capacity + '%', warn: false }); }
-        else if (designer.capacity < 70) { score += 5; reasons.push({ text: '正常负载', warn: false }); }
-        else if (designer.capacity > 85) { score -= 15; reasons.push({ text: '过载 ' + designer.capacity + '%', warn: true }); }
-        // 评分
-        if (designer.avgScore >= 4.5) { score += 5; reasons.push({ text: '⭐ ' + designer.avgScore, warn: false }); }
-        // 紧急项目要求高等级
-        if (order.urgency === '紧急' && ['L4', 'L5', 'L6'].includes(designer.level)) { score += 5; reasons.push({ text: '匹配紧急项目', warn: false }); }
-        return { score: Math.min(100, score), reasons };
-      }
+      // 打分直接读取 MOCK.ASSIGN_RULES 权重（分单管理员可视化配置实时生效）
+      function computeScore(designer, order) { return MOCK.scoreDesigner(designer, order); }
 
       function openAssignModal(order) {
         currentOrder = order;
@@ -652,6 +672,99 @@
 
       renderOrders();
       renderDesigners();
+
+      // ===== 规则权重可视化配置 =====
+      let ruleDraft = [];
+      const RULE_DEFAULT = [
+        { key: 'skill', label: '技能标签匹配', weight: 30, desc: '柜体/门窗/卫浴/软装等技能与设计范围匹配度' },
+        { key: 'load', label: '工作量负载', weight: 25, desc: '当前在途设计单数量 / 负载越低越优先' },
+        { key: 'quality', label: '历史质量评分', weight: 20, desc: '里程碑评审平均星级折算' },
+        { key: 'region', label: '地域匹配', weight: 15, desc: '设计师服务地域与项目区域一致' },
+        { key: 'rotation', label: '均衡轮转', weight: 10, desc: '距上次分单越久越优先，避免忙闲不均' }
+      ];
+
+      function ruleTotal() { return ruleDraft.reduce((s, r) => s + (Number(r.weight) || 0), 0); }
+      function syncTotal() {
+        const t = ruleTotal();
+        document.getElementById('rule-total').textContent = t;
+        document.getElementById('rule-total-warn').style.display = (t === 100) ? 'none' : 'inline-block';
+        document.getElementById('rule-save').disabled = (t !== 100);
+      }
+      function renderRuleList() {
+        const box = document.getElementById('rule-list');
+        box.innerHTML = '';
+        ruleDraft.forEach((r, i) => {
+          const row = document.createElement('div');
+          row.className = 'rule-row';
+          row.draggable = true;
+          row.dataset.key = r.key;
+          row.innerHTML = `
+            <div class="rule-drag" title="拖动调整优先级">⠿</div>
+            <div class="rule-info">
+              <div class="r-label">${r.label}<span class="p-badge">优先级 P${i + 1}</span></div>
+              <div class="r-desc">${r.desc || ''}</div>
+            </div>
+            <input type="range" min="0" max="100" step="5" value="${r.weight}" data-range="${r.key}">
+            <div class="rule-weight" data-w="${r.key}">${r.weight}%</div>`;
+          box.appendChild(row);
+        });
+        // 滑块
+        box.querySelectorAll('input[data-range]').forEach(sl => {
+          sl.addEventListener('input', () => {
+            const r = ruleDraft.find(x => x.key === sl.dataset.range);
+            r.weight = Number(sl.value);
+            box.querySelector(`[data-w="${r.key}"]`).textContent = r.weight + '%';
+            syncTotal();
+          });
+        });
+        // 拖拽排序
+        let dragKey = null;
+        box.querySelectorAll('.rule-row').forEach(row => {
+          row.addEventListener('dragstart', () => { dragKey = row.dataset.key; row.classList.add('dragging'); });
+          row.addEventListener('dragend', () => { row.classList.remove('dragging'); box.querySelectorAll('.rule-row').forEach(r => r.classList.remove('over')); });
+          row.addEventListener('dragover', (e) => { e.preventDefault(); row.classList.add('over'); });
+          row.addEventListener('dragleave', () => row.classList.remove('over'));
+          row.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const from = ruleDraft.findIndex(x => x.key === dragKey);
+            const to = ruleDraft.findIndex(x => x.key === row.dataset.key);
+            if (from < 0 || to < 0 || from === to) return;
+            const [m] = ruleDraft.splice(from, 1);
+            ruleDraft.splice(to, 0, m);
+            renderRuleList(); syncTotal();
+          });
+        });
+        syncTotal();
+      }
+
+      window.openRuleConfig = () => {
+        ruleDraft = MOCK.getAssignRules().map(r => ({ key: r.key, label: r.label, weight: r.weight, desc: r.desc }));
+        renderRuleList();
+        openModal('rule-modal');
+      };
+
+      document.getElementById('rule-normalize').addEventListener('click', () => {
+        const t = ruleTotal();
+        if (t <= 0) return;
+        let acc = 0;
+        ruleDraft.forEach((r, i) => {
+          if (i === ruleDraft.length - 1) r.weight = 100 - acc;
+          else { r.weight = Math.round((r.weight / t) * 100); acc += r.weight; }
+        });
+        renderRuleList();
+      });
+      document.getElementById('rule-reset').addEventListener('click', () => {
+        ruleDraft = RULE_DEFAULT.map(r => ({ ...r }));
+        renderRuleList();
+      });
+      document.getElementById('rule-save').addEventListener('click', () => {
+        if (ruleTotal() !== 100) { toast('权重合计需为 100%', 'warning'); return; }
+        const payload = ruleDraft.map((r, i) => ({ key: r.key, label: r.label, weight: r.weight, priority: i + 1, desc: r.desc }));
+        MOCK.saveAssignRules(payload);
+        closeModal('rule-modal');
+        toast('✓ 分单规则已更新，推荐打分已实时生效', 'success');
+        renderRecommendations();
+      });
 
       // 若 URL 带订单，自动打开弹窗
       if (preOrderId) {
