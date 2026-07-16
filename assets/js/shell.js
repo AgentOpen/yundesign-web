@@ -58,8 +58,7 @@
       title: '工作台', items: [
         { icon: 'home', label: '我的待办', href: '/workbench/dashboard.html' },
         { icon: 'check', label: '我的任务', href: '/workbench/my-tasks.html', badge: 3 },
-        { icon: 'coins', label: '我的分成', href: '/workbench/my-commission.html' },
-        { icon: 'user', label: '个人中心', href: '/workbench/profile.html' }
+        { icon: 'coins', label: '我的分成', href: '/workbench/my-commission.html' }
       ]
     },
     {
@@ -73,7 +72,6 @@
     {
       title: 'M10 · 订单与分成', items: [
         { icon: 'inbox', label: '设计单池', href: '/ops/order-pool.html', roles: ['admin', 'deptlead'] },
-        { icon: 'plus', label: '创建设计单', href: '/projects/create.html', roles: ['admin', 'deptlead'] },
         { icon: 'layout', label: '分单看板', href: '/ops/assign-board.html', roles: ['admin', 'deptlead'] },
         { icon: 'flag', label: '里程碑与进度', href: '/projects/milestone.html' },
         { icon: 'dollar', label: '定价管理', href: '/ops/pricing.html', roles: ['admin'] },
@@ -148,6 +146,7 @@
   // ---------- 渲染顶栏 ----------
   function renderHeader() {
     const r = MOCK.currentRole();
+    const root = getRootPath();
     const roleOpts = MOCK.ROLES.map(x => `
       <div class="role-opt${x.key === r.key ? ' active' : ''}" data-role="${x.key}">
         <div class="avatar sm" data-color="${colorFrom(x.name)}">${initials(x.name)}</div>
@@ -179,6 +178,11 @@
           <div class="role-dropdown" id="role-dropdown">
             <div class="rd-head">切换角色（演示权限范围）</div>
             ${roleOpts}
+            <div class="rd-divider"></div>
+            <a class="rd-link" href="${root}workbench/profile.html">
+              <span class="rd-link-icon">${ICONS.user}</span>
+              <span>个人中心</span>
+            </a>
           </div>
         </div>
       </div>

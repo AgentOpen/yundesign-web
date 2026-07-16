@@ -67,10 +67,10 @@
         </div>
         <div class="flex gap-2">
           <button class="btn btn-default" onclick="toast('导出项目列表','success')">导出</button>
-          <a href="./create.html" class="btn btn-primary">
+          <button class="btn btn-primary" onclick="OrderCreate.openModal(function(o,mode){ if(mode==='assign') location.href='../ops/assign-board.html'; else location.reload(); })">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             创建设计单
-          </a>
+          </button>
         </div>
       </div>
     </div>
@@ -171,6 +171,7 @@
 
   <script src="../assets/js/utils.js"></script>
   <script src="../assets/js/mock-data.js"></script>
+  <script src="../assets/js/order-create.js"></script>
   <script src="../assets/js/shell.js"></script>
   <script>
     (function () {

@@ -225,6 +225,7 @@
         const state = i < 3 ? 'done' : i === 3 ? 'active' : (i === 4 && p.risk === 'warning' ? 'late' : '');
         return `<div class="ms-node ${state}"><div class="ms-t">MS-${i + 1}</div><div class="ms-l">${m.name}</div><div class="ms-d">${m.deliverable}</div></div>`;
       }).join('')}
+              ${(() => { const s = MOCK.shopState(p.id); if (s.need === true) return `<div class="ms-node ${s.confirmed ? 'done' : 'active'}"><div class="ms-t">MS-9</div><div class="ms-l">施工图</div><div class="ms-d">施工图 DWG/PDF</div></div>`; return ''; })()}
             </div>
             <h4 style="font-size:14px;margin-bottom:12px;">📊 阶段耗时（对比基准）</h4>
             <div style="display:flex;gap:12px;">
@@ -342,7 +343,92 @@
             ` : ''}
           </div>`;
       }).join('')}
+        <div id="ms-shop" style="margin-top:8px;"></div>
       `;
+
+      // MS9 施工图阶段（客户确认后是否需要施工图）
+      function renderShop() {
+        const box = document.getElementById('ms-shop');
+        if (!box) return;
+        const st = MOCK.shopState(p.id);
+        const canDecide = MOCK.canEvaluate();               // 负责人/总监决定是否需要施工图
+        const shopDesigners = [...(p.d2d || []), ...(p.d3d || [])];
+        const headBg = st.confirmed ? 'var(--success-bg)' : (st.need === true ? 'var(--brand-primary-bg)' : (st.need === false ? 'var(--bg-hover)' : 'var(--warning-bg)'));
+        const headColor = st.confirmed ? 'var(--success)' : (st.need === true ? 'var(--brand-primary)' : 'var(--text-secondary)');
+        const statusText = st.need === null ? '待决策' : (st.need === false ? '无需施工图 · 项目结束' : (st.confirmed ? '✅ 客户已确认 · 项目完成' : '进行中'));
+        let inner = '';
+        if (st.need === null) {
+          inner = `<div style="padding:16px 20px;">
+            <div style="margin-bottom:12px;">MS8 客户确认完成后，请确认本项目<b>是否需要出施工图</b>：需要则指派平面/3D 设计师继续完成施工图并交客户确认；不需要则项目结束。</div>
+            ${canDecide
+              ? `<div style="display:flex;gap:10px;"><button class="btn btn-primary" id="shop-yes">✅ 需要施工图</button><button class="btn btn-default" id="shop-no">✖ 不需要 · 结束项目</button></div>`
+              : `<div class="text-sm text-secondary">⏳ 等待设计负责人 / 部门负责人确认是否需要施工图。</div>`}
+          </div>`;
+        } else if (st.need === false) {
+          inner = `<div style="padding:16px 20px;">
+            <div style="color:var(--text-secondary);">本项目无需施工图，已于 MS8 客户确认后结束。</div>
+            ${canDecide ? `<button class="btn btn-text" id="shop-reopen" style="margin-top:8px;">↺ 重新评估是否需要施工图</button>` : ''}
+          </div>`;
+        } else {
+          const drawings = st.drawings.length
+            ? st.drawings.map(d => `<div class="member-item" style="padding:10px 12px;">
+                <span class="version-tag">${d.v}</span>
+                <div style="margin-left:10px;flex:1;">
+                  <div style="font-weight:500;">${d.name}</div>
+                  <div class="text-sm text-secondary">${d.by} · ${d.at}${d.note ? ' · ' + d.note : ''}</div>
+                </div>
+                <button class="btn btn-default btn-sm" onclick="toast('打开 ${d.v} 施工图预览','info')">预览</button>
+              </div>`).join('')
+            : '<div class="text-secondary text-sm" style="padding:8px 0;">尚未上传施工图，请设计师上传首版。</div>';
+          inner = `<div style="padding:16px 20px;">
+            <div class="form-group" style="max-width:420px;margin-bottom:14px;">
+              <label class="form-label">指派施工图设计师（本项目平面 / 3D）</label>
+              <select class="form-input" id="shop-designer">
+                <option value="">— 请选择 —</option>
+                ${shopDesigners.map(id => { const d = MOCK.getDesigner(id); return `<option value="${id}" ${st.designer === id ? 'selected' : ''}>${d.name}（${d.role} · ${MOCK.deptShort(d.dept)}）</option>`; }).join('')}
+              </select>
+            </div>
+            <div style="font-weight:600;margin-bottom:8px;">📐 施工图版本（可多版本迭代）</div>
+            ${drawings}
+            <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center;">
+              <input class="form-input" id="shop-name" placeholder="施工图文件名，例：施工图_全屋.dwg" style="flex:1;min-width:200px;">
+              <input class="form-input" id="shop-note" placeholder="本版说明（可选）" style="flex:1;min-width:160px;">
+              <button class="btn btn-default" id="shop-upload">⬆ 上传新版本</button>
+            </div>
+            <div style="margin-top:16px;border-top:1px solid var(--divider);padding-top:14px;">
+              ${st.confirmed
+                ? `<span class="tag tag-success">✅ 客户已确认施工图，项目完成</span>`
+                : `<button class="btn btn-primary" id="shop-confirm" ${st.drawings.length ? '' : 'disabled'}>客户确认施工图 · 完成项目</button>
+                   ${st.drawings.length ? '' : '<span class="text-sm text-secondary" style="margin-left:10px;">上传至少 1 版施工图后可提交客户确认</span>'}`}
+            </div>
+          </div>`;
+        }
+        box.innerHTML = `<div class="card" style="margin-bottom:12px;">
+          <div style="display:flex;align-items:center;padding:16px 20px;background:${headBg};border-radius:8px 8px 0 0;">
+            <div style="width:32px;height:32px;border-radius:50%;background:white;display:flex;align-items:center;justify-content:center;font-weight:600;color:${headColor};">MS9</div>
+            <div style="margin-left:12px;flex:1;">
+              <div style="font-weight:600;">${st.confirmed ? '✅ ' : st.need === true ? '🔵 ' : '⏳ '}施工图</div>
+              <div class="text-sm text-secondary">平面 / 3D 设计师 · 交付物：施工图（DWG/PDF）· 客户确认</div>
+            </div>
+            <div class="text-sm text-secondary">${statusText}</div>
+          </div>
+          ${inner}
+        </div>`;
+        const reload = () => { location.href = './detail.html?id=' + p.id + '&tab=milestone'; };
+        const yes = box.querySelector('#shop-yes'); if (yes) yes.addEventListener('click', () => { MOCK.setNeedShop(p.id, true); toast('已进入施工图阶段', 'success'); reload(); });
+        const no = box.querySelector('#shop-no'); if (no) no.addEventListener('click', () => { MOCK.setNeedShop(p.id, false); toast('已确认无需施工图，项目结束', 'success'); reload(); });
+        const reopen = box.querySelector('#shop-reopen'); if (reopen) reopen.addEventListener('click', () => { MOCK.resetShop(p.id); renderShop(); });
+        const sel = box.querySelector('#shop-designer'); if (sel) sel.addEventListener('change', e => { MOCK.setShopDesigner(p.id, e.target.value); toast('已指派施工图设计师', 'success'); });
+        const up = box.querySelector('#shop-upload'); if (up) up.addEventListener('click', () => {
+          const name = box.querySelector('#shop-name').value.trim();
+          if (!name) { toast('请填写施工图文件名', 'warning'); return; }
+          const ext = (name.split('.').pop() || '').toLowerCase();
+          MOCK.addShopDrawing(p.id, { name, type: (ext === 'pdf' ? 'pdf' : 'dwg'), note: box.querySelector('#shop-note').value.trim() });
+          toast('已上传施工图新版本', 'success'); renderShop();
+        });
+        const cf = box.querySelector('#shop-confirm'); if (cf) cf.addEventListener('click', () => { MOCK.confirmShop(p.id); toast('客户已确认施工图，项目完成', 'success'); reload(); });
+      }
+      renderShop();
 
       // Version
       document.getElementById('panel-version').innerHTML = `

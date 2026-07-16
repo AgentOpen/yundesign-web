@@ -163,6 +163,11 @@
 .role-opt .ro-name { font-size: 13px; font-weight: 500; color: var(--text-primary); }
 .role-opt .ro-title { font-size: 11px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .role-opt .ro-check { color: var(--brand-primary); font-weight: 700; }
+.role-dropdown .rd-divider { height: 1px; background: var(--divider); margin: 8px 2px; }
+.role-dropdown .rd-link { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; cursor: pointer; font-size: 13px; color: var(--text-primary); text-decoration: none; }
+.role-dropdown .rd-link:hover { background: var(--bg-hover); }
+.role-dropdown .rd-link .rd-link-icon { width: 18px; height: 18px; display: inline-flex; color: var(--text-secondary); }
+.role-dropdown .rd-link .rd-link-icon svg { width: 18px; height: 18px; }
 
 /* ============ Sidebar ============ */
 .app-sidebar {

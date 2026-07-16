@@ -783,6 +783,39 @@
   // 仅平台负责人/部门负责人可调整
   function canAdjustCommission() { return ['all', 'dept'].indexOf(currentRole().scope) >= 0; }
 
+  // ===== 施工图阶段（MS8 客户确认后由负责人决定是否需要施工图）=====
+  // p.needShop: undefined=未决定 / true=需要 / false=不需要(结束)
+  function shopState(pid) {
+    const p = getProjectRaw(pid); if (!p) return null;
+    return { need: (p.needShop === undefined ? null : p.needShop), designer: p.shopDesigner || null, drawings: p.shopDrawings || [], confirmed: !!p.shopConfirmed };
+  }
+  function setNeedShop(pid, need) {
+    const p = getProjectRaw(pid); if (!p) return;
+    p.needShop = !!need;
+    if (!need) { p.shopDrawings = []; p.shopDesigner = null; p.shopConfirmed = false; p.stage = '项目完结'; p.status = '已完成'; p.progress = 100; }
+    else { p.stage = '施工图'; if ((p.progress || 0) < 90) p.progress = 90; if (p.status === '已完成') p.status = '进行中'; }
+    addLog('施工图决策', p.name, need ? '需要施工图，进入施工图阶段' : '无需施工图，项目结束');
+    persist();
+  }
+  function resetShop(pid) { const p = getProjectRaw(pid); if (!p) return; delete p.needShop; p.shopDrawings = []; p.shopDesigner = null; p.shopConfirmed = false; persist(); }
+  function setShopDesigner(pid, did) { const p = getProjectRaw(pid); if (!p) return; p.shopDesigner = did; persist(); }
+  function addShopDrawing(pid, o) {
+    const p = getProjectRaw(pid); if (!p) return null;
+    p.shopDrawings = p.shopDrawings || [];
+    const rec = Object.assign({ v: 'V' + (p.shopDrawings.length + 1) + '.0', at: nowStr(), by: o.by || nameOf(p.shopDesigner) || '设计师' }, o);
+    p.shopDrawings.push(rec);
+    p.deliverables = (p.deliverables || 0) + 1;
+    addLog('施工图上传', p.name, rec.v + ' ' + (o.name || ''));
+    persist();
+    return rec;
+  }
+  function confirmShop(pid) {
+    const p = getProjectRaw(pid); if (!p) return;
+    p.shopConfirmed = true; p.stage = '项目完结'; p.status = '已完成'; p.progress = 100;
+    addLog('施工图确认', p.name, '客户确认施工图，项目完成');
+    persist();
+  }
+
   function newCommission(pid, pname, designerId, role, fee, rate, due, actual) {
     return {
       id: 'cm' + (++_cmSeq), project: pid, projectName: pname, designer: designerId, designerName: nameOf(designerId), role: role,
@@ -938,6 +971,7 @@
     TIMESHEETS, projectHours, projectTimesheets, weekTimesheetHours, designerWeekHours, addTimesheet, approveTimesheet, rejectTimesheet,
     stageBaseline, stageActualHours, isProjectSettled, pendingEvalProjects,
     // 客户退款 & 分成人工调整
+    shopState, setNeedShop, resetShop, setShopDesigner, addShopDrawing, confirmShop,
     projectStatus, projectDesignFee, refundKind, canAdjustCommission, ensureCommissions, ensureFullCommissions,
     commissionsByProject, commissionsByRole, commissionRoleLabel,
     refundSuggest, commissionFinal, setRefund, clearRefund, overrideCommission, resignCommission,
