@@ -246,7 +246,7 @@
   <script src="../assets/js/shell.js"></script>
   <script>
     (function () {
-      let tasks = [...MOCK.MY_TASKS];
+      let tasks = [...MOCK.scopeTasks(MOCK.MY_TASKS)];
       let currentTab = 'pending';
       let currentRejectId = null;
       const selectedByTab = { accepted: null, done: null };

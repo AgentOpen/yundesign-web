@@ -78,7 +78,7 @@
         { icon: 'flag', label: '里程碑与进度', href: '/projects/milestone.html' },
         { icon: 'dollar', label: '定价管理', href: '/ops/pricing.html', roles: ['admin'] },
         { icon: 'layers', label: '分成规则', href: '/ops/commission-rules.html', roles: ['admin'] },
-        { icon: 'calc', label: '核算与结算', href: '/ops/calc-queue.html', roles: ['admin'] },
+        { icon: 'calc', label: '核算与结算', href: '/ops/calc-queue.html', roles: ['admin', 'deptlead'] },
         { icon: 'bar', label: '分成报表', href: '/ops/reports.html', roles: ['admin', 'deptlead'] }
       ]
     },
@@ -203,10 +203,14 @@
       html += `<div class="nav-section"><div class="nav-section-title">${section.title}</div>`;
       section.items.forEach(item => {
         const active = isCurrent(item.href);
+        let badge = item.badge;
+        if (item.href.indexOf('my-tasks') >= 0 && global.MOCK && MOCK.scopeTasks) {
+          badge = MOCK.scopeTasks(MOCK.MY_TASKS).filter(t => t.status === 'pending').length || null;
+        }
         html += `<a href="${root}${item.href.replace(/^\//, '')}" class="nav-item${active ? ' active' : ''}${item.dimmed ? ' dimmed' : ''}" title="${item.dimmed ? item.label + '（建设中）' : item.label}">
           <span class="nav-icon">${ICONS[item.icon] || ICONS.folder}</span>
           <span class="nav-label">${item.label}</span>
-          ${item.badge ? `<span class="nav-badge">${item.badge}</span>` : (item.tag ? `<span class="nav-tag">${item.tag}</span>` : '')}
+          ${badge ? `<span class="nav-badge">${badge}</span>` : (item.tag ? `<span class="nav-tag">${item.tag}</span>` : '')}
         </a>`;
       });
       html += `</div>`;

@@ -499,7 +499,7 @@
       function renderPicker(q = '') {
         const body = document.getElementById('picker-body');
         body.innerHTML = '';
-        MOCK.DESIGNERS.filter(d => d.role === pickerRole).filter(d => !q || d.name.includes(q) || d.city.includes(q)).forEach(d => {
+        MOCK.DESIGNERS.filter(d => d.role === pickerRole && !d.left).filter(d => !q || d.name.includes(q) || d.city.includes(q)).forEach(d => {
           const busyClass = d.capacity > 85 ? 'danger' : d.capacity > 60 ? 'warning' : '';
           const tr = document.createElement('tr');
           if (pickerSelected.has(d.id)) tr.classList.add('selected');

@@ -32,8 +32,8 @@
       </div>
       <div class="page-title-bar">
         <div>
-          <div class="page-title">分成核算队列</div>
-          <div class="page-title-desc">项目触发核算后进入本队列，运营/财务复核并进入审批。点击每一行查看 <b>三栏明细</b>：设计费 → 应分 → 实分。</div>
+          <div class="page-title">分成核算与结算</div>
+          <div class="page-title-desc">按设计师查看各项目分成（设计费→应分→实分）。<b>部门负责人 / 平台负责人</b>可点「调整」发起手动调整（含退款/离职转派）；提交后进入待审核，由<b>平台负责人</b>点「通过」生效。</div>
         </div>
         <div class="flex gap-2">
           <button class="btn btn-default" onclick="toast('已重新计算','success')">🔄 重新核算</button>
@@ -90,25 +90,27 @@
 
   <script src="../assets/js/utils.js"></script>
   <script src="../assets/js/mock-data.js"></script>
+  <script src="../assets/js/commission-adjust.js"></script>
   <script src="../assets/js/shell.js"></script>
   <script>
     (function () {
       const tbody = document.getElementById('tbody');
       const isAdmin = MOCK.currentRole().scope === 'all'; // 平台负责人审批手动分成
+      const canAdjust = MOCK.canAdjustCommission();       // 平台/部门负责人可发起调整
 
       function renderFooter(c) {
         const foot = document.getElementById('detail-footer');
         const pending = c.adjustType === '手动调整' && c.reviewStatus === '待审核';
         let html = `<button class="btn btn-default" onclick="closeDrawer('detail-drawer')">关闭</button>`;
+        if (canAdjust) html += `<button class="btn btn-danger-ghost" data-drawer-adjust="${c.project}">🖊 调整分成</button>`;
         if (pending && isAdmin) {
           html += `<button class="btn btn-danger-ghost" data-drawer-rej="${c.id}">驳回调整</button>
                    <button class="btn btn-primary" data-drawer-pass="${c.id}">✓ 通过并生效</button>`;
         } else if (pending && !isAdmin) {
           html += `<span class="text-sm text-secondary" style="margin-left:auto;">该分成调整待平台负责人审批（当前角色只读）</span>`;
-        } else {
-          html += `<button class="btn btn-danger-ghost" onclick="toast('已标记异常，运营会介入','warning')">🚩 标记异常</button>`;
         }
         foot.innerHTML = html;
+        const ab = foot.querySelector('[data-drawer-adjust]'); if (ab) ab.addEventListener('click', () => { closeDrawer('detail-drawer'); window.CommissionAdjust.openModal(c.project, () => renderRows()); });
         const pb = foot.querySelector('[data-drawer-pass]'); if (pb) pb.addEventListener('click', () => { MOCK.reviewCommission(c.id, true); toast('已通过分成调整，金额生效', 'success'); closeDrawer('detail-drawer'); renderRows(); });
         const rb = foot.querySelector('[data-drawer-rej]'); if (rb) rb.addEventListener('click', () => { MOCK.reviewCommission(c.id, false); toast('已驳回分成调整', 'info'); closeDrawer('detail-drawer'); renderRows(); });
       }
@@ -133,10 +135,11 @@
           const actCell = pending
             ? `<div style="text-decoration:line-through;color:var(--text-placeholder);font-size:12px;">¥${formatMoney(c.actualAmount, 0)}</div><div style="font-family:var(--font-mono);font-weight:600;color:var(--danger);">¥${formatMoney(c.manualAmount, 0)}</div>`
             : `<span style="font-family:var(--font-mono);font-weight:600;color:var(--brand-primary);">¥${formatMoney(effective, 0)}</span>`;
+          const adjustBtn = canAdjust ? `<button class="btn btn-text ca-adjust" style="color:var(--danger);" data-pid="${c.project}" onclick="event.stopPropagation();">调整</button>` : '';
           const opBtns = (isAdmin && pending)
             ? `<button class="btn btn-text" style="color:var(--success);" data-pass="${c.id}" onclick="event.stopPropagation();">通过</button>
                <button class="btn btn-text" style="color:var(--danger);" data-rej="${c.id}" onclick="event.stopPropagation();">驳回</button>`
-            : `<button class="btn btn-text" data-id="${c.id}">查看</button>`;
+            : `<button class="btn btn-text" data-id="${c.id}">查看</button>${adjustBtn}`;
           tr.innerHTML = `
             <td><input type="checkbox" onclick="event.stopPropagation();" /></td>
             <td><div style="font-weight:500;">${c.projectName}</div><div class="text-sm text-secondary">${c.project}</div></td>
@@ -158,6 +161,10 @@
         }));
         tbody.querySelectorAll('[data-rej]').forEach(b => b.addEventListener('click', () => {
           MOCK.reviewCommission(b.dataset.rej, false); toast('已驳回分成调整', 'info'); renderRows();
+        }));
+        tbody.querySelectorAll('.ca-adjust').forEach(b => b.addEventListener('click', (e) => {
+          e.stopPropagation();
+          window.CommissionAdjust.openModal(b.dataset.pid, () => renderRows());
         }));
       }
       renderRows();

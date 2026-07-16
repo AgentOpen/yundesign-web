@@ -204,7 +204,7 @@
           </div>
         </div>
         <div class="progress progress-lg" style="margin-top:12px;"><div class="progress-bar ${p.risk === 'danger' ? 'danger' : p.risk === 'warning' ? 'warning' : 'success'}" style="width:${p.progress}%"></div></div>
-        ${p.refund ? `<div style="background:#fef2f2;border:1px solid #fecaca;color:var(--danger);padding:10px 12px;border-radius:8px;margin-top:12px;font-size:13px;">💸 客户退款 ¥${MOCK.projectDesignFee(p) ? formatMoney(p.refund.amount, 0) : p.refund.amount}（${MOCK.refundKind(p)}）· 原因：${p.refund.reason || '—'} · ${p.refund.at} · 分成调整详见 <b>「💰 退款与分成」</b> 页签</div>` : ''}
+        ${p.refund ? `<div style="background:#fef2f2;border:1px solid #fecaca;color:var(--danger);padding:10px 12px;border-radius:8px;margin-top:12px;font-size:13px;">💸 客户退款 ¥${MOCK.projectDesignFee(p) ? formatMoney(p.refund.amount, 0) : p.refund.amount}（${MOCK.refundKind(p)}）${MOCK.canAdjustCommission() ? ` · 原因：${p.refund.reason || '—'} · ${p.refund.at}` : ''} · 详见 <b>「💰 退款与分成」</b> 页签</div>` : ''}
         <div class="detail-kpis">
           <div class="kpi"><div class="kpi-l">团队规模</div><div class="kpi-v">${p.team.length} 人</div></div>
           <div class="kpi"><div class="kpi-l">变更次数</div><div class="kpi-v">${p.changesCount}</div></div>
@@ -612,7 +612,8 @@
 
       // 退款与分成
       function renderRefund() {
-        if (window.CommissionAdjust) window.CommissionAdjust.renderInto(document.getElementById('panel-refund'), pid, () => { refreshHours(); });
+        // 负责人→完整编辑器（含调整原因/手动分成）；设计师→只读自查（仅金额+状态）
+        if (window.CommissionAdjust) window.CommissionAdjust.renderAuto(document.getElementById('panel-refund'), pid, () => { refreshHours(); });
       }
       renderRefund();
 

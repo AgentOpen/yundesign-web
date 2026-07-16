@@ -109,13 +109,14 @@
       <!-- 明细表 -->
       <div class="card">
         <div class="card-header">
-          <div class="card-title">📋 分成明细</div>
+          <div class="card-title">📋 分成明细 <span class="text-sm text-secondary" id="mc-range-sub"></span></div>
           <div class="filter-item">
-            <select class="filter-select">
-              <option>本月</option>
-              <option>上月</option>
-              <option>本季度</option>
-              <option>本年</option>
+            <select class="filter-select" id="mc-range">
+              <option value="all" selected>全部时间</option>
+              <option value="month">本月</option>
+              <option value="lastmonth">上月</option>
+              <option value="quarter">近三月</option>
+              <option value="year">本年</option>
             </select>
           </div>
         </div>
@@ -172,21 +173,43 @@
         labels.innerHTML += `<div>${x.m}</div>`;
       });
 
-      // 明细表（仅本人分成）
-      const mine = MOCK.myCommissions();
+      // 明细表（仅本人分成 + 时间筛选）
+      const allMine = MOCK.myCommissions();
       const tbody = document.getElementById('commission-list');
 
-      // KPI（按本人生效分成汇总）
-      const sumDue = mine.reduce((s, c) => s + c.dueAmount, 0);
-      const sumAct = mine.reduce((s, c) => s + MOCK.commissionFinal(c), 0);
-      const settled = mine.filter(c => c.status === '已审批').reduce((s, c) => s + MOCK.commissionFinal(c), 0);
-      const pending = sumAct - settled;
-      const reviewing = mine.filter(c => c.reviewStatus === '待审核').length;
-      document.getElementById('kpi-due').textContent = '¥' + formatMoney(sumDue, 0);
-      document.getElementById('kpi-act').textContent = '¥' + formatMoney(sumAct, 0);
-      document.getElementById('kpi-settled').textContent = '¥' + formatMoney(settled, 0);
-      document.getElementById('kpi-pending').textContent = '¥' + formatMoney(pending, 0);
-      document.getElementById('kpi-pending-sub').textContent = reviewing ? (reviewing + ' 单调整审核中') : '无审核中调整';
+      // 时间区间（演示"今天" = 2026-07-16），按分成核算时间 calcAt 过滤
+      const TODAY = new Date(2026, 6, 16);
+      function bounds(r) {
+        if (r === 'month') return [new Date(2026, 6, 1), TODAY];
+        if (r === 'lastmonth') return [new Date(2026, 5, 1), new Date(2026, 5, 30, 23, 59)];
+        if (r === 'quarter') return [new Date(2026, 4, 1), TODAY];
+        if (r === 'year') return [new Date(2026, 0, 1), TODAY];
+        return [new Date(2000, 0, 1), TODAY];
+      }
+      function inRange(c, r) {
+        if (r === 'all') return true;
+        const [s, e] = bounds(r);
+        const d = new Date(String(c.calcAt || '').replace(/-/g, '/'));
+        return !isNaN(d) && d >= s && d <= e;
+      }
+
+      function render(range) {
+        const mine = allMine.filter(c => inRange(c, range));
+        // KPI（按当前区间本人生效分成汇总）
+        const sumDue = mine.reduce((s, c) => s + c.dueAmount, 0);
+        const sumAct = mine.reduce((s, c) => s + MOCK.commissionFinal(c), 0);
+        const settled = mine.filter(c => c.status === '已审批').reduce((s, c) => s + MOCK.commissionFinal(c), 0);
+        const pending = sumAct - settled;
+        const reviewing = mine.filter(c => c.reviewStatus === '待审核').length;
+        document.getElementById('kpi-due').textContent = '¥' + formatMoney(sumDue, 0);
+        document.getElementById('kpi-act').textContent = '¥' + formatMoney(sumAct, 0);
+        document.getElementById('kpi-settled').textContent = '¥' + formatMoney(settled, 0);
+        document.getElementById('kpi-pending').textContent = '¥' + formatMoney(pending, 0);
+        document.getElementById('kpi-pending-sub').textContent = reviewing ? (reviewing + ' 单调整审核中') : '无审核中调整';
+        const rangeLabel = { all: '全部时间', month: '本月', lastmonth: '上月', quarter: '近三月', year: '本年' }[range] || '';
+        document.getElementById('mc-range-sub').textContent = `· ${rangeLabel} · ${mine.length} 单 · 生效合计 ¥${formatMoney(sumAct, 0)}`;
+        renderRows(mine);
+      }
 
       function adjBadge(c) {
         let out = `<span class="tag ${c.status === '已审批' ? 'tag-success' : 'tag-warning'}">${c.status}</span>`;
@@ -199,27 +222,36 @@
         return out;
       }
 
-      if (!mine.length) {
-        tbody.innerHTML = `<tr><td colspan="7"><div class="empty" style="padding:32px 0;"><div class="empty-title">暂无个人分成记录</div><div class="empty-desc">切换到"设计师"角色可查看示例分成明细</div></div></td></tr>`;
-      } else mine.forEach(c => {
-        const p = MOCK.getProject(c.project);
-        const refunded = p && p.refund;
-        const final = MOCK.commissionFinal(c);
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td><div style="font-weight:500;">${c.projectName}${refunded ? ' <span class="tag tag-danger" style="font-size:10px;">客户退款</span>' : ''}</div><div style="font-size:12px;color:var(--text-secondary);">${c.project}</div></td>
-          <td><span class="tag tag-brand">${c.role}</span></td>
-          <td style="text-align:right;font-family:var(--font-mono);">¥${formatMoney(c.designFee, 0)}</td>
-          <td style="text-align:right;font-family:var(--font-mono);">¥${formatMoney(c.dueAmount, 0)}</td>
-          <td style="text-align:right;font-family:var(--font-mono);font-weight:600;color:var(--brand-primary);">¥${formatMoney(final, 0)}${(c.manualAmount != null && c.reviewStatus === '待审核') ? `<div style="font-size:11px;color:var(--warning);">拟调 ¥${formatMoney(c.manualAmount, 0)}</div>` : ''}</td>
-          <td>${adjBadge(c)}</td>
-          <td style="text-align:right;"><button class="btn btn-text" data-id="${c.id}">查看明细</button></td>
-        `;
-        tbody.appendChild(tr);
-      });
+      function renderRows(mine) {
+        tbody.innerHTML = '';
+        if (!mine.length) {
+          tbody.innerHTML = `<tr><td colspan="7"><div class="empty" style="padding:32px 0;"><div class="empty-title">该时间范围暂无个人分成记录</div><div class="empty-desc">切换时间范围，或切换到"设计师"角色可查看示例分成明细</div></div></td></tr>`;
+          return;
+        }
+        mine.forEach(c => {
+          const p = MOCK.getProject(c.project);
+          const refunded = p && p.refund;
+          const final = MOCK.commissionFinal(c);
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><div style="font-weight:500;">${c.projectName}${refunded ? ' <span class="tag tag-danger" style="font-size:10px;">客户退款</span>' : ''}</div><div style="font-size:12px;color:var(--text-secondary);">${c.project} · ${c.calcAt || ''}</div></td>
+            <td><span class="tag tag-brand">${c.role}</span></td>
+            <td style="text-align:right;font-family:var(--font-mono);">¥${formatMoney(c.designFee, 0)}</td>
+            <td style="text-align:right;font-family:var(--font-mono);">¥${formatMoney(c.dueAmount, 0)}</td>
+            <td style="text-align:right;font-family:var(--font-mono);font-weight:600;color:var(--brand-primary);">¥${formatMoney(final, 0)}${(c.manualAmount != null && c.reviewStatus === '待审核') ? `<div style="font-size:11px;color:var(--warning);">拟调 ¥${formatMoney(c.manualAmount, 0)}</div>` : ''}</td>
+            <td>${adjBadge(c)}</td>
+            <td style="text-align:right;"><button class="btn btn-text" data-id="${c.id}">查看明细</button></td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
 
-      tbody.querySelectorAll('[data-id]').forEach(btn => {
-        btn.addEventListener('click', () => {
+      document.getElementById('mc-range').addEventListener('change', e => render(e.target.value));
+      render('all');
+
+      tbody.addEventListener('click', (ev) => {
+        const btn = ev.target.closest('[data-id]');
+        if (btn) {
           const c = MOCK.COMMISSIONS.find(x => x.id === btn.dataset.id);
           const p = MOCK.getProject(c.project);
           const body = document.getElementById('detail-body');
@@ -273,7 +305,7 @@
             </div>
           `;
           openDrawer('detail-drawer');
-        });
+        }
       });
     })();
   </script>

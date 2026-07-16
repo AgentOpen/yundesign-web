@@ -171,7 +171,6 @@
 
   <script src="../assets/js/utils.js"></script>
   <script src="../assets/js/mock-data.js"></script>
-  <script src="../assets/js/commission-adjust.js"></script>
   <script src="../assets/js/shell.js"></script>
   <script>
     (function () {
@@ -267,7 +266,6 @@
             <td class="text-sm" style="white-space:nowrap;">${p.duration || '-'} 天<div style="font-size:11px;color:var(--text-secondary);">${formatDate(p.deadline)}</div></td>
             <td style="text-align:right;white-space:nowrap;">
               <button class="btn btn-text" onclick="event.stopPropagation();location.href='./detail.html?id=${p.id}'">查看</button>
-              ${MOCK.canAdjustCommission() ? `<button class="btn btn-text ca-open" data-pid="${p.id}" onclick="event.stopPropagation()" style="color:var(--danger);">退款/调整</button>` : ''}
             </td>
           `;
           tr.addEventListener('click', () => location.href = './detail.html?id=' + p.id);
@@ -372,14 +370,6 @@
         filter.search = e.target.value;
         rerender();
       }, 200));
-
-      // 退款 / 分成调整入口（事件委托，兼容表格重渲染）
-      document.addEventListener('click', (e) => {
-        const btn = e.target.closest('.ca-open');
-        if (!btn) return;
-        e.stopPropagation();
-        window.CommissionAdjust.openModal(btn.dataset.pid, () => rerender());
-      });
 
       rerender();
     })();

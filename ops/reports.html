@@ -208,7 +208,7 @@
       // ===== 人效：部门对比 =====
       const deptBody = document.getElementById('eff-dept');
       MOCK.DEPARTMENTS.forEach(dep => {
-        const ds = MOCK.DESIGNERS.filter(d => d.dept === dep && ['2D', '3D', '协调员'].includes(d.role));
+        const ds = MOCK.DESIGNERS.filter(d => d.dept === dep && ['2D', '3D', '协调员'].includes(d.role) && !d.left);
         if (!ds.length) return;
         const avgLoad = Math.round(ds.reduce((s, d) => s + d.capacity, 0) / ds.length);
         const active = ds.reduce((s, d) => s + d.activeProjects, 0);

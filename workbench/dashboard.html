@@ -57,33 +57,33 @@
           <div class="stat-icon" style="color:var(--brand-primary);background:var(--brand-primary-bg);">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
           </div>
-          <div class="stat-label">今日待办</div>
-          <div class="stat-value">12<span class="stat-suffix">条</span></div>
-          <div class="stat-delta up">▲ 3 (较昨日)</div>
+          <div class="stat-label">我的待办</div>
+          <div class="stat-value"><span id="k-todo">0</span><span class="stat-suffix">条</span></div>
+          <div class="stat-delta up" id="k-todo-sub">待处理</div>
         </div>
         <div class="stat-card">
           <div class="stat-icon" style="color:var(--warning);background:var(--warning-bg);">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/></svg>
           </div>
           <div class="stat-label">超期项目</div>
-          <div class="stat-value">6<span class="stat-suffix">个</span></div>
-          <div class="stat-delta down">▲ 2 需关注</div>
+          <div class="stat-value"><span id="k-overdue">0</span><span class="stat-suffix">个</span></div>
+          <div class="stat-delta down" id="k-overdue-sub">需关注</div>
         </div>
         <div class="stat-card">
           <div class="stat-icon" style="color:var(--success);background:var(--success-bg);">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
           </div>
-          <div class="stat-label">本月完结</div>
-          <div class="stat-value">41<span class="stat-suffix">个</span></div>
-          <div class="stat-delta up">▲ 15% (环比)</div>
+          <div class="stat-label">已完结项目</div>
+          <div class="stat-value"><span id="k-done">0</span><span class="stat-suffix">个</span></div>
+          <div class="stat-delta up" id="k-done-sub">范围内</div>
         </div>
         <div class="stat-card">
           <div class="stat-icon" style="color:var(--accent);background:var(--warning-bg);">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
           </div>
-          <div class="stat-label">本月分成 (¥)</div>
-          <div class="stat-value">168.5<span class="stat-suffix">万</span></div>
-          <div class="stat-delta up">▲ 8% (环比)</div>
+          <div class="stat-label" id="k-comm-label">我的分成 (¥)</div>
+          <div class="stat-value"><span id="k-comm">0</span><span class="stat-suffix" id="k-comm-suffix">元</span></div>
+          <div class="stat-delta up" id="k-comm-sub">生效合计</div>
         </div>
       </div>
 
@@ -91,8 +91,8 @@
         <!-- Todo list -->
         <div class="card">
           <div class="card-header">
-            <div class="card-title">🔥 今日重点</div>
-            <a href="javascript:void(0)" class="btn-text" onclick="toast('已展开全部','info')">全部 (12) →</a>
+            <div class="card-title">🔥 我的待办</div>
+            <a href="javascript:void(0)" class="btn-text" id="todo-all" onclick="toast('已展开全部','info')">全部 →</a>
           </div>
           <div id="todo-list"></div>
         </div>
@@ -138,7 +138,7 @@
                 <div class="qa-icon">✅</div>
                 <div>
                   <div style="font-weight:500;">我的任务</div>
-                  <div style="font-size:12px;color:var(--text-secondary);">3 条待接单</div>
+                  <div style="font-size:12px;color:var(--text-secondary);" id="qa-task-cnt">待接单</div>
                 </div>
               </a>
             </div>
@@ -195,7 +195,28 @@
           }))
         : [];
 
-      const todos = evalTodos.concat(reviewTodos, MOCK.TODOS);
+      const r = MOCK.currentRole();
+      const isAdmin = r.scope === 'all';
+
+      // 待接收任务待办（本人）
+      const taskTodos = MOCK.scopeTasks(MOCK.MY_TASKS).filter(t => t.status === 'pending').map(t => ({
+        id: 'task-' + t.id, title: t.project + ' 待接收任务', projName: t.project, type: '待接收',
+        priority: (t.urgency === '紧急' || t.urgency === '加急') ? 'high' : 'medium', due: t.deadline || '尽快', taskTarget: true
+      }));
+
+      // 协调员待办（需求收集/整理 + 各阶段客户确认）
+      const coordTodos = MOCK.myCoordTasks('pending').map(t => ({
+        id: 'coord-' + t.id, title: t.title, project: t.project, type: t.type,
+        priority: t.priority, due: t.due, coordTarget: true
+      }));
+
+      // 全局待办按当前登录人过滤（平台负责人看全部）
+      const globalTodos = MOCK.TODOS.filter(t => isAdmin || t.assignee === r.selfId);
+
+      const todos = evalTodos.concat(reviewTodos, taskTodos, coordTodos, globalTodos);
+      if (!todos.length) {
+        list.innerHTML = '<div class="empty" style="padding:32px 0;"><div class="empty-title">暂无待办</div><div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">当前角色范围内没有需要处理的事项</div></div>';
+      }
       todos.forEach(t => {
         const project = t.project ? MOCK.getProject(t.project) : null;
         const item = el('div', { class: 'todo-item' }, [
@@ -204,12 +225,12 @@
             el('div', { style: { fontWeight: 500, fontSize: '14px' } }, t.title),
             el('div', { style: { fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' } },
               [
-                el('span', { class: 'tag ' + (t.reviewTarget ? 'tag-danger' : t.evalTarget ? 'tag-purple' : 'tag-info') }, t.type),
-                ' · ', el('span', { class: 'tag tag-info' }, project ? project.name : '订单池'),
+                el('span', { class: 'tag ' + (t.reviewTarget ? 'tag-danger' : t.evalTarget ? 'tag-purple' : t.taskTarget ? 'tag-warning' : t.coordTarget ? 'tag-brand' : 'tag-info') }, t.type),
+                ' · ', el('span', { class: 'tag tag-info' }, project ? project.name : (t.projName || '订单池')),
                 ' · 截止 ', t.due
               ])
           ]),
-          el('button', { class: 'btn btn-default btn-sm', onClick: (e) => { e.stopPropagation(); go(t, project); } }, t.reviewTarget ? '去审核' : t.evalTarget ? '去评价' : '处理'),
+          el('button', { class: 'btn btn-default btn-sm', onClick: (e) => { e.stopPropagation(); go(t, project); } }, t.reviewTarget ? '去审核' : t.evalTarget ? '去评价' : t.taskTarget ? '去接收' : t.coordTarget ? '去处理' : '处理'),
         ]);
         item.addEventListener('click', () => go(t, project));
         list.appendChild(item);
@@ -218,13 +239,35 @@
       function go(t, project) {
         if (t.reviewTarget) { location.href = '../ops/calc-queue.html'; return; }
         if (t.evalTarget) { location.href = '../projects/detail.html?id=' + t.project + '&tab=quality'; return; }
+        if (t.taskTarget) { location.href = '../workbench/my-tasks.html?tab=pending'; return; }
         if (project) location.href = '../projects/detail.html?id=' + project.id;
         else location.href = '../ops/order-pool.html';
       }
 
+      // ===== KPI（按角色范围）=====
+      const TODAY = '2026-07-16';
+      const P = MOCK.scopeProjects(MOCK.PROJECTS);
+      const isDone = p => ['已完成', '已交付'].includes(MOCK.projectStatus(p));
+      document.getElementById('k-todo').textContent = todos.length;
+      document.getElementById('k-todo-sub').textContent = taskTodos.length ? (taskTodos.length + ' 条待接收') : '待处理';
+      document.getElementById('todo-all').textContent = '全部 (' + todos.length + ') →';
+      document.getElementById('qa-task-cnt').textContent = taskTodos.length + ' 条待接单';
+      document.getElementById('k-overdue').textContent = P.filter(p => p.deadline && p.deadline < TODAY && !isDone(p) && !p.refund).length;
+      document.getElementById('k-done').textContent = P.filter(isDone).length;
+      const comm = (r.scope === 'self' || r.scope === 'coord') ? MOCK.myCommissions() : MOCK.scopeCommissions(MOCK.COMMISSIONS);
+      const sum = comm.reduce((s, c) => s + MOCK.commissionFinal(c), 0);
+      if (r.scope === 'all' || r.scope === 'dept') {
+        document.getElementById('k-comm').textContent = (sum / 10000).toFixed(1);
+        document.getElementById('k-comm-suffix').textContent = '万';
+        document.getElementById('k-comm-label').textContent = isAdmin ? '范围内分成 (¥)' : '本部门分成 (¥)';
+      } else {
+        document.getElementById('k-comm').textContent = sum.toLocaleString();
+        document.getElementById('k-comm-suffix').textContent = '元';
+        document.getElementById('k-comm-label').textContent = '我的分成 (¥)';
+      }
+
       // 本周已填报工时统计
       const wh = MOCK.weekTimesheetHours();
-      const r = MOCK.currentRole();
       const scopeTxt = (r.scope === 'self' || r.scope === 'coord') ? '本人' : (r.scope === 'dept' ? r.dept : '全部门');
       document.getElementById('week-hours-body').innerHTML = `
         <div style="display:flex;align-items:baseline;gap:6px;">

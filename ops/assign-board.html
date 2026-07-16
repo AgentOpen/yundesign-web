@@ -365,7 +365,7 @@
           return;
         }
         const roleMap = { coord: '协调员', '2d': '2D', '3d': '3D' };
-        const filtered = MOCK.DESIGNERS.filter(d => d.role === roleMap[currentRoleTab]).map(d => ({ ...d, ...computeScore(d, currentOrder) }));
+        const filtered = MOCK.DESIGNERS.filter(d => d.role === roleMap[currentRoleTab] && !d.left).map(d => ({ ...d, ...computeScore(d, currentOrder) }));
         filtered.sort((a, b) => b.score - a.score);
 
         filtered.forEach((d, i) => {
@@ -561,7 +561,7 @@
 
       // ===== 一键批量智能分单 · 预分配预览 =====
       function bestByRole(order, role) {
-        const cands = MOCK.DESIGNERS.filter(d => d.role === role).map(d => ({ d, ...computeScore(d, order) }));
+        const cands = MOCK.DESIGNERS.filter(d => d.role === role && !d.left).map(d => ({ d, ...computeScore(d, order) }));
         cands.sort((a, b) => b.score - a.score);
         return cands[0];
       }
@@ -617,7 +617,7 @@
       function renderDesigners() {
         const grid = document.getElementById('designer-grid');
         grid.innerHTML = '';
-        const list = MOCK.DESIGNERS.filter(d => ['2D', '3D', '协调员'].includes(d.role))
+        const list = MOCK.DESIGNERS.filter(d => ['2D', '3D', '协调员'].includes(d.role) && !d.left)
           .filter(d => !designerFilter.role || d.role === designerFilter.role)
           .filter(d => !designerFilter.dept || d.dept === designerFilter.dept);
         list.forEach(d => {

@@ -13,7 +13,7 @@
     { id: 'u003', name: '王五', role: '3D', dept: '3D效果图部', level: 'L5', skills: ['别墅', '新中式'], city: '北京', capacity: 20, activeProjects: 1, avgScore: 4.9, monthCommission: 62000, lastAssignAt: '2026-06-28' },
     { id: 'u004', name: '赵六', role: '协调员', dept: '协调部', level: 'L3', skills: ['东南亚', '英语'], city: '曼谷', capacity: 60, activeProjects: 3, avgScore: 4.5, monthCommission: 18600, lastAssignAt: '2026-07-09' },
     { id: 'u005', name: '钱七', role: '3D', dept: '3D效果图部', level: 'L4', skills: ['家装', '北欧'], city: '深圳', capacity: 78, activeProjects: 3, avgScore: 4.4, monthCommission: 38000, lastAssignAt: '2026-07-08' },
-    { id: 'u006', name: '孙八', role: '2D', dept: '平面设计二部', level: 'L2', skills: ['工装'], city: '广州', capacity: 40, activeProjects: 2, avgScore: 3.9, monthCommission: 15200, lastAssignAt: '2026-07-05' },
+    { id: 'u006', name: '孙八', role: '2D', dept: '平面设计二部', level: 'L2', skills: ['工装'], city: '广州', capacity: 0, activeProjects: 0, avgScore: 3.9, monthCommission: 0, lastAssignAt: '2026-07-05', left: true, leftAt: '2026-07-14' },
     { id: 'u007', name: '周九', role: '3D', dept: '3D效果图部', level: 'L5', skills: ['别墅', '奢华'], city: '上海', capacity: 92, activeProjects: 5, avgScore: 4.8, monthCommission: 71000, lastAssignAt: '2026-07-09' },
     { id: 'u008', name: '吴十', role: '2D', dept: '平面设计一部', level: 'L4', skills: ['家装', '日式'], city: '杭州', capacity: 15, activeProjects: 1, avgScore: 4.7, monthCommission: 35500, lastAssignAt: '2026-06-30' },
     { id: 'u009', name: '郑一', role: '协调员', dept: '协调部', level: 'L4', skills: ['家装', '别墅'], city: '北京', capacity: 70, activeProjects: 4, avgScore: 4.6, monthCommission: 24000, lastAssignAt: '2026-07-09' },
@@ -43,7 +43,11 @@
     { id: 'c007', name: '赵先生', phone: '158****4471', level: '普通', address: '苏州·工业园区' },
     { id: 'c008', name: 'Mr. Tanaka', phone: '+81-****-6620', level: 'VIP', address: '日本·东京·港区' },
     { id: 'c009', name: 'Ms. Sophia', phone: '+44-****-1180', level: 'VIP', address: '英国·伦敦·肯辛顿' },
-    { id: 'c010', name: 'Mr. Reddy', phone: '+91-****-7745', level: 'VIP', address: '印度·孟买' }
+    { id: 'c010', name: 'Mr. Reddy', phone: '+91-****-7745', level: 'VIP', address: '印度·孟买' },
+    { id: 'c011', name: '华润业主 B12', phone: '150****3320', level: '普通', address: '中国·苏州·工业园区' },
+    { id: 'c012', name: '雍华府业主', phone: '138****9975', level: 'VIP', address: '中国·苏州·金鸡湖' },
+    { id: 'c013', name: 'Mr. Wong', phone: '+66-****-6621', level: 'VIP', address: '泰国·曼谷·沙吞' },
+    { id: 'c014', name: '严女士', phone: '139****2244', level: '普通', address: '中国·苏州·吴中' }
   ];
 
   // 项目状态：由阶段推导 —— 进行中 / 已交付 / 已完成
@@ -65,12 +69,18 @@
     { id: 'p007', code: 'P-20260707-007', name: '赵宅家装', type: '家装', customer: 'c007', region: '中国·苏州', area: 108, budget: 55, scope: ['全案'], urgency: '正常', source: 'CRM', stage: '3D意向', progress: 60, risk: 'ok', d2d: ['u008'], d3d: ['u013'], coord: 'u009', leadPm: 'u015', deadline: '2026-08-20', createdAt: '2026-07-07', changesCount: 4, deliverables: 3 },
     { id: 'p008', code: 'P-20260620-008', name: '万科示范样板房', type: '工装', customer: 'c004', region: '中国·北京', area: 220, budget: 90, scope: ['全案', '软装'], urgency: '正常', source: 'OMS', stage: '项目完结', progress: 100, risk: 'ok', d2d: ['u002'], d3d: ['u005'], coord: null, leadPm: 'u015', deadline: '2026-07-10', createdAt: '2026-06-20', changesCount: 3, deliverables: 10 },
     { id: 'p009', code: 'P-20260702-009', name: 'Tanaka Residence', type: '别墅', customer: 'c008', region: '日本·东京', area: 260, budget: 210, scope: ['全案', '定制柜'], urgency: '加急', source: '手动创建', stage: '全屋3D', progress: 88, risk: 'ok', d2d: ['u018'], d3d: ['u020'], coord: 'u021', leadPm: 'u015', deadline: '2026-08-05', createdAt: '2026-07-02', changesCount: 9, deliverables: 7 },
-    { id: 'p010', code: 'P-20260708-010', name: 'Sophia Flat', type: '家装', customer: 'c009', region: '英国·伦敦', area: 145, budget: 120, scope: ['全案', '软装'], urgency: '正常', source: 'CRM', stage: '需求收集', progress: 10, risk: 'ok', d2d: ['u019'], d3d: [], coord: 'u021', leadPm: 'u015', deadline: '2026-09-25', createdAt: '2026-07-08', changesCount: 1, deliverables: 0 }
+    { id: 'p010', code: 'P-20260708-010', name: 'Sophia Flat', type: '家装', customer: 'c009', region: '英国·伦敦', area: 145, budget: 120, scope: ['全案', '软装'], urgency: '正常', source: 'CRM', stage: '需求收集', progress: 10, risk: 'ok', d2d: ['u019'], d3d: [], coord: 'u021', leadPm: 'u015', deadline: '2026-09-25', createdAt: '2026-07-08', changesCount: 1, deliverables: 0 },
+    // 平面设计二部项目（部门负责人 徐东 全流程演示）
+    { id: 'p011', code: 'P-20260712-011', name: '华润·悦府大平层', type: '家装', customer: 'c011', region: '中国·苏州', area: 210, budget: 90, scope: ['全案', '定制柜'], urgency: '正常', source: 'CRM', stage: '平面确认', progress: 45, risk: 'ok', d2d: ['u010'], d3d: ['u013'], coord: 'u009', leadPm: 'u015', deadline: '2026-08-28', createdAt: '2026-07-12', changesCount: 3, deliverables: 2 },
+    { id: 'p012', code: 'P-20260620-012', name: '招商·雍华府', type: '别墅', customer: 'c012', region: '中国·苏州', area: 320, budget: 160, scope: ['全案', '定制柜', '门窗'], urgency: '加急', source: '手动创建', stage: '3D意向', progress: 55, risk: 'warning', d2d: ['u010'], d3d: ['u020'], coord: 'u021', leadPm: 'u015', deadline: '2026-08-10', createdAt: '2026-06-20', changesCount: 9, deliverables: 5 },
+    // 已完结项目（用于"已结算分成"演示）
+    { id: 'p013', code: 'P-20260525-013', name: 'The Reserve 61 公寓', type: '家装', customer: 'c013', region: '泰国·曼谷', area: 180, budget: 120, scope: ['全案', '软装'], urgency: '正常', source: 'CRM', stage: '项目完结', progress: 100, risk: 'ok', d2d: ['u001'], d3d: ['u020'], coord: 'u021', leadPm: 'u015', deadline: '2026-06-30', createdAt: '2026-05-25', changesCount: 4, deliverables: 9 },
+    { id: 'p014', code: 'P-20260528-014', name: '苏州·桃花源合院', type: '别墅', customer: 'c014', region: '中国·苏州', area: 260, budget: 130, scope: ['全案', '定制柜'], urgency: '加急', source: 'CRM', stage: '项目完结', progress: 100, risk: 'ok', d2d: ['u012'], d3d: ['u013'], coord: 'u009', leadPm: 'u015', deadline: '2026-06-25', createdAt: '2026-05-28', changesCount: 6, deliverables: 8 }
   ];
   // 项目 → 源设计单 关联（用于溯源）
   const ORDER_LINK = { p001: 'D-20260707-001', p003: 'D-20260705-001' };
   // 设计费总额（元）——退款上限、分成基数
-  const DESIGN_FEE = { p001: 96000, p002: 42000, p003: 150000, p004: 180000, p005: 28000, p006: 165000, p007: 36000, p008: 45000, p009: 78000, p010: 60000 };
+  const DESIGN_FEE = { p001: 96000, p002: 42000, p003: 150000, p004: 180000, p005: 28000, p006: 165000, p007: 36000, p008: 45000, p009: 78000, p010: 60000, p011: 84000, p012: 128000, p013: 60000, p014: 104000 };
   PROJECTS.forEach(p => {
     p.status = statusFromStage(p.stage, p.progress);
     // 兼容旧字段：team = 平面 + 3D + 协调员
@@ -108,21 +118,29 @@
   ];
 
   // ===== 我的任务（接单/拒接/进行中/完成）=====
+  // designer: 任务归属设计师 id —— 用于「我的任务」按当前登录人过滤
   const MY_TASKS = [
     // 待接单
-    { id: 'tk001', order: 'D-20260710-002', project: '中东豪宅设计', customer: 'Sheikh Ahmed', area: 890, region: '沙特·利雅得', dept: '平面设计二部', role: '平面 2D', task: '指定面积', taskArea: 360, responsibleSpaces: ['客厅', '主卧', '书房'], deadline: '2026-08-01', estimatedHours: 48, assigner: '王负责人', assignedAt: '2 小时前', urgency: '紧急', status: 'pending' },
-    { id: 'tk002', order: 'D-20260709-002', project: 'Sunny Villa', customer: 'Sunny Family', area: 380, region: '越南·胡志明市', dept: '海外设计部', role: '平面 2D', task: '指定面积', taskArea: 200, responsibleSpaces: ['客厅', '餐厅'], deadline: '2026-08-15', estimatedHours: 24, assigner: '王负责人', assignedAt: '5 小时前', urgency: '正常', status: 'pending' },
-    { id: 'tk003', order: 'D-20260711-001', project: 'Mumbai Kingfisher 别墅', customer: 'Mr. Reddy', area: 420, region: '印度·孟买', dept: '海外设计部', role: '平面 2D', task: '全案', taskArea: 420, responsibleSpaces: ['全部空间'], deadline: '2026-08-20', estimatedHours: 40, assigner: '王负责人', assignedAt: '1 天前', urgency: '加急', status: 'pending' },
+    { id: 'tk001', designer: 'u012', order: 'D-20260710-002', project: '中东豪宅设计', customer: 'Sheikh Ahmed', area: 890, region: '沙特·利雅得', dept: '平面设计二部', role: '平面 2D', task: '指定面积', taskArea: 360, responsibleSpaces: ['客厅', '主卧', '书房'], deadline: '2026-08-01', estimatedHours: 48, assigner: '王负责人', assignedAt: '2 小时前', urgency: '紧急', status: 'pending' },
+    { id: 'tk002', designer: 'u001', order: 'D-20260709-002', project: 'Sunny Villa', customer: 'Sunny Family', area: 380, region: '越南·胡志明市', dept: '海外设计部', role: '平面 2D', task: '指定面积', taskArea: 200, responsibleSpaces: ['客厅', '餐厅'], deadline: '2026-08-15', estimatedHours: 24, assigner: '王负责人', assignedAt: '5 小时前', urgency: '正常', status: 'pending' },
+    { id: 'tk003', designer: 'u018', order: 'D-20260711-001', project: 'Mumbai Kingfisher 别墅', customer: 'Mr. Reddy', area: 420, region: '印度·孟买', dept: '海外设计部', role: '平面 2D', task: '全案', taskArea: 420, responsibleSpaces: ['全部空间'], deadline: '2026-08-20', estimatedHours: 40, assigner: '王负责人', assignedAt: '1 天前', urgency: '加急', status: 'pending' },
     // 进行中
-    { id: 'tk004', order: 'D-20260707-001', project: '张宅全案 · 别墅', customer: '张先生', area: 320, region: '泰国·曼谷', dept: '海外设计部', role: '平面 2D', task: '全案', taskArea: 320, responsibleSpaces: ['全部空间'], deadline: '2026-08-15', estimatedHours: 40, assigner: '王负责人', assignedAt: '3 天前', urgency: '加急', status: 'accepted', progress: 60, version: 'V3.2', nextMilestone: '3D 意向客户确认' },
-    { id: 'tk005', order: 'D-20260628-003', project: 'Kumar 别墅', customer: 'Mr. Kumar', area: 480, region: '泰国·曼谷', dept: '海外设计部', role: '平面 2D', task: '指定面积', taskArea: 260, responsibleSpaces: ['一层公共区', '主卧套房'], deadline: '2026-07-25', estimatedHours: 56, assigner: '王负责人', assignedAt: '6 天前', urgency: '紧急', status: 'accepted', progress: 75, version: 'V2.1', nextMilestone: '全屋 3D' },
-    { id: 'tk006', order: 'D-20260702-009', project: 'Tanaka Residence', customer: 'Mr. Tanaka', area: 260, region: '日本·东京', dept: '海外设计部', role: '平面 2D', task: '全案', taskArea: 260, responsibleSpaces: ['全部空间'], deadline: '2026-08-05', estimatedHours: 36, assigner: '王负责人', assignedAt: '8 天前', urgency: '加急', status: 'accepted', progress: 90, version: 'V4.0', nextMilestone: '最终客户确认' },
-    { id: 'tk007', order: 'D-20260703-005', project: '刘宅家装', customer: '刘小姐', area: 96, region: '中国·深圳', dept: '平面设计一部', role: '平面 2D', task: '全案', taskArea: 96, responsibleSpaces: ['全部空间'], deadline: '2026-08-10', estimatedHours: 20, assigner: '王负责人', assignedAt: '9 天前', urgency: '正常', status: 'accepted', progress: 82, version: 'V3.0', nextMilestone: '全屋 3D 交付' },
+    { id: 'tk004', designer: 'u001', order: 'D-20260707-001', project: '张宅全案 · 别墅', customer: '张先生', area: 320, region: '泰国·曼谷', dept: '海外设计部', role: '平面 2D', task: '全案', taskArea: 320, responsibleSpaces: ['全部空间'], deadline: '2026-08-15', estimatedHours: 40, assigner: '王负责人', assignedAt: '3 天前', urgency: '加急', status: 'accepted', progress: 60, version: 'V3.2', nextMilestone: '3D 意向客户确认' },
+    { id: 'tk005', designer: 'u001', order: 'D-20260628-003', project: 'Kumar 别墅', customer: 'Mr. Kumar', area: 480, region: '泰国·曼谷', dept: '海外设计部', role: '平面 2D', task: '指定面积', taskArea: 260, responsibleSpaces: ['一层公共区', '主卧套房'], deadline: '2026-07-25', estimatedHours: 56, assigner: '王负责人', assignedAt: '6 天前', urgency: '紧急', status: 'accepted', progress: 75, version: 'V2.1', nextMilestone: '全屋 3D' },
+    { id: 'tk006', designer: 'u018', order: 'D-20260702-009', project: 'Tanaka Residence', customer: 'Mr. Tanaka', area: 260, region: '日本·东京', dept: '海外设计部', role: '平面 2D', task: '全案', taskArea: 260, responsibleSpaces: ['全部空间'], deadline: '2026-08-05', estimatedHours: 36, assigner: '王负责人', assignedAt: '8 天前', urgency: '加急', status: 'accepted', progress: 90, version: 'V4.0', nextMilestone: '最终客户确认' },
+    { id: 'tk007', designer: 'u002', order: 'D-20260703-005', project: '刘宅家装', customer: '刘小姐', area: 96, region: '中国·深圳', dept: '平面设计一部', role: '平面 2D', task: '全案', taskArea: 96, responsibleSpaces: ['全部空间'], deadline: '2026-08-10', estimatedHours: 20, assigner: '王负责人', assignedAt: '9 天前', urgency: '正常', status: 'accepted', progress: 82, version: 'V3.0', nextMilestone: '全屋 3D 交付' },
     // 已拒接
-    { id: 'tk008', order: 'D-20260710-003', project: '朗诗尚东三期 B座', customer: '朗诗物业', area: 320, region: '中国·南京', dept: '平面设计二部', role: '软装 2D', task: '指定面积', taskArea: 320, responsibleSpaces: ['样板间'], deadline: '2026-08-12', estimatedHours: 30, assigner: '王负责人', assignedAt: '2 天前', urgency: '正常', status: 'rejected', rejectReason: '档期冲突（已有多个高优项目）', rejectedAt: '1 天前' },
+    { id: 'tk008', designer: 'u010', order: 'D-20260710-003', project: '朗诗尚东三期 B座', customer: '朗诗物业', area: 320, region: '中国·南京', dept: '平面设计二部', role: '软装 2D', task: '指定面积', taskArea: 320, responsibleSpaces: ['样板间'], deadline: '2026-08-12', estimatedHours: 30, assigner: '王负责人', assignedAt: '2 天前', urgency: '正常', status: 'rejected', rejectReason: '档期冲突（已有多个高优项目）', rejectedAt: '1 天前' },
     // 已完成
-    { id: 'tk009', order: 'D-20260620-008', project: '万科示范样板房', customer: '陈总', area: 220, region: '中国·北京', dept: '平面设计一部', role: '平面 2D', task: '全案', taskArea: 220, responsibleSpaces: ['全部空间'], deadline: '2026-07-10', estimatedHours: 32, assigner: '王负责人', assignedAt: '20 天前', urgency: '正常', status: 'done', doneAt: '2026-07-10', score: 4.6 },
-    { id: 'tk010', order: 'D-20260601-011', project: '绿城·桂语兰庭', customer: '孙女士', area: 140, region: '中国·杭州', dept: '平面设计一部', role: '平面 2D', task: '全案', taskArea: 140, responsibleSpaces: ['全部空间'], deadline: '2026-06-28', estimatedHours: 26, assigner: '王负责人', assignedAt: '35 天前', urgency: '正常', status: 'done', doneAt: '2026-06-27', score: 4.8 }
+    { id: 'tk009', designer: 'u002', order: 'D-20260620-008', project: '万科示范样板房', customer: '陈总', area: 220, region: '中国·北京', dept: '平面设计一部', role: '平面 2D', task: '全案', taskArea: 220, responsibleSpaces: ['全部空间'], deadline: '2026-07-10', estimatedHours: 32, assigner: '王负责人', assignedAt: '20 天前', urgency: '正常', status: 'done', doneAt: '2026-07-10', score: 4.6 },
+    { id: 'tk010', designer: 'u002', order: 'D-20260601-011', project: '绿城·桂语兰庭', customer: '孙女士', area: 140, region: '中国·杭州', dept: '平面设计一部', role: '平面 2D', task: '全案', taskArea: 140, responsibleSpaces: ['全部空间'], deadline: '2026-06-28', estimatedHours: 26, assigner: '王负责人', assignedAt: '35 天前', urgency: '正常', status: 'done', doneAt: '2026-06-27', score: 4.8 },
+    // 张三（设计师角色）补全：已拒接 + 已完成
+    { id: 'tk011', designer: 'u001', order: 'D-20260706-004', project: '首创天阅西山', customer: '周先生', area: 145, region: '中国·北京', dept: '海外设计部', role: '平面 2D', task: '全案', taskArea: 145, responsibleSpaces: ['全部空间'], deadline: '2026-08-18', estimatedHours: 28, assigner: '王负责人', assignedAt: '3 天前', urgency: '正常', status: 'rejected', rejectReason: '与在途别墅项目档期冲突，建议改派', rejectedAt: '2 天前' },
+    { id: 'tk012', designer: 'u001', order: 'D-20260525-002', project: 'The Reserve 61 公寓', customer: 'Mr. Wong', area: 180, region: '泰国·曼谷', dept: '海外设计部', role: '平面 2D', task: '全案', taskArea: 180, responsibleSpaces: ['全部空间'], deadline: '2026-06-30', estimatedHours: 34, assigner: '王负责人', assignedAt: '50 天前', urgency: '正常', status: 'done', doneAt: '2026-06-28', score: 4.7 },
+    // 徐东（部门负责人·平面二部）本人任务全状态
+    { id: 'tk013', designer: 'u012', order: 'D-20260705-001', project: 'Kumar 别墅', customer: 'Mr. Kumar', area: 480, region: '泰国·曼谷', dept: '平面设计二部', role: '平面 2D', task: '指定面积', taskArea: 220, responsibleSpaces: ['二层卧室区', '影音室'], deadline: '2026-07-25', estimatedHours: 44, assigner: '王负责人', assignedAt: '6 天前', urgency: '紧急', status: 'accepted', progress: 70, version: 'V2.0', nextMilestone: '全屋 3D' },
+    { id: 'tk014', designer: 'u010', order: 'D-20260712-001', project: '华润·悦府大平层', customer: '华润业主 B12', area: 210, region: '中国·苏州', dept: '平面设计二部', role: '平面 2D', task: '全案', taskArea: 210, responsibleSpaces: ['全部空间'], deadline: '2026-08-28', estimatedHours: 30, assigner: '徐东', assignedAt: '2 天前', urgency: '正常', status: 'accepted', progress: 40, version: 'V1.2', nextMilestone: '平面客户确认' },
+    { id: 'tk015', designer: 'u012', order: 'D-20260528-006', project: '苏州·桃花源合院', customer: '严女士', area: 260, region: '中国·苏州', dept: '平面设计二部', role: '平面 2D', task: '全案', taskArea: 260, responsibleSpaces: ['全部空间'], deadline: '2026-06-25', estimatedHours: 42, assigner: '王负责人', assignedAt: '48 天前', urgency: '加急', status: 'done', doneAt: '2026-06-24', score: 4.9 }
   ];
   // 为待接单任务补齐"需求包"字段（类型/范围/设计方向/附件/客户等级/团队），优先取自源设计单
   MY_TASKS.forEach(tk => {
@@ -137,6 +155,24 @@
     if (tk.teammates2D === undefined) tk.teammates2D = tk.role.indexOf('3D') >= 0 ? ['张三'] : [];
     if (tk.teammates3D === undefined) tk.teammates3D = tk.role.indexOf('平面') >= 0 ? ['王五'] : [];
   });
+
+  // ===== 协调员待办（需求收集/整理 + 各阶段客户确认 + 交付跟进）=====
+  // coord: 归属协调员 id；status: pending / done
+  const COORD_TASKS = [
+    { id: 'ct001', coord: 'u004', project: 'p001', title: '张宅全案 · 平面方案客户确认', type: '客户确认', stage: '平面确认', priority: 'high', due: '今天', status: 'pending' },
+    { id: 'ct002', coord: 'u004', project: 'p003', title: 'Kumar 别墅 · 3D 意向客户确认', type: '客户确认', stage: '3D意向', priority: 'high', due: '明天', status: 'pending' },
+    { id: 'ct003', coord: 'u004', project: 'p001', title: '张宅全案 · 整理客户新增修改需求（3 项）', type: '需求整理', stage: '', priority: 'medium', due: '本周', status: 'pending' },
+    { id: 'ct004', coord: 'u004', project: 'p003', title: 'Kumar 别墅 · 收集客户软装偏好与参考图', type: '需求收集', stage: '', priority: 'low', due: '本周', status: 'pending' },
+    { id: 'ct005', coord: 'u004', project: 'p001', title: '张宅全案 · V2 平面客户反馈已回收', type: '客户确认', stage: '', priority: 'medium', due: '2 天前', status: 'done', doneAt: '2026-07-11' },
+    // 其他协调员（供切换/部门视图演示）
+    { id: 'ct006', coord: 'u009', project: 'p004', title: '陈总办公楼 · 需求文档待完善', type: '需求整理', stage: '需求收集', priority: 'medium', due: '明天', status: 'pending' },
+    { id: 'ct007', coord: 'u021', project: 'p012', title: '招商·雍华府 · 全屋 3D 客户确认', type: '客户确认', stage: '全屋3D', priority: 'high', due: '今天', status: 'pending' }
+  ];
+  // 当前协调员的待办
+  function myCoordTasks(status) {
+    const r = currentRole();
+    return COORD_TASKS.filter(t => (r.scope === 'all' || t.coord === r.selfId) && (!status || t.status === status));
+  }
 
   // ===== 版本流 =====
   const VERSIONS = [
@@ -153,7 +189,24 @@
     { id: 'cm001', project: 'p008', projectName: '万科示范样板房', designer: 'u002', designerName: '李四', role: '平面 2D', designFee: 45000, dueRate: 0.4, dueAmount: 18000, qualityFactor: 1.1, timelinessFactor: 1.0, satisfactionFactor: 1.05, paymentFactor: 1.0, actualAmount: 20790, status: '待审批', calcAt: '2026-07-11 10:20' },
     { id: 'cm002', project: 'p008', projectName: '万科示范样板房', designer: 'u005', designerName: '钱七', role: '3D', designFee: 45000, dueRate: 0.3, dueAmount: 13500, qualityFactor: 1.0, timelinessFactor: 1.0, satisfactionFactor: 1.05, paymentFactor: 1.0, actualAmount: 14175, status: '待审批', calcAt: '2026-07-11 10:20' },
     { id: 'cm003', project: 'p005', projectName: '刘宅家装', designer: 'u002', designerName: '李四', role: '平面 2D', designFee: 28000, dueRate: 0.4, dueAmount: 11200, qualityFactor: 1.0, timelinessFactor: 1.0, satisfactionFactor: 1.0, paymentFactor: 1.0, actualAmount: 11200, status: '已审批', calcAt: '2026-07-10 15:00' },
-    { id: 'cm004', project: 'p001', projectName: '张宅全案 · 别墅', designer: 'u001', designerName: '张三', role: '平面 2D', designFee: 96000, dueRate: 0.4, dueAmount: 38400, qualityFactor: 1.1, timelinessFactor: 0.95, satisfactionFactor: 1.0, paymentFactor: 1.0, actualAmount: 40128, status: '待审批', calcAt: '2026-07-12 09:30' }
+    { id: 'cm004', project: 'p001', projectName: '张宅全案 · 别墅', designer: 'u001', designerName: '张三', role: '平面 2D', designFee: 96000, dueRate: 0.4, dueAmount: 38400, qualityFactor: 1.1, timelinessFactor: 0.95, satisfactionFactor: 1.0, paymentFactor: 1.0, actualAmount: 40128, status: '待审批', calcAt: '2026-07-12 09:30' },
+    // 张三 已结算（p013 完结项目）+ 协调员分成
+    { id: 'cm005', project: 'p013', projectName: 'The Reserve 61 公寓', designer: 'u001', designerName: '张三', role: '平面 2D', designFee: 60000, dueRate: 0.4, dueAmount: 24000, qualityFactor: 1.05, timelinessFactor: 1.0, satisfactionFactor: 1.0, paymentFactor: 1.0, actualAmount: 25200, status: '已审批', calcAt: '2026-07-02 11:00' },
+    { id: 'cm006', project: 'p013', projectName: 'The Reserve 61 公寓', designer: 'u021', designerName: 'Lily', role: '协调员', designFee: 60000, dueRate: 0.15, dueAmount: 9000, qualityFactor: 1.0, timelinessFactor: 1.0, satisfactionFactor: 1.0, paymentFactor: 1.0, actualAmount: 9000, status: '已审批', calcAt: '2026-07-02 11:00' },
+    // 协调员 赵六 个人分成（p001 张宅，在途）
+    { id: 'cm007', project: 'p001', projectName: '张宅全案 · 别墅', designer: 'u004', designerName: '赵六', role: '协调员', designFee: 96000, dueRate: 0.15, dueAmount: 14400, qualityFactor: 1.0, timelinessFactor: 1.0, satisfactionFactor: 1.0, paymentFactor: 1.0, actualAmount: 14400, status: '待审批', calcAt: '2026-07-12 09:30' },
+    // 部门负责人 徐东 个人分成：p003 在途（待结算）+ p014 完结（已结算）
+    { id: 'cm008', project: 'p003', projectName: 'Kumar 别墅', designer: 'u012', designerName: '徐东', role: '平面 2D', designFee: 150000, dueRate: 0.4, dueAmount: 60000, qualityFactor: 1.05, timelinessFactor: 1.0, satisfactionFactor: 1.0, paymentFactor: 1.0, actualAmount: 63000, status: '待审批', calcAt: '2026-07-13 09:00' },
+    { id: 'cm009', project: 'p014', projectName: '苏州·桃花源合院', designer: 'u012', designerName: '徐东', role: '平面 2D', designFee: 104000, dueRate: 0.4, dueAmount: 41600, qualityFactor: 1.1, timelinessFactor: 1.0, satisfactionFactor: 1.0, paymentFactor: 1.0, actualAmount: 45760, status: '已审批', calcAt: '2026-06-26 15:00' },
+    { id: 'cm010', project: 'p014', projectName: '苏州·桃花源合院', designer: 'u013', designerName: '黄山', role: '3D', designFee: 104000, dueRate: 0.3, dueAmount: 31200, qualityFactor: 1.0, timelinessFactor: 1.0, satisfactionFactor: 1.0, paymentFactor: 1.0, actualAmount: 31200, status: '已审批', calcAt: '2026-06-26 15:00' },
+    // 平面二部 · 华润悦府（p011，在途·待审批）
+    { id: 'cm011', project: 'p011', projectName: '华润·悦府大平层', designer: 'u010', designerName: '陈二', role: '平面 2D', designFee: 84000, dueRate: 0.4, dueAmount: 33600, qualityFactor: 1.0, timelinessFactor: 1.0, satisfactionFactor: 1.0, paymentFactor: 1.0, actualAmount: 33600, status: '待审批', calcAt: '2026-07-13 16:00' },
+    { id: 'cm012', project: 'p011', projectName: '华润·悦府大平层', designer: 'u013', designerName: '黄山', role: '3D', designFee: 84000, dueRate: 0.3, dueAmount: 25200, qualityFactor: 1.0, timelinessFactor: 1.0, satisfactionFactor: 1.0, paymentFactor: 1.0, actualAmount: 25200, status: '待审批', calcAt: '2026-07-13 16:00' },
+    // 平面二部 · 招商雍华府（p012）· 设计师离职 + 转派（待审核）
+    { id: 'cm013', project: 'p012', projectName: '招商·雍华府', designer: 'u006', designerName: '孙八', role: '平面 2D', designFee: 128000, dueRate: 0.4, dueAmount: 51200, qualityFactor: 1.0, timelinessFactor: 1.0, satisfactionFactor: 1.0, paymentFactor: 1.0, actualAmount: 51200, status: '待审批', calcAt: '2026-07-14 10:00', adjustType: '手动调整', adjustReason: '员工离职', adjustNote: '离职按已完成平面部分结算', manualAmount: 22000, reviewStatus: '待审核', reviewer: '', resigned: true, reassignFrom: null },
+    { id: 'cm014', project: 'p012', projectName: '招商·雍华府', designer: 'u010', designerName: '陈二', role: '平面 2D', designFee: 128000, dueRate: 0.4, dueAmount: 51200, qualityFactor: 1.0, timelinessFactor: 1.0, satisfactionFactor: 1.0, paymentFactor: 1.0, actualAmount: 30000, status: '待审批', calcAt: '2026-07-14 10:05', adjustType: '手动调整', adjustReason: '离职转派', adjustNote: '接手孙八未完成部分', manualAmount: 30000, reviewStatus: '待审核', reviewer: '', resigned: false, reassignFrom: 'u006' },
+    { id: 'cm015', project: 'p012', projectName: '招商·雍华府', designer: 'u020', designerName: '赵明', role: '3D', designFee: 128000, dueRate: 0.3, dueAmount: 38400, qualityFactor: 1.0, timelinessFactor: 1.0, satisfactionFactor: 1.0, paymentFactor: 1.0, actualAmount: 38400, status: '待审批', calcAt: '2026-07-14 10:00' },
+    { id: 'cm016', project: 'p012', projectName: '招商·雍华府', designer: 'u021', designerName: 'Lily', role: '协调员', designFee: 128000, dueRate: 0.15, dueAmount: 19200, qualityFactor: 1.0, timelinessFactor: 1.0, satisfactionFactor: 1.0, paymentFactor: 1.0, actualAmount: 19200, status: '待审批', calcAt: '2026-07-14 10:00' }
   ];
   // 分成序号 + 为存量记录补齐"人工调整/审核"相关字段
   let _cmSeq = 100;
@@ -239,14 +292,19 @@
     return list;
   }
   function scopeDesigners(list) {
-    const r = currentRole(); list = list || DESIGNERS.filter(d => ['2D', '3D', '协调员'].includes(d.role));
+    const r = currentRole(); list = list || DESIGNERS.filter(d => ['2D', '3D', '协调员'].includes(d.role) && !d.left);
     if (r.scope === 'all') return list;
     if (r.scope === 'dept') return list.filter(d => d.dept === r.dept);
     return list.filter(d => d.id === r.selfId);
   }
+  // 我的任务范围：始终为本人任务（"我的任务/我的分成"均为个人视图；平台负责人用项目总览监管）
+  function scopeTasks(list) {
+    const r = currentRole(); list = list || MY_TASKS;
+    return list.filter(t => t.designer === r.selfId);
+  }
 
   // ===================== 持久化（localStorage）=====================
-  const STATE_VERSION = 10;   // 基础数据结构变更时递增，自动失效旧缓存
+  const STATE_VERSION = 12;   // 基础数据结构变更时递增，自动失效旧缓存
   const LS_KEY = 'yd_demo_state';
 
   function replaceArr(target, src) { if (Array.isArray(src)) { target.length = 0; src.forEach(x => target.push(x)); } }
@@ -575,7 +633,7 @@
   // 我的任务关联项目（按 tab 状态），按最新动态倒序
   function myTaskProjects(status) {
     const seen = {}, out = [];
-    MY_TASKS.filter(tk => tk.status === status).forEach(tk => {
+    scopeTasks(MY_TASKS).filter(tk => tk.status === status).forEach(tk => {
       const p = projectByName(tk.project);
       const pid = p ? p.id : ('x_' + tk.id);
       if (seen[pid]) return; seen[pid] = 1;
@@ -708,7 +766,13 @@
   }
 
   // ===================== 客户退款 & 分成人工调整 =====================
-  const ROLE_RATE = { '平面 2D': 0.4, '软装 2D': 0.35, '3D': 0.3, '协调员': 0.15 };
+  const ROLE_RATE = { '平面 2D': 0.4, '软装 2D': 0.35, '3D': 0.3, '协调员': 0.15, '部门负责人': 0.08, '总负责人': 0.07 };
+  // 各部门负责人（用于生成"部门负责人分成"行）
+  const DEPT_HEAD = { '平面设计一部': 'u008', '平面设计二部': 'u012', '海外设计部': 'u019', '3D效果图部': 'u007', '协调部': 'u009' };
+  const PLATFORM_HEAD = 'u017'; // 总负责人
+  // 分成弹窗按角色展示的固定顺序
+  const COMMISSION_ROLE_ORDER = ['总负责人', '部门负责人', '协调员', '平面 2D', '软装 2D', '3D'];
+  const ROLE_LABEL = { '总负责人': '总负责人分成', '部门负责人': '部门负责人分成', '协调员': '协调员分成', '平面 2D': '平面设计师分成', '软装 2D': '软装设计师分成', '3D': '3D设计师分成' };
   function getProjectRaw(id) { return PROJECTS.find(p => p.id === id) || null; }
   function _p(p) { return (typeof p === 'string') ? getProjectRaw(p) : p; }
   function projectDesignFee(p) { p = _p(p); return p ? (p.designFee || Math.round((p.area || 100) * 300)) : 0; }
@@ -745,6 +809,40 @@
     return COMMISSIONS.filter(c => c.project === pid);
   }
   function commissionsByProject(pid) { return COMMISSIONS.filter(c => c.project === pid); }
+  // 项目主责部门（取首位平面设计师所属部门）
+  function primaryDept(p) {
+    const id = (p.d2d && p.d2d[0]) || (p.d3d && p.d3d[0]) || p.coord;
+    const d = DESIGNERS.find(x => x.id === id);
+    return d ? d.dept : null;
+  }
+  function deptHead(dept) { return DEPT_HEAD[dept] || null; }
+  // 在执行角色分成基础上，补齐"部门负责人 / 总负责人"管理分成行（幂等）
+  function ensureFullCommissions(pid) {
+    ensureCommissions(pid);
+    const p = getProjectRaw(pid); if (!p) return commissionsByProject(pid);
+    const fee = projectDesignFee(p);
+    const rows = commissionsByProject(pid);
+    function addRole(role, designerId) {
+      if (!designerId) return;
+      if (rows.some(c => c.role === role)) return;
+      const rate = ROLE_RATE[role] || 0;
+      const due = Math.round(fee * rate);
+      const c = newCommission(pid, p.name, designerId, role, fee, rate, due, due);
+      COMMISSIONS.push(c); rows.push(c);
+    }
+    addRole('部门负责人', deptHead(primaryDept(p)));
+    addRole('总负责人', PLATFORM_HEAD);
+    return commissionsByProject(pid);
+  }
+  // 分成行按角色顺序排序（用于调整弹窗展示）
+  function commissionsByRole(pid) {
+    const rows = ensureFullCommissions(pid);
+    return rows.slice().sort((a, b) => {
+      const ia = COMMISSION_ROLE_ORDER.indexOf(a.role), ib = COMMISSION_ROLE_ORDER.indexOf(b.role);
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+    });
+  }
+  function commissionRoleLabel(role) { return ROLE_LABEL[role] || role; }
   // 部分退款后的建议分成 = 自动分成 × 剩余设计费比例
   function refundSuggest(c) {
     const p = getProjectRaw(c.project); const fee = projectDesignFee(p);
@@ -829,7 +927,7 @@
   // Export
   global.MOCK = {
     DEPARTMENTS, DESIGNERS, CUSTOMERS, PROJECTS, DESIGN_ORDERS, TODOS,
-    MY_TASKS, VERSIONS, COMMISSIONS, MILESTONE_TEMPLATE, AUDIT_LOGS, MILESTONE_EVALS,
+    MY_TASKS, COORD_TASKS, myCoordTasks, VERSIONS, COMMISSIONS, MILESTONE_TEMPLATE, AUDIT_LOGS, MILESTONE_EVALS,
     CURRENT_USER,
     // 质量评价 & 个人中心
     canEvaluate, milestoneEvals, milestoneEval, designerEvals, msResponsible, addMilestoneEval,
@@ -840,23 +938,26 @@
     TIMESHEETS, projectHours, projectTimesheets, weekTimesheetHours, designerWeekHours, addTimesheet, approveTimesheet, rejectTimesheet,
     stageBaseline, stageActualHours, isProjectSettled, pendingEvalProjects,
     // 客户退款 & 分成人工调整
-    projectStatus, projectDesignFee, refundKind, canAdjustCommission, ensureCommissions, commissionsByProject,
+    projectStatus, projectDesignFee, refundKind, canAdjustCommission, ensureCommissions, ensureFullCommissions,
+    commissionsByProject, commissionsByRole, commissionRoleLabel,
     refundSuggest, commissionFinal, setRefund, clearRefund, overrideCommission, resignCommission,
     addReassignCommission, reassignDefault, reviewCommission, scopeCommissions, pendingReviewCommissions, myCommissions,
     getDesigner: id => DESIGNERS.find(d => d.id === id) || { name: id, level: '-', role: '-', dept: '-' },
     getCustomer: id => CUSTOMERS.find(c => c.id === id) || { name: id, level: '', address: '' },
     getProject: id => PROJECTS.find(p => p.id === id) || null,
     // 常用集合
-    designersOnly: () => DESIGNERS.filter(d => ['2D', '3D', '协调员'].includes(d.role)),
-    designersByRole: role => DESIGNERS.filter(d => d.role === role),
+    designersOnly: () => DESIGNERS.filter(d => ['2D', '3D', '协调员'].includes(d.role) && !d.left),
+    designersByRole: role => DESIGNERS.filter(d => d.role === role && !d.left),
     names: ids => (ids || []).map(id => nameOf(id)).join('、'),
     deptShort: dept => DEPT_SHORT[dept] || dept,
     // 业务动作
     assignOrder, createOrder, persist, resetDemo, addLog, nowStr, today,
     // 角色 & 数据范围
-    ROLES, currentRole, setRole, scopeProjects, scopeDesigners, projectDepts
+    ROLES, currentRole, setRole, scopeProjects, scopeDesigners, scopeTasks, projectDepts
   };
 
   // 所有数据/结构声明完成后再执行本地缓存恢复（避免 TDZ）
   restore();
+  // 为所有项目补齐"部门负责人 / 总负责人"管理分成行（幂等；不落盘，随加载重算）
+  PROJECTS.forEach(p => ensureFullCommissions(p.id));
 })(window);

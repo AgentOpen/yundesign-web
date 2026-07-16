@@ -107,6 +107,22 @@
           <div class="stat-card"><div class="stat-icon" style="background:var(--danger-bg);color:var(--danger);">退</div><div><div class="stat-value" id="k-refund">0</div><div class="stat-label">客户退款</div></div></div>
         </div>
 
+        <!-- 设计费金额总览（按角色范围：负责人看全部 / 部门负责人看本部门）-->
+        <div class="card" style="margin-bottom:16px;background:linear-gradient(90deg,var(--brand-primary-bg),#fff);">
+          <div class="card-body" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
+            <div>
+              <div class="text-sm text-secondary">预计设计费合计 <span id="fee-scope-tag" class="tag tag-brand" style="margin-left:4px;"></span></div>
+              <div style="font-size:30px;font-weight:700;color:var(--brand-primary);font-family:var(--font-mono);line-height:1.2;">¥<span id="fee-total">0</span></div>
+              <div class="text-sm text-secondary" id="fee-sub">当前范围 0 个项目</div>
+            </div>
+            <div style="display:flex;gap:28px;flex-wrap:wrap;">
+              <div><div class="text-sm text-secondary">在途预计</div><div style="font-size:18px;font-weight:600;font-family:var(--font-mono);color:var(--info);">¥<span id="fee-active">0</span></div></div>
+              <div><div class="text-sm text-secondary">已完结</div><div style="font-size:18px;font-weight:600;font-family:var(--font-mono);color:var(--success);">¥<span id="fee-done">0</span></div></div>
+              <div><div class="text-sm text-secondary">退款冲减</div><div style="font-size:18px;font-weight:600;font-family:var(--font-mono);color:var(--danger);">-¥<span id="fee-refund">0</span></div></div>
+            </div>
+          </div>
+        </div>
+
         <div class="card" style="margin-bottom:16px;">
           <div class="card-body">
             <div class="text-sm text-secondary" style="margin-bottom:8px;">标准设计流程（点击阶段可在下方项目流水线筛选）</div>
@@ -255,6 +271,19 @@
         document.getElementById('k-done').textContent = P.filter(p => MOCK.projectStatus(p) === '已交付').length;
         document.getElementById('k-risk').textContent = P.filter(p => p.risk !== 'ok' && MOCK.projectStatus(p) !== '已完成' && !p.refund).length;
         document.getElementById('k-refund').textContent = P.filter(p => p.refund).length;
+        // 设计费金额总览（P 已按角色范围 + 时间区间过滤）
+        const fmt = n => Math.round(n).toLocaleString();
+        const feeAll = P.reduce((s, p) => s + MOCK.projectDesignFee(p), 0);
+        const feeDone = P.filter(p => ['已交付', '已完成'].includes(MOCK.projectStatus(p))).reduce((s, p) => s + MOCK.projectDesignFee(p), 0);
+        const feeRefund = P.reduce((s, p) => s + (p.refund ? p.refund.amount : 0), 0);
+        const feeActive = feeAll - feeDone;
+        document.getElementById('fee-total').textContent = fmt(feeAll - feeRefund);
+        document.getElementById('fee-active').textContent = fmt(feeActive);
+        document.getElementById('fee-done').textContent = fmt(feeDone);
+        document.getElementById('fee-refund').textContent = fmt(feeRefund);
+        document.getElementById('fee-sub').textContent = `当前范围 ${P.length} 个项目 · 设计费均值 ¥${fmt(P.length ? feeAll / P.length : 0)}`;
+        const rr = MOCK.currentRole();
+        document.getElementById('fee-scope-tag').textContent = rr.scope === 'all' ? '全部门' : (rr.scope === 'dept' ? rr.dept : '本人范围');
         // 流程简图
         const flow = document.getElementById('flow-mini');
         flow.innerHTML = '';

@@ -49,8 +49,9 @@
     const M = global.MOCK;
     const p = M.getProject(pid);
     const fee = M.projectDesignFee(p);
-    const rows = M.ensureCommissions(pid);
+    const rows = M.commissionsByRole(pid);
     const editable = M.canAdjustCommission();
+    const EXEC_ROLES = ['平面 2D', '软装 2D', '3D', '协调员'];
     const refund = p.refund;
     const refundAmt = refund ? refund.amount : 0;
     const remain = Math.max(0, fee - refundAmt);
@@ -96,9 +97,10 @@
       const cur = c.manualAmount != null ? c.manualAmount : c.actualAmount;
       const nameCell = `<div style="display:flex;align-items:center;gap:6px;"><div class="avatar sm" data-color="${global.colorFrom ? colorFrom(c.designerName) : ''}">${global.initials ? initials(c.designerName) : ''}</div>
         <div><div>${c.designerName}${c.resigned ? ' <span class="tag tag-danger" style="font-size:10px;">离职</span>' : ''}</div>${c.reassignFrom ? `<div style="font-size:11px;color:var(--text-secondary);">接手 ${M.getDesigner(c.reassignFrom).name}</div>` : ''}</div></div>`;
+      const isExec = EXEC_ROLES.indexOf(c.role) >= 0;
       body += `<tr data-cid="${c.id}" data-role="${c.role}">
         <td>${nameCell}</td>
-        <td><span class="tag tag-brand">${c.role}</span></td>
+        <td><span class="tag ${isExec ? 'tag-brand' : 'tag-info'}">${M.commissionRoleLabel(c.role)}</span></td>
         <td style="text-align:right;" class="auto">¥${money(c.actualAmount)}</td>
         <td style="text-align:right;">${editable
           ? `<input type="number" min="0" step="100" class="ca-amt" value="${cur}">`
@@ -108,24 +110,25 @@
           : (c.adjustReason || '系统自动')}</td>
         <td>${reviewTag(c)}</td>
         ${editable ? `<td style="text-align:right;white-space:nowrap;">
-          <button class="btn btn-text ca-resign" title="标记离职并转派">离职转派</button>
+          ${isExec ? '<button class="btn btn-text ca-resign" title="标记离职并转派">离职转派</button>' : '<span class="text-sm text-secondary">—</span>'}
         </td>` : ''}
       </tr>`;
     });
     body += `</tbody></table>`;
 
-    // 合计
+    // 合计（可编辑时以输入框实时计算，封顶 = 设计费）
     const totalFinal = rows.reduce((s, c) => s + M.commissionFinal(c), 0);
     body += `<div class="ca-sum">
-      <span>成员合计生效分成：<b style="color:var(--brand-primary);">¥${money(totalFinal)}</b></span>
-      <span>占设计费：<b>${fee ? (totalFinal / fee * 100).toFixed(0) : 0}%</b></span>
-    </div>`;
+      <span>分成合计：<b id="ca-sum-total" style="color:var(--brand-primary);">¥${money(totalFinal)}</b> / 设计费 ¥${money(fee)}</span>
+      <span>占设计费：<b id="ca-sum-pct">${fee ? (totalFinal / fee * 100).toFixed(0) : 0}%</b></span>
+    </div>
+    <div class="text-sm" id="ca-sum-warn" style="text-align:right;color:var(--danger);margin-top:4px;display:none;">⚠ 分成合计已超过本单设计费（¥${money(fee)}），请下调后再提交。</div>`;
 
     if (editable) {
       body += `<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;">
         <button class="btn btn-primary" id="ca-submit">提交调整（进入负责人审核）</button>
       </div>
-      <div class="text-sm text-secondary" style="margin-top:8px;">提交后手动分成进入「待审核」，由平台负责人在 <b>核算队列</b> 审批通过后生效。</div>`;
+      <div class="text-sm text-secondary" style="margin-top:8px;">规则：一个项目所有角色分成合计 ≤ 本单设计费（¥${money(fee)}）。提交后手动分成进入「待审核」，由平台负责人在 <b>核算队列</b> 审批通过后生效。</div>`;
     }
     body += `</div>`;
     return body;
@@ -136,6 +139,25 @@
     const M = global.MOCK;
     if (!M.canAdjustCommission()) return;
     const rerender = () => { const el = root; el.innerHTML = buildHtml(pid); bind(el, pid, onDone); if (onDone) onDone(); };
+    const fee = M.projectDesignFee(M.getProject(pid));
+
+    // 实时合计 + 设计费封顶提示
+    function recompute() {
+      let total = 0;
+      root.querySelectorAll('.ca-amt').forEach(i => total += Number(i.value) || 0);
+      const totalEl = root.querySelector('#ca-sum-total');
+      const pctEl = root.querySelector('#ca-sum-pct');
+      const warnEl = root.querySelector('#ca-sum-warn');
+      const submitBtn = root.querySelector('#ca-submit');
+      const over = total > fee;
+      if (totalEl) { totalEl.textContent = '¥' + money(total); totalEl.style.color = over ? 'var(--danger)' : 'var(--brand-primary)'; }
+      if (pctEl) { pctEl.textContent = (fee ? (total / fee * 100).toFixed(0) : 0) + '%'; pctEl.style.color = over ? 'var(--danger)' : ''; }
+      if (warnEl) warnEl.style.display = over ? 'block' : 'none';
+      if (submitBtn) submitBtn.disabled = over;
+      return total;
+    }
+    root.querySelectorAll('.ca-amt').forEach(i => i.addEventListener('input', recompute));
+    recompute();
 
     const save = root.querySelector('#ca-refund-save');
     if (save) save.addEventListener('click', () => {
@@ -161,6 +183,7 @@
         const tr = root.querySelector(`tr[data-cid="${c.id}"]`);
         if (tr) { const inp = tr.querySelector('.ca-amt'); if (inp) inp.value = M.refundSuggest(c); const sel = tr.querySelector('.ca-reason'); if (sel && sel.value === '系统自动') sel.value = '客户退款'; }
       });
+      recompute();
       global.toast && toast('已按剩余设计费填入建议分成，可再手动微调', 'info');
     });
 
@@ -193,6 +216,8 @@
 
     const submit = root.querySelector('#ca-submit');
     if (submit) submit.addEventListener('click', () => {
+      const total = recompute();
+      if (total > fee) { global.toast && toast(`分成合计 ¥${money(total)} 超过本单设计费 ¥${money(fee)}，无法提交`, 'warning'); return; }
       let n = 0;
       M.commissionsByProject(pid).forEach(c => {
         const tr = root.querySelector(`tr[data-cid="${c.id}"]`);
@@ -217,6 +242,49 @@
     bind(container, pid, onDone);
   }
 
+  // 设计师视角：只看自己的分成金额与状态（不含调整原因/他人金额/手动值细节）
+  function selfStatus(c) {
+    if (c.adjustType === '手动调整' && c.reviewStatus === '待审核') return { t: '审批中', cls: 'tag-warning' };
+    if (c.reviewStatus === '已驳回') return { t: '已驳回', cls: 'tag-danger' };
+    if (c.status === '已审批' || c.reviewStatus === '已通过') return { t: '结算完成', cls: 'tag-success' };
+    return { t: '待结算', cls: 'tag' };
+  }
+  function buildSelfHtml(pid) {
+    const M = global.MOCK;
+    const p = M.getProject(pid);
+    const self = M.currentRole().selfId;
+    const mine = M.commissionsByProject(pid).filter(c => c.designer === self);
+    let body = `<div class="ca-wrap" data-pid="${pid}">`;
+    if (p.refund) {
+      body += `<div class="ca-refund on"><div class="ca-refund-head"><div class="t">💸 该项目已发生客户退款</div><span class="tag tag-danger">${M.refundKind(p)}</span></div>
+        <div class="text-sm text-secondary">退款可能影响你的最终分成，具体以负责人核算结果为准。</div></div>`;
+    }
+    if (!mine.length) {
+      body += `<div class="empty" style="padding:32px 0;"><div class="empty-title">暂无你的分成记录</div><div class="empty-desc">项目结算后将自动生成你的分成，可在此查看金额与状态。</div></div></div>`;
+      return body;
+    }
+    body += `<div style="font-weight:600;margin-bottom:8px;">🧮 我的项目分成</div>`;
+    body += `<table class="data-table"><thead><tr><th>角色</th><th style="text-align:right;">分成金额</th><th>状态</th></tr></thead><tbody>`;
+    mine.forEach(c => {
+      const st = selfStatus(c);
+      body += `<tr><td><span class="tag tag-brand">${M.commissionRoleLabel(c.role)}</span></td>
+        <td style="text-align:right;font-family:var(--font-mono);font-weight:700;">¥${money(M.commissionFinal(c))}</td>
+        <td><span class="tag ${st.cls}">${st.t}</span></td></tr>`;
+    });
+    body += `</tbody></table>
+      <div class="text-sm text-secondary" style="margin-top:10px;">说明：分成金额由系统按角色与质量/时效系数自动核算，如遇退款或人工调整以负责人最终审核结果为准。</div></div>`;
+    return body;
+  }
+  function renderSelfInto(container, pid) {
+    ensureStyle();
+    container.innerHTML = buildSelfHtml(pid);
+  }
+  // 按当前角色自动选择：可调整→完整编辑器；否则→只读自查视图
+  function renderAuto(container, pid, onDone) {
+    if (global.MOCK.canAdjustCommission()) renderInto(container, pid, onDone);
+    else renderSelfInto(container, pid);
+  }
+
   function ensureModal() {
     let mask = document.getElementById(MODAL_ID);
     if (mask) return mask;
@@ -227,22 +295,23 @@
     mask.innerHTML = `<div class="modal modal-xl"><div class="modal-header">
         <div><div class="modal-title" id="ca-modal-title">退款与分成调整</div>
         <div class="text-sm text-secondary" id="ca-modal-sub"></div></div>
-        <div class="modal-close" onclick="this.closest('.modal-mask').classList.remove('show')">✕</div>
+        <div class="modal-close" onclick="this.closest('.modal-mask').classList.remove('open')">✕</div>
       </div><div class="modal-body" id="ca-modal-body" style="max-height:70vh;overflow-y:auto;"></div>
-      <div class="modal-footer"><button class="btn btn-default" onclick="this.closest('.modal-mask').classList.remove('show')">关闭</button></div></div>`;
+      <div class="modal-footer"><button class="btn btn-default" onclick="this.closest('.modal-mask').classList.remove('open')">关闭</button></div></div>`;
     document.body.appendChild(mask);
-    mask.addEventListener('click', e => { if (e.target === mask) mask.classList.remove('show'); });
+    mask.addEventListener('click', e => { if (e.target === mask) mask.classList.remove('open'); });
     return mask;
   }
 
   function openModal(pid, onDone) {
     const M = global.MOCK; const p = M.getProject(pid);
     const mask = ensureModal();
-    mask.querySelector('#ca-modal-title').textContent = `退款与分成调整 · ${p.name}`;
+    const editable = M.canAdjustCommission();
+    mask.querySelector('#ca-modal-title').textContent = `${editable ? '退款与分成调整' : '我的项目分成'} · ${p.name}`;
     mask.querySelector('#ca-modal-sub').textContent = `${p.code} · 设计费总额 ¥${money(M.projectDesignFee(p))} · 当前状态 ${M.projectStatus(p)}`;
-    renderInto(mask.querySelector('#ca-modal-body'), pid, onDone);
-    mask.classList.add('show');
+    renderAuto(mask.querySelector('#ca-modal-body'), pid, onDone);
+    mask.classList.add('open');
   }
 
-  global.CommissionAdjust = { openModal, renderInto };
+  global.CommissionAdjust = { openModal, renderInto, renderSelfInto, renderAuto };
 })(window);
