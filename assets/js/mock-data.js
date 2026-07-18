@@ -418,24 +418,81 @@
     return proj;
   }
 
+  // 由期望完成时间推算工期（天）；缺省 30
+  function durationFromDeadline(deadline) {
+    if (!deadline) return 30;
+    const d = new Date(String(deadline).replace(/-/g, '/'));
+    if (isNaN(d)) return 30;
+    const days = Math.round((d - new Date()) / 86400000);
+    return days > 0 ? days : 30;
+  }
   // 创建设计单：把创建表单落成一条订单池主数据（创建 → 单池 闭环）
   function createOrder(f) {
     f = f || {};
-    const code = 'D-' + today().replace(/-/g, '') + '-' + String(Math.floor(100 + Math.random() * 900));
+    const rnd = () => String(Math.floor(100 + Math.random() * 900));
+    const code = 'D-' + today().replace(/-/g, '') + '-' + rnd();
+    const needCoord = f.needCoord !== 'no' && f.needCoord !== false;
+    const area = Number(f.area) || 0;
+    const urgency = f.urgency || '';
+    // 需要协调员时：紧急程度/面积可留空，待协调员接收时补充；不需要协调员则创建时已必填
+    const needSupplement = needCoord && (!area || !urgency);
     const o = {
-      id: 'o' + String(Date.now()).slice(-6), code, projectName: f.name || '未命名项目', type: f.type || '家装',
-      scope: (f.scope || []).slice(), urgency: f.urgency || '正常', customer: f.cust || f.customer || '-',
-      custLevel: f.custLevel || '普通', contact: f.phone || f.contact || '', area: Number(f.area) || 0,
+      id: 'o' + String(Date.now()).slice(-6), code,
+      orderNo: f.orderNo || (f.source === 'CRM' ? 'CRM-' + today().replace(/-/g, '') + '-' + rnd() : ''),
+      projectName: f.name || '未命名项目', type: f.type || '家装',
+      scope: (f.scope || []).slice(), urgency: urgency, customer: f.cust || f.customer || '-',
+      custLevel: f.custLevel || '普通', contact: f.phone || f.contact || '', area: area,
       budget: (f.budgetMin && f.budgetMax) ? (f.budgetMin + '-' + f.budgetMax) : (f.budgetMin || f.budget || ''),
       region: f.country || f.region || '中国', source: f.source || '手动创建', status: '待分派',
-      createdAt: nowStr(), deadline: f.deadline || '', duration: Number(f.duration) || 30,
-      needCoord: f.needCoord !== 'no' && f.needCoord !== false, pm: 'u015',
-      remark: f.remark || '', attachments: (f.attachments || []).slice()
+      createdAt: nowStr(), deadline: f.deadline || '', duration: Number(f.duration) || durationFromDeadline(f.deadline),
+      needCoord: needCoord, pm: 'u015', remark: f.remark || '', deductionPlan: f.deductionPlan || '',
+      attachments: (f.attachments || []).slice(), needSupplement: needSupplement
     };
     DESIGN_ORDERS.unshift(o);
-    addLog('创建设计单', code + ' ' + o.projectName, `来源 ${o.source} · 客户 ${o.customer} · ${o.area}㎡ · 附件 ${o.attachments.length}`);
+    addLog('创建设计单', code + ' ' + o.projectName, `来源 ${o.source}${o.orderNo ? '（' + o.orderNo + '）' : ''} · 客户 ${o.customer} · ${area || '待补充'}㎡ · 附件 ${o.attachments.length}${needSupplement ? ' · 待协调员补充紧急/面积' : ''}`);
     persist();
     return o;
+  }
+  // 协调员/负责人补充/修正设计单信息（紧急程度、面积、期望完成、需求备注）
+  function supplementOrder(orderId, patch) {
+    const o = DESIGN_ORDERS.find(x => x.id === orderId); if (!o) return null;
+    patch = patch || {};
+    if (patch.urgency) o.urgency = patch.urgency;
+    if (patch.area != null && patch.area !== '') o.area = Number(patch.area);
+    if (patch.deadline) { o.deadline = patch.deadline; o.duration = durationFromDeadline(patch.deadline); }
+    if (patch.remark != null) o.remark = patch.remark;
+    o.needSupplement = !(o.area && o.urgency);
+    addLog('补充/修正设计单', o.code + ' ' + o.projectName, `紧急程度 ${o.urgency || '-'} · 面积 ${o.area || '-'}㎡ · 期望 ${o.deadline || '-'}`);
+    persist();
+    return o;
+  }
+  // 权限：谁能补充/修正单据与项目信息（协调员 + 部门负责人 + 总负责人）
+  function canEditOrderInfo() { return ['all', 'dept', 'coord'].indexOf(currentRole().scope) >= 0; }
+  function canEditProjectInfo(p) {
+    const r = currentRole();
+    if (r.scope === 'all') return true;
+    if (r.scope === 'dept') return p ? projectDepts(p).indexOf(r.dept) >= 0 : true;
+    if (r.scope === 'coord') return p ? (p.coord === r.selfId) : true;   // 协调员仅本人协调的项目
+    return false;
+  }
+  // 修正/补充项目信息（协调员/负责人）
+  function updateProject(pid, patch) {
+    const p = getProjectRaw(pid); if (!p) return null;
+    patch = patch || {};
+    if (patch.urgency) p.urgency = patch.urgency;
+    if (patch.area != null && patch.area !== '') p.area = Number(patch.area);
+    if (patch.deadline) p.deadline = patch.deadline;
+    if (patch.remark != null) p.remark = patch.remark;
+    addLog('修正项目信息', p.name, `紧急程度 ${p.urgency || '-'} · 面积 ${p.area || '-'}㎡ · 期望 ${p.deadline || '-'}`);
+    persist();
+    return p;
+  }
+  // 由任务反查项目（先按订单号绑定，再按项目名兜底）
+  function projectOfTask(tk) {
+    if (!tk) return null;
+    const o = DESIGN_ORDERS.find(x => x.code === tk.order);
+    if (o && o.projectId) { const p = getProjectRaw(o.projectId); if (p) return p; }
+    return projectByName(tk.project);
   }
 
   function resetDemo() { try { localStorage.removeItem(LS_KEY); } catch (e) {} }
@@ -985,7 +1042,8 @@
     names: ids => (ids || []).map(id => nameOf(id)).join('、'),
     deptShort: dept => DEPT_SHORT[dept] || dept,
     // 业务动作
-    assignOrder, createOrder, persist, resetDemo, addLog, nowStr, today,
+    assignOrder, createOrder, supplementOrder, canEditOrderInfo, canEditProjectInfo, updateProject, projectOfTask, projectByName,
+    persist, resetDemo, addLog, nowStr, today,
     // 角色 & 数据范围
     ROLES, currentRole, setRole, scopeProjects, scopeDesigners, scopeTasks, projectDepts
   };

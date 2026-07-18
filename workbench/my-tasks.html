@@ -406,7 +406,23 @@
                   } }
               ];
             }
-            OrderDetail.openTask(t, actions);
+            const proj = MOCK.projectOfTask(t);
+            const canEdit = MOCK.canEditProjectInfo(proj);
+            OrderDetail.openTask(t, actions, {
+              editable: canEdit,
+              onSupplement: (patch) => {
+                if (proj) MOCK.updateProject(proj.id, patch);
+                else { const ord = MOCK.DESIGN_ORDERS.find(x => x.code === t.order); if (ord) MOCK.supplementOrder(ord.id, patch); }
+                // 同步任务卡片快照，接收视图即时刷新
+                if (patch.urgency) t.urgency = patch.urgency;
+                if (patch.area) t.area = Number(patch.area);
+                if (patch.deadline) t.deadline = patch.deadline;
+                if (patch.remark != null && patch.remark !== '') t.remark = patch.remark;
+                toast('已保存并同步项目信息', 'success');
+                closeModal('order-detail-modal');
+                render();
+              }
+            });
           });
         });
         list.querySelectorAll('[data-upload]').forEach(btn => {

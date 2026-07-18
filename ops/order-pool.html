@@ -169,8 +169,10 @@
         filtered().forEach(o => {
           const tr = document.createElement('tr');
           if (selection.has(o.id)) tr.classList.add('selected');
-          const uColor = o.urgency === '紧急' ? 'danger' : o.urgency === '加急' ? 'warning' : 'info';
-          const uIcon = o.urgency === '紧急' ? '🚨' : o.urgency === '加急' ? '🚩' : '⏱';
+          const uColor = (o.urgency === '紧急' || o.urgency === '特急') ? 'danger' : o.urgency === '加急' ? 'warning' : 'info';
+          const uIcon = (o.urgency === '紧急' || o.urgency === '特急') ? '🚨' : o.urgency === '加急' ? '🚩' : '⏱';
+          const urgCell = o.urgency ? `<span class="tag tag-${uColor}">${uIcon} ${o.urgency}</span>` : '<span class="tag tag-warning">待补充</span>';
+          const areaCell = o.area ? `${o.area} ㎡` : '<span class="tag tag-warning">待补充</span>';
           tr.innerHTML = `
             <td><input type="checkbox" data-id="${o.id}" ${selection.has(o.id) ? 'checked' : ''} onclick="event.stopPropagation()" /></td>
             <td><span class="font-mono text-sm">${o.code}</span></td>
@@ -183,11 +185,11 @@
               <div>${o.type}</div>
               <div class="text-sm text-secondary">${o.scope.join(' · ')}</div>
             </td>
-            <td>${o.area} ㎡</td>
+            <td>${areaCell}</td>
             <td>${o.budget} 万</td>
             <td>${o.region}</td>
             <td class="text-sm">${o.deadline || '-'}${o.duration ? `<div style="font-size:11px;color:var(--text-secondary);">${o.duration} 天</div>` : ''}</td>
-            <td><span class="tag tag-${uColor}">${uIcon} ${o.urgency}</span></td>
+            <td>${urgCell}</td>
             <td><span class="source-badge source-${o.source}">${o.source}</span></td>
             <td class="text-sm text-secondary">${o.createdAt}</td>
             <td style="text-align:right;">
@@ -220,7 +222,10 @@
             if (!o) return;
             OrderDetail.openOrder(o, [
               { label: '🎯 智能分单', primary: true, onClick: () => { closeModal('order-detail-modal'); location.href = './assign-board.html?order=' + o.id; } }
-            ]);
+            ], {
+              editable: MOCK.canEditOrderInfo(),
+              onSupplement: (patch) => { MOCK.supplementOrder(o.id, patch); toast('已保存单据信息', 'success'); closeModal('order-detail-modal'); render(); }
+            });
           });
         });
       }

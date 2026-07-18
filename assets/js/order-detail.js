@@ -89,9 +89,10 @@
   }
 
   function urgencyBadge(u) {
-    const c = u === '紧急' ? 'danger' : u === '加急' ? 'warning' : 'info';
-    const i = u === '紧急' ? '🚨' : u === '加急' ? '🚩' : '⏱';
-    return `<span class="tag tag-${c}">${i} ${u || '正常'}</span>`;
+    if (!u) return '<span class="tag tag-warning">⚠ 紧急程度待补充</span>';
+    const c = u === '特急' || u === '紧急' ? 'danger' : u === '加急' ? 'warning' : 'info';
+    const i = u === '特急' || u === '紧急' ? '🚨' : u === '加急' ? '🚩' : '⏱';
+    return `<span class="tag tag-${c}">${i} ${u}</span>`;
   }
   function srcBadge(s) {
     if (!s) return '';
@@ -126,7 +127,6 @@
     const vip = m.custLevel === 'VIP' ? '<span class="tag tag-warning">★ VIP 客户</span>' : '';
     const scope = (m.scope || []).join(' · ') || '—';
     const budget = m.budget ? m.budget + ' 万' : '—';
-    const dur = m.duration ? m.duration + ' 天' : '—';
 
     let myTask = '';
     if (m.hasTask) {
@@ -158,17 +158,38 @@
         ${statusBadge(m.status)}
       </div>
       ${myTask}
+      ${m.editable ? `
+      <div class="od-sec">
+        <h5>📝 补充 / 修正信息（协调员 / 负责人）${m.needSupplement ? '<span class="tag tag-warning" style="margin-left:6px;">待补充</span>' : ''}</h5>
+        <div style="background:var(--warning-bg);border:1px solid #fde68a;border-radius:8px;padding:12px 14px;">
+          <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+            <div><div class="text-sm text-secondary" style="margin-bottom:4px;">紧急程度</div>
+              <select id="od-sup-urgency" style="height:32px;border:1px solid var(--border);border-radius:6px;padding:0 8px;">
+                <option value="">— 请选择 —</option>${['正常', '加急', '特急'].map(u => `<option ${m.urgency === u ? 'selected' : ''}>${u}</option>`).join('')}
+              </select></div>
+            <div><div class="text-sm text-secondary" style="margin-bottom:4px;">面积 (㎡)</div>
+              <input type="number" id="od-sup-area" value="${m.area || ''}" placeholder="120" style="height:32px;width:110px;border:1px solid var(--border);border-radius:6px;padding:0 8px;"></div>
+            <div><div class="text-sm text-secondary" style="margin-bottom:4px;">期望完成时间</div>
+              <input type="date" id="od-sup-deadline" value="${m.deadline || ''}" style="height:32px;border:1px solid var(--border);border-radius:6px;padding:0 8px;"></div>
+            <button class="btn btn-primary" id="od-sup-save">保存</button>
+          </div>
+          <div style="margin-top:10px;"><div class="text-sm text-secondary" style="margin-bottom:4px;">需求 / 风格备注（可修正补充）</div>
+            <textarea id="od-sup-remark" rows="2" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-family:inherit;font-size:13px;">${m.remark || ''}</textarea></div>
+          <div class="text-sm text-secondary" style="margin-top:6px;">协调员可在此补充缺失信息或修正错误信息，保存后同步到单据 / 项目并写入审计。</div>
+        </div>
+      </div>` : ''}
       <div class="od-grid">
         <div class="od-sec">
           <h5>📋 项目概览</h5>
           <div class="od-kv">
+            ${m.orderNo ? `<div class="k">项目订单号</div><div class="v">${m.orderNo}</div>` : ''}
             <div class="k">项目类型</div><div class="v">${m.type || '-'}</div>
             <div class="k">设计范围</div><div class="v">${scope}</div>
-            <div class="k">面积</div><div class="v">${m.area || '-'} ㎡</div>
+            <div class="k">面积</div><div class="v">${m.area ? m.area + ' ㎡' : '<span class="tag tag-warning">待补充</span>'}</div>
             <div class="k">区域</div><div class="v">${m.region || '-'}</div>
             <div class="k">预算区间</div><div class="v">${budget}</div>
             <div class="k">期望完成</div><div class="v">${m.deadline || '待定'}</div>
-            <div class="k">期望工期</div><div class="v">${dur}</div>
+            ${m.deductionPlan ? `<div class="k">最终抵扣方案</div><div class="v">${m.deductionPlan}</div>` : ''}
           </div>
         </div>
         <div class="od-sec">
@@ -206,6 +227,16 @@
     body.innerHTML = bodyHtml(model);
     // 附件预览（真实预览弹层）
     body.querySelectorAll('.od-chip').forEach(c => c.addEventListener('click', () => previewFile(c.dataset.fname, c.dataset.ftype)));
+    // 补充紧急/面积（协调员 / 负责人）
+    const supSave = body.querySelector('#od-sup-save');
+    if (supSave && model.onSupplement) supSave.addEventListener('click', () => {
+      const urgency = body.querySelector('#od-sup-urgency').value;
+      const area = body.querySelector('#od-sup-area').value;
+      const deadline = body.querySelector('#od-sup-deadline').value;
+      const remark = body.querySelector('#od-sup-remark').value;
+      if (!urgency && !area && !deadline && !remark) { if (global.toast) global.toast('请至少填写一项要补充/修正的信息', 'warning'); return; }
+      model.onSupplement({ urgency, area, deadline, remark });
+    });
     // Footer 按钮
     const footer = document.getElementById('od-footer');
     footer.innerHTML = '';
@@ -226,11 +257,11 @@
 
   function fromOrder(o) {
     return {
-      code: o.code, name: o.projectName, source: o.source, type: o.type, scope: o.scope || [], urgency: o.urgency,
-      area: o.area, region: o.region, budget: o.budget, deadline: o.deadline, duration: o.duration,
+      id: o.id, code: o.code, orderNo: o.orderNo, name: o.projectName, source: o.source, type: o.type, scope: o.scope || [], urgency: o.urgency,
+      area: o.area, region: o.region, budget: o.budget, deadline: o.deadline, duration: o.duration, deductionPlan: o.deductionPlan,
       customer: o.customer, custLevel: o.custLevel, contact: o.contact, remark: o.remark, attachments: o.attachments || [],
       pm: '许光', coordName: o.needCoord === false ? 'PM 自行对接' : '待分派', needCoord: o.needCoord,
-      status: o.status, hasTask: false
+      status: o.status, needSupplement: o.needSupplement, hasTask: false
     };
   }
   function fromTask(tk) {
@@ -247,7 +278,7 @@
 
   global.OrderDetail = {
     open,
-    openOrder: (o, actions) => open(fromOrder(o), actions),
-    openTask: (tk, actions) => open(fromTask(tk), actions)
+    openOrder: (o, actions, opts) => { const m = fromOrder(o); if (opts) { m.editable = opts.editable; m.onSupplement = opts.onSupplement; } return open(m, actions); },
+    openTask: (tk, actions, opts) => { const m = fromTask(tk); if (opts) { m.editable = opts.editable; m.onSupplement = opts.onSupplement; } return open(m, actions); }
   };
 })(window);

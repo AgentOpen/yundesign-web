@@ -186,10 +186,48 @@
         </div>
         <div class="flex gap-2">
           <button class="btn btn-default" onclick="toast('已加入关注','success')">☆ 关注</button>
+          ${MOCK.canEditProjectInfo(p) ? '<button class="btn btn-default" id="edit-info-btn">✏️ 编辑信息</button>' : ''}
           <button class="btn btn-default" onclick="toast('已订阅变更通知','success')">🔔 订阅变更</button>
           <button class="btn btn-primary" onclick="location.href='../ops/assign-board.html?project=${p.id}'">👥 分单 / 改派</button>
         </div>
       `;
+
+      // 协调员 / 负责人：补充/修正项目信息（紧急程度、面积、期望完成、需求）
+      const editInfoBtn = document.getElementById('edit-info-btn');
+      if (editInfoBtn) editInfoBtn.addEventListener('click', () => {
+        let mask = document.getElementById('pinfo-modal');
+        if (!mask) { mask = document.createElement('div'); mask.className = 'modal-mask'; mask.id = 'pinfo-modal'; document.body.appendChild(mask); mask.addEventListener('click', e => { if (e.target === mask) mask.classList.remove('open'); }); }
+        mask.innerHTML = `<div class="modal modal-md"><div class="modal-header">
+            <div class="modal-title">✏️ 编辑项目信息 · ${p.name}</div>
+            <div class="modal-close" onclick="this.closest('.modal-mask').classList.remove('open')">✕</div>
+          </div>
+          <div class="modal-body">
+            <div class="text-sm text-secondary" style="margin-bottom:12px;">协调员 / 负责人可补充缺失信息或修正错误信息，保存后写入审计日志。</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              <div class="form-group"><label class="form-label">紧急程度</label>
+                <select class="form-input" id="pi-urgency">${['正常', '加急', '特急'].map(u => `<option ${p.urgency === u ? 'selected' : ''}>${u}</option>`).join('')}</select></div>
+              <div class="form-group"><label class="form-label">面积 (㎡)</label><input class="form-input" type="number" id="pi-area" value="${p.area || ''}"></div>
+              <div class="form-group" style="grid-column:1/-1;"><label class="form-label">期望完成时间</label><input class="form-input" type="date" id="pi-deadline" value="${p.deadline && /^\d{4}-\d{2}-\d{2}$/.test(p.deadline) ? p.deadline : ''}"></div>
+              <div class="form-group" style="grid-column:1/-1;"><label class="form-label">需求 / 风格备注</label><textarea class="form-input" id="pi-remark" rows="3">${p.remark || ''}</textarea></div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-default" onclick="this.closest('.modal-mask').classList.remove('open')">取消</button>
+            <button class="btn btn-primary" id="pi-save">保存</button>
+          </div></div>`;
+        mask.classList.add('open');
+        mask.querySelector('#pi-save').addEventListener('click', () => {
+          MOCK.updateProject(p.id, {
+            urgency: mask.querySelector('#pi-urgency').value,
+            area: mask.querySelector('#pi-area').value,
+            deadline: mask.querySelector('#pi-deadline').value,
+            remark: mask.querySelector('#pi-remark').value
+          });
+          mask.classList.remove('open');
+          toast('已保存项目信息', 'success');
+          location.href = './detail.html?id=' + p.id + (getQuery('tab') ? '&tab=' + getQuery('tab') : '');
+        });
+      });
 
       // Header
       document.getElementById('detail-header').innerHTML = `
