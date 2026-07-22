@@ -155,6 +155,7 @@
               <div id="ext-coord-wrap" class="hidden" style="margin-top:8px;">
                 <input type="text" class="input" id="ext-coord-name" placeholder="请填写对接协调员姓名（如 PM 许光 / 客户经理）" />
               </div>
+              <div class="text-sm text-secondary" style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--divider);">💡 可<b>只分协调员启动项目</b>，平面 / 3D 设计师稍后在「项目详情 · 里程碑」中按流程分配。</div>
             </div>
 
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
@@ -534,15 +535,18 @@
       // 确认分单
       document.getElementById('assign-confirm').addEventListener('click', () => {
         const designers = selectedByRole['2d'].length + selectedByRole['3d'].length;
-        if (designers === 0) { toast('请至少选择 1 位平面 / 3D 设计师', 'warning'); return; }
-        // 校验设计任务
+        const hasCoord = coordMode === 'external' ? !!externalCoordName : !!selectedByRole.coord;
+        // 允许「先分协调员」：至少要有协调员或设计师之一，其余可稍后在项目里程碑中分配
+        if (designers === 0 && !hasCoord) { toast('请至少先指定协调员（可稍后再分设计师），或选择设计师', 'warning'); return; }
+        if (coordMode === 'external' && !externalCoordName) { toast('请填写外部对接协调员姓名', 'warning'); return; }
+        // 校验设计任务（仅对已选设计师）
         const missing = [...selectedByRole['2d'], ...selectedByRole['3d']].find(id => {
           const t = taskByDesigner[id];
           return !t || (t.mode === '面积' && (!t.area || t.area <= 0));
         });
         if (missing) { toast('请为每位设计师设置设计任务（全案或有效面积）', 'warning'); return; }
-        if (coordMode === 'external' && !externalCoordName) { toast('请填写外部对接协调员姓名', 'warning'); return; }
 
+        const deferred = designers === 0;
         const coordTxt = coordMode === 'external' ? `外部对接：${externalCoordName}` : (selectedByRole.coord ? MOCK.getDesigner(selectedByRole.coord).name : '未指定');
         const mkTasks = ids => ids.map(id => ({ id, mode: taskByDesigner[id].mode, area: taskByDesigner[id].area }));
         const proj = MOCK.assignOrder(currentOrder.id, {
@@ -551,7 +555,9 @@
           spaces: Array.from(selectedSpaces),
           note: (document.querySelector('#assign-modal .textarea') || {}).value || ''
         });
-        toast(`✓ 已分单：${currentOrder.projectName} · 协调员 ${coordTxt} · 已生成项目 ${proj ? proj.code : ''} 并向设计师推送待接任务`, 'success');
+        toast(deferred
+          ? `✓ 已分派协调员 ${coordTxt} · 项目 ${proj ? proj.code : ''} 已启动；平面/3D 设计师可稍后在「项目详情 · 里程碑」中分配`
+          : `✓ 已分单：${currentOrder.projectName} · 协调员 ${coordTxt} · 已生成项目 ${proj ? proj.code : ''} 并向设计师推送待接任务`, 'success');
         closeModal('assign-modal');
         const idx = orders.findIndex(o => o.id === currentOrder.id);
         if (idx >= 0) orders.splice(idx, 1);

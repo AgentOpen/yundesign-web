@@ -446,10 +446,12 @@
       region: f.country || f.region || '中国', source: f.source || '手动创建', status: '待分派',
       createdAt: nowStr(), deadline: f.deadline || '', duration: Number(f.duration) || durationFromDeadline(f.deadline),
       needCoord: needCoord, pm: 'u015', remark: f.remark || '', deductionPlan: f.deductionPlan || '',
-      attachments: (f.attachments || []).slice(), needSupplement: needSupplement
+      attachments: (f.attachments || []).slice(), needSupplement: needSupplement,
+      // 水单截图（收款凭证）：上传即视为已收款，立项(MS1)可自动开始
+      paid: (f.paid != null) ? !!f.paid : (f.attachments || []).some(a => a && a.cat === 'payment')
     };
     DESIGN_ORDERS.unshift(o);
-    addLog('创建设计单', code + ' ' + o.projectName, `来源 ${o.source}${o.orderNo ? '（' + o.orderNo + '）' : ''} · 客户 ${o.customer} · ${area || '待补充'}㎡ · 附件 ${o.attachments.length}${needSupplement ? ' · 待协调员补充紧急/面积' : ''}`);
+    addLog('创建设计单', code + ' ' + o.projectName, `来源 ${o.source}${o.orderNo ? '（' + o.orderNo + '）' : ''} · 客户 ${o.customer} · ${area || '待补充'}㎡ · 附件 ${o.attachments.length} · ${o.paid ? '已收款(水单已传)' : '待收款(水单未传)'}${needSupplement ? ' · 待协调员补充紧急/面积' : ''}`);
     persist();
     return o;
   }
@@ -873,6 +875,102 @@
     persist();
   }
 
+  // ===================== 里程碑工作流（流程 + 甘特 · 按角色操作）=====================
+  // 步骤类型：auto(系统) / doc(协调员需求文档) / design-2d / design-3d / confirm(协调员+客户)
+  function _msType(code) {
+    if (code === 'ms1') return 'auto';
+    if (code === 'ms2') return 'doc';
+    if (code === 'ms3') return 'design-2d';
+    if (code === 'ms5' || code === 'ms7') return 'design-3d';
+    return 'confirm';
+  }
+  // 项目管理权限：总负责人(all) / 本部门负责人(dept) 拥有项目全部权限
+  function canManageProject(p) {
+    p = _p(p); if (!p) return false;
+    const r = currentRole();
+    if (r.scope === 'all') return true;
+    if (r.scope === 'dept') return projectDepts(p).indexOf(r.dept) >= 0;
+    return false;
+  }
+  // 某里程碑步骤当前登录角色是否可操作
+  function canActMilestone(p, step) {
+    p = _p(p); if (!p) return false;
+    if (canManageProject(p)) return true;                       // 负责人全权
+    const r = currentRole();
+    if (step.type === 'design-2d' || step.type === 'design-3d') // 设计节点：本人
+      return r.scope === 'self' && step.designerId === r.selfId;
+    return r.scope === 'coord' && p.coord === r.selfId;         // 需求/确认节点：本项目协调员
+  }
+  // 初始化里程碑完成集合（存量项目按 progress 推导一次）
+  function ensureMsFlow(p) {
+    p = _p(p); if (!p) return;
+    if (!Array.isArray(p.msDone)) {
+      const doneCount = Math.max(1, Math.round((p.progress || 5) / 100 * MILESTONE_TEMPLATE.length));
+      p.msDone = MILESTONE_TEMPLATE.slice(0, Math.min(doneCount, MILESTONE_TEMPLATE.length)).map(m => m.code);
+    }
+  }
+  // 里程碑步骤（含状态 / 责任设计师 / 待分配标记）
+  function msWorkflow(pid) {
+    const p = getProjectRaw(pid); if (!p) return [];
+    ensureMsFlow(p);
+    const done = p.msDone || [];
+    const steps = MILESTONE_TEMPLATE.map(m => {
+      const type = _msType(m.code);
+      let designerId = null, needAssign = false;
+      if (type === 'design-2d') { designerId = (p.d2d || [])[0] || null; needAssign = !designerId; }
+      if (type === 'design-3d') { designerId = (p.d3d || [])[0] || null; needAssign = !designerId; }
+      return { code: m.code, name: m.name, role: m.role, deliverable: m.deliverable, type, done: done.indexOf(m.code) >= 0, designerId, needAssign, status: 'pending' };
+    });
+    let activeSet = false;
+    steps.forEach(s => {
+      if (s.done) s.status = 'done';
+      else if (!activeSet) { s.status = 'active'; activeSet = true; }
+      else s.status = 'pending';
+    });
+    return steps;
+  }
+  // 推进里程碑（标记完成 → 刷新进度/阶段）
+  function msComplete(pid, code) {
+    const p = getProjectRaw(pid); if (!p) return; ensureMsFlow(p);
+    if (p.msDone.indexOf(code) < 0) p.msDone.push(code);
+    const doneCount = p.msDone.filter(c => MILESTONE_TEMPLATE.some(m => m.code === c)).length;
+    p.progress = Math.min(85, Math.round(doneCount / MILESTONE_TEMPLATE.length * 85));
+    const tpl = MILESTONE_TEMPLATE.find(m => m.code === code);
+    if (tpl) p.stage = tpl.name;
+    if (p.status === '已完成' && doneCount < MILESTONE_TEMPLATE.length) p.status = '进行中';
+    addLog('里程碑推进', p.name, `${tpl ? tpl.name : code} 已完成`);
+    persist();
+  }
+  function msAllDone(pid) {
+    const p = getProjectRaw(pid); if (!p) return false; ensureMsFlow(p);
+    return MILESTONE_TEMPLATE.every(m => (p.msDone || []).indexOf(m.code) >= 0);
+  }
+  // 负责人在里程碑流程中分配平面/3D设计师到已启动项目，生成待接任务
+  function assignDesignerToProject(pid, kind, id, task) {
+    const p = getProjectRaw(pid); if (!p || !id) return null;
+    const arr = kind === '3d' ? (p.d3d = p.d3d || []) : (p.d2d = p.d2d || []);
+    if (arr.indexOf(id) < 0) arr.unshift(id);
+    p.team = [...(p.d2d || []), ...(p.d3d || []), p.coord].filter(Boolean);
+    const d = DESIGNERS.find(x => x.id === id) || {};
+    const label = kind === '3d' ? '3D效果图' : '平面 2D';
+    const mode = (task && task.mode) || '全案';
+    const area = (task && task.area) || p.area;
+    MY_TASKS.unshift({
+      id: 'tk' + Math.random().toString(36).slice(2, 8), designer: id,
+      order: p.orderCode || p.code, project: p.name, customer: p.customer, custLevel: p.custLevel, area: p.area, region: p.region,
+      type: p.type, scope: (p.scope || []).slice(), remark: p.remark || '', attachments: (p.attachments || []).slice(),
+      dept: d.dept || '-', role: label, task: mode, taskArea: area, responsibleSpaces: ['全部空间'],
+      pm: nameOf(p.leadPm) || '许光', coordName: p.coord ? nameOf(p.coord) : (p.coordExternal || '无需协调员'),
+      teammates2D: (p.d2d || []).map(nameOf), teammates3D: (p.d3d || []).map(nameOf),
+      deadline: p.deadline || '待定', estimatedHours: Math.round(area / 8),
+      assigner: CURRENT_USER.name, assignedAt: '刚刚', urgency: p.urgency, status: 'pending'
+    });
+    if (typeof d.activeProjects === 'number') { d.activeProjects += 1; d.capacity = Math.min(100, d.capacity + 8); }
+    addLog('分配设计师', p.name, `${label}：${nameOf(id)}（${mode}${mode === '面积' ? ' ' + area + '㎡' : ''}）`);
+    persist();
+    return p;
+  }
+
   function newCommission(pid, pname, designerId, role, fee, rate, due, actual) {
     return {
       id: 'cm' + (++_cmSeq), project: pid, projectName: pname, designer: designerId, designerName: nameOf(designerId), role: role,
@@ -1029,6 +1127,8 @@
     stageBaseline, stageActualHours, isProjectSettled, pendingEvalProjects,
     // 客户退款 & 分成人工调整
     shopState, setNeedShop, resetShop, setShopDesigner, addShopDrawing, confirmShop,
+    // 里程碑工作流
+    msWorkflow, msComplete, msAllDone, canManageProject, canActMilestone, assignDesignerToProject,
     projectStatus, projectDesignFee, refundKind, canAdjustCommission, ensureCommissions, ensureFullCommissions,
     commissionsByProject, commissionsByRole, commissionRoleLabel,
     refundSuggest, commissionFinal, setRefund, clearRefund, overrideCommission, resignCommission,

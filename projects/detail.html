@@ -46,6 +46,32 @@
     .ms-node .ms-l { font-size: 13px; font-weight: 500; margin-top: 4px; }
     .ms-node .ms-d { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
 
+    /* Milestone workflow step */
+    .ms-step { border: 1px solid var(--border); border-radius: 10px; margin-bottom: 12px; overflow: hidden; background: #fff; }
+    .ms-step .ms-hd { display: flex; align-items: center; gap: 12px; padding: 14px 18px; }
+    .ms-step.done .ms-hd { background: var(--success-bg); }
+    .ms-step.active .ms-hd { background: var(--brand-primary-bg); }
+    .ms-step.pending .ms-hd { background: var(--bg-hover); }
+    .ms-badge { width: 34px; height: 34px; border-radius: 50%; background: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; flex-shrink: 0; }
+    .ms-step.done .ms-badge { color: var(--success); } .ms-step.active .ms-badge { color: var(--brand-primary); } .ms-step.pending .ms-badge { color: var(--text-secondary); }
+    .ms-step .ms-bd { padding: 14px 18px; border-top: 1px dashed var(--divider); }
+    .ms-role-chip { font-size: 11px; padding: 1px 8px; border-radius: 6px; background: var(--bg-hover); color: var(--text-secondary); }
+    .ms-actor { font-size: 11px; padding: 1px 8px; border-radius: 6px; background: var(--brand-primary-bg); color: var(--brand-primary); }
+    .ms-await { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 8px 12px; border-radius: 8px; background: var(--warning-bg); color: #9a6a00; border: 1px dashed #f0c36d; }
+    .ms-ver { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px dashed var(--divider); font-size: 13px; }
+    .ms-ver:last-child { border-bottom: none; }
+
+    /* Gantt */
+    .gantt { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: #fff; }
+    .gantt-axis { display: flex; justify-content: space-between; padding: 8px 12px; font-size: 11px; color: var(--text-secondary); background: var(--bg-hover); border-bottom: 1px solid var(--border); }
+    .g-row { display: grid; grid-template-columns: 240px 1fr; align-items: center; border-bottom: 1px solid var(--divider); }
+    .g-row:last-child { border-bottom: none; }
+    .g-label { padding: 10px 12px; font-size: 13px; }
+    .g-label .g-sub { font-size: 11px; color: var(--text-secondary); }
+    .g-track { position: relative; height: 40px; }
+    .g-bar { position: absolute; top: 9px; height: 22px; border-radius: 6px; display: flex; align-items: center; padding: 0 8px; font-size: 11px; color: #fff; white-space: nowrap; overflow: hidden; }
+    .g-bar.done { background: var(--success); } .g-bar.active { background: var(--brand-primary); } .g-bar.pending { background: #cbd3df; color: var(--text-secondary); }
+
     /* Team card */
     .team-role { background: white; border-radius: 8px; padding: 16px; border: 1px solid var(--border); margin-bottom: 16px; }
     .team-role h4 { font-size: 14px; margin-bottom: 12px; display: flex; justify-content: space-between; }
@@ -259,9 +285,9 @@
           <div>
             <h4 style="font-size:14px;margin-bottom:12px;">🎯 里程碑速览</h4>
             <div class="milestone-bar">
-              ${MOCK.MILESTONE_TEMPLATE.map((m, i) => {
-        const state = i < 3 ? 'done' : i === 3 ? 'active' : (i === 4 && p.risk === 'warning' ? 'late' : '');
-        return `<div class="ms-node ${state}"><div class="ms-t">MS-${i + 1}</div><div class="ms-l">${m.name}</div><div class="ms-d">${m.deliverable}</div></div>`;
+              ${MOCK.msWorkflow(p.id).map((s, i) => {
+        const state = s.status === 'done' ? 'done' : s.status === 'active' ? 'active' : '';
+        return `<div class="ms-node ${state}"><div class="ms-t">MS-${i + 1}</div><div class="ms-l">${s.name}${s.needAssign && s.status !== 'pending' ? ' ⏳' : ''}</div><div class="ms-d">${s.deliverable}</div></div>`;
       }).join('')}
               ${(() => { const s = MOCK.shopState(p.id); if (s.need === true) return `<div class="ms-node ${s.confirmed ? 'done' : 'active'}"><div class="ms-t">MS-9</div><div class="ms-l">施工图</div><div class="ms-d">施工图 DWG/PDF</div></div>`; return ''; })()}
             </div>
@@ -348,48 +374,224 @@
 
       // Milestone
       document.getElementById('panel-milestone').innerHTML = `
-        <div style="margin-bottom:16px;">
-          <h4>📅 里程碑详情（含每次修改）</h4>
-          <div class="text-sm text-secondary">符号：✅ 已完成 · 🔵 进行中 · ⏳ 待开始 · 💬 客户反馈 · 🔄 修改记录</div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:16px;">
+          <div>
+            <h4>🎯 里程碑工作流</h4>
+            <div class="text-sm text-secondary">每一步按角色推进：<b>需求 / 确认</b> 由协调员，<b>平面 / 3D</b> 由对应设计师，<b>负责人</b> 拥有项目全部权限。符号：✅ 已完成 · 🔵 进行中 · ⏳ 待开始</div>
+          </div>
+          <div class="seg" id="ms-view-seg">
+            <button class="on" data-view="flow">📋 流程视图</button>
+            <button data-view="gantt">📊 甘特图</button>
+          </div>
         </div>
-        ${MOCK.MILESTONE_TEMPLATE.map((m, i) => {
-        const done = i < 3;
-        const active = i === 3;
-        const ev = MOCK.milestoneEval(p.id, m.code);
-        return `
-          <div class="card" style="margin-bottom:12px;">
-            <div style="display:flex;align-items:center;padding:16px 20px;background:${done ? 'var(--success-bg)' : active ? 'var(--brand-primary-bg)' : 'var(--bg-hover)'};border-radius:8px 8px 0 0;">
-              <div style="width:32px;height:32px;border-radius:50%;background:white;display:flex;align-items:center;justify-content:center;font-weight:600;color:${done ? 'var(--success)' : active ? 'var(--brand-primary)' : 'var(--text-secondary)'};">MS${i + 1}</div>
-              <div style="margin-left:12px;flex:1;">
-                <div style="font-weight:600;">${done ? '✅ ' : active ? '🔵 ' : '⏳ '}${m.name}</div>
-                <div class="text-sm text-secondary">${m.role} · 交付物：${m.deliverable}</div>
+        <div id="ms-flow"></div>
+        <div id="ms-shop" style="margin-top:8px;"></div>
+        <div id="ms-gantt" style="display:none;"></div>
+      `;
+
+      const msReload = () => { location.href = './detail.html?id=' + p.id + '&tab=milestone'; };
+
+      // ---- 分配设计师弹窗（负责人操作）----
+      function openAssignDesignerModal(kind) {
+        const roleName = kind === '3d' ? '3D效果图' : '平面 2D';
+        const cands = MOCK.designersByRole(kind === '3d' ? '3D' : '2D');
+        let mask = document.getElementById('assign-designer-modal');
+        if (!mask) { mask = document.createElement('div'); mask.className = 'modal-mask'; mask.id = 'assign-designer-modal'; document.body.appendChild(mask); mask.addEventListener('click', e => { if (e.target === mask) mask.classList.remove('open'); }); }
+        mask.innerHTML = `<div class="modal modal-md"><div class="modal-header">
+            <div class="modal-title">👤 分配${roleName}设计师 · ${p.name}</div>
+            <div class="modal-close" onclick="this.closest('.modal-mask').classList.remove('open')">✕</div>
+          </div>
+          <div class="modal-body">
+            <div class="text-sm text-secondary" style="margin-bottom:12px;">系统按负载 / 评分排序，选择设计师并指定设计任务（全案 / 指定面积），确认后将向该设计师推送「待接任务」。</div>
+            <div class="form-group"><label class="form-label">${roleName} 设计师（部门 · 负载）</label>
+              <select class="form-input" id="ad-designer"><option value="">— 请选择 —</option>
+                ${cands.map(d => `<option value="${d.id}">${d.name}（${MOCK.deptShort(d.dept)} · ${d.level} · 负载 ${d.capacity}%）</option>`).join('')}
+              </select></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              <div class="form-group"><label class="form-label">设计任务</label>
+                <select class="form-input" id="ad-mode"><option value="全案">全案（全部空间）</option><option value="面积">指定面积</option></select></div>
+              <div class="form-group"><label class="form-label">面积 (㎡)</label><input class="form-input" type="number" id="ad-area" value="${p.area || ''}" disabled></div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-default" onclick="this.closest('.modal-mask').classList.remove('open')">取消</button>
+            <button class="btn btn-primary" id="ad-save">✓ 确认分配</button>
+          </div></div>`;
+        mask.classList.add('open');
+        const modeSel = mask.querySelector('#ad-mode'), areaInp = mask.querySelector('#ad-area');
+        modeSel.addEventListener('change', () => { areaInp.disabled = modeSel.value === '全案'; if (modeSel.value === '全案') areaInp.value = p.area || ''; });
+        mask.querySelector('#ad-save').addEventListener('click', () => {
+          const id = mask.querySelector('#ad-designer').value;
+          if (!id) { toast('请选择设计师', 'warning'); return; }
+          const mode = modeSel.value; const area = mode === '面积' ? (Number(areaInp.value) || 0) : (p.area || 0);
+          if (mode === '面积' && area <= 0) { toast('请填写有效面积', 'warning'); return; }
+          MOCK.assignDesignerToProject(p.id, kind, id, { mode, area });
+          mask.classList.remove('open');
+          toast('已分配设计师并推送待接任务', 'success'); msReload();
+        });
+      }
+
+      // ---- 上传交付物 / 新版本弹窗 ----
+      function openUploadModal(step, complete) {
+        const label = step.type === 'design-3d' ? '效果图' : '平面图';
+        let mask = document.getElementById('ms-upload-modal');
+        if (!mask) { mask = document.createElement('div'); mask.className = 'modal-mask'; mask.id = 'ms-upload-modal'; document.body.appendChild(mask); mask.addEventListener('click', e => { if (e.target === mask) mask.classList.remove('open'); }); }
+        mask.innerHTML = `<div class="modal modal-md"><div class="modal-header">
+            <div class="modal-title">⬆ ${complete ? '交付并推进' : '上传新版本'} · ${step.name}</div>
+            <div class="modal-close" onclick="this.closest('.modal-mask').classList.remove('open')">✕</div>
+          </div>
+          <div class="modal-body">
+            <div class="form-group"><label class="form-label">${label}文件名</label><input class="form-input" id="mu-name" placeholder="例：${label}_全屋.pdf"></div>
+            <div class="form-group"><label class="form-label">本版说明 / 变更点</label><textarea class="form-input" id="mu-note" rows="2" placeholder="首版方案 / 按客户反馈调整…"></textarea></div>
+            ${complete ? '<div class="text-sm text-secondary">✅ 交付后本节点标记完成并推进到下一步。</div>' : '<div class="text-sm text-secondary">保存后记录到版本溯源，节点保持进行中。</div>'}
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-default" onclick="this.closest('.modal-mask').classList.remove('open')">取消</button>
+            <button class="btn btn-primary" id="mu-save">${complete ? '交付并推进' : '保存版本'}</button>
+          </div></div>`;
+        mask.classList.add('open');
+        mask.querySelector('#mu-save').addEventListener('click', () => {
+          const name = mask.querySelector('#mu-name').value.trim();
+          if (!name) { toast('请填写文件名', 'warning'); return; }
+          const note = mask.querySelector('#mu-note').value.trim();
+          MOCK.addTaskVersion(p.id, step.code, { reason: note, changes: note, deliverables: [{ name, type: (name.split('.').pop() || 'pdf').toLowerCase() }] });
+          mask.classList.remove('open');
+          if (complete) { MOCK.msComplete(p.id, step.code); toast('已交付并推进里程碑', 'success'); msReload(); }
+          else { toast('已上传新版本', 'success'); renderFlow(); }
+        });
+      }
+
+      // ---- 流程视图 ----
+      function renderFlow() {
+        const box = document.getElementById('ms-flow');
+        const steps = MOCK.msWorkflow(p.id);
+        const tl = MOCK.getTaskTimeline(p.id);
+        box.innerHTML = steps.map((s, i) => {
+          const icon = s.status === 'done' ? '✅' : s.status === 'active' ? '🔵' : '⏳';
+          const ev = MOCK.milestoneEval(p.id, s.code);
+          const canAct = MOCK.canActMilestone(p, s);
+          const canManage = MOCK.canManageProject(p);
+          // 责任人展示
+          let actor = s.role;
+          if ((s.type === 'design-2d' || s.type === 'design-3d') && s.designerId) actor = MOCK.getDesigner(s.designerId).name + ' · ' + MOCK.deptShort(MOCK.getDesigner(s.designerId).dept);
+          else if (s.type === 'confirm' || s.type === 'doc') actor = p.coord ? MOCK.getDesigner(p.coord).name : (p.coordExternal || '协调员');
+
+          let body = '';
+          if (s.status !== 'pending') {
+            if (s.type === 'design-2d' || s.type === 'design-3d') {
+              const dLabel = s.type === 'design-3d' ? '3D 效果图设计师' : '平面设计师';
+              const upLabel = s.type === 'design-3d' ? '效果图' : '平面图';
+              if (s.needAssign) {
+                body = `<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                  <span class="ms-await">⏳ 待分配${dLabel}</span>
+                  ${canManage ? `<button class="btn btn-primary btn-sm" data-assign="${s.type === 'design-3d' ? '3d' : '2d'}">＋ 分配设计师</button>` : '<span class="text-sm text-secondary">等待部门负责人分配设计师</span>'}
+                </div>`;
+              } else {
+                const node = tl.find(n => n.code === s.code) || { versions: [] };
+                const vers = (node.versions || []).slice().reverse().map(v => `<div class="ms-ver"><span class="version-tag">${v.v}</span><div style="flex:1;"><div>${v.changes || v.reason || v.customerReq || '版本更新'}</div><div class="text-sm text-secondary">${v.completedBy || ''} ${v.completedAt || v.requestedAt || ''} · ${v.status === 'done' ? '已交付' : '进行中'}</div></div></div>`).join('');
+                body = `<div class="text-sm" style="margin-bottom:8px;">责任设计师：<b>${MOCK.getDesigner(s.designerId).name}</b> <span class="ms-role-chip">${MOCK.deptShort(MOCK.getDesigner(s.designerId).dept)}</span></div>
+                  ${s.status === 'active' ? `<div style="margin-bottom:10px;"><span class="ms-await">⏳ 待上传${upLabel}并交付客户</span></div>` : ''}
+                  ${vers ? `<div style="margin-bottom:10px;">${vers}</div>` : '<div class="text-sm text-secondary" style="margin-bottom:10px;">暂无版本记录</div>'}
+                  ${s.status === 'active' && canAct ? `<div style="display:flex;gap:8px;flex-wrap:wrap;">
+                      <button class="btn btn-default btn-sm" data-upload="${s.code}">⬆ 上传新版本</button>
+                      <button class="btn btn-primary btn-sm" data-deliver="${s.code}">✅ 交付并推进</button>
+                    </div>` : (s.status === 'active' ? `<div class="text-sm text-secondary">等待 ${MOCK.getDesigner(s.designerId).name} 上传${upLabel}</div>` : '')}`;
+              }
+            } else if (s.type === 'doc') {
+              body = `<div class="text-sm" style="margin-bottom:10px;">协调员收集客户需求、图纸与偏好，产出需求文档。</div>
+                ${s.status === 'active' ? (canAct ? `<button class="btn btn-primary btn-sm" data-advance="${s.code}">✅ 完成需求文档并推进</button>` : '<span class="ms-await">⏳ 等待协调员完成需求文档</span>') : ''}`;
+            } else if (s.type === 'confirm') {
+              body = `<div class="text-sm" style="margin-bottom:10px;">协调员与客户确认阶段成果（${s.deliverable}）。</div>
+                ${s.status === 'active' ? (canAct ? `<button class="btn btn-primary btn-sm" data-advance="${s.code}">✅ 客户已确认 · 推进</button>` : '<span class="ms-await">⏳ 等待协调员 / 客户确认</span>') : ''}`;
+            } else {
+              body = `<div class="text-sm text-secondary">系统自动节点：CRM 立项与收款已完成。</div>`;
+            }
+          }
+
+          return `<div class="ms-step ${s.status}">
+            <div class="ms-hd">
+              <div class="ms-badge">MS${i + 1}</div>
+              <div style="flex:1;">
+                <div style="font-weight:600;">${icon} ${s.name} ${s.needAssign && s.status !== 'pending' ? '<span class="tag tag-warning" style="margin-left:6px;">待分配</span>' : ''}</div>
+                <div class="text-sm text-secondary" style="margin-top:2px;">交付物：${s.deliverable} · 责任：<span class="ms-actor">${actor}</span></div>
                 ${ev ? `<div class="text-sm" style="margin-top:4px;"><span class="stars">${[1, 2, 3, 4, 5].map(n => `<span class="${n <= ev.score ? 'on' : ''}">★</span>`).join('')}</span> <span style="color:var(--text-secondary);">${ev.comment} — ${ev.reviewer}</span></div>` : ''}
               </div>
-              <div class="text-sm text-secondary">${done ? '2026-07-08 完成' : active ? '进行中 · 3 天' : '待开始'}</div>
+              <div class="text-sm text-secondary">${s.status === 'done' ? '已完成' : s.status === 'active' ? '进行中' : '待开始'}</div>
             </div>
-            ${active ? `
-              <div style="padding:16px 20px;">
-                <div class="timeline">
-                  <div class="timeline-item"><div class="timeline-title">🔄 平面 V3.2 · 张三</div><div class="timeline-time">今天 14:20 · 修改主卧衣柜、书房增加书桌</div></div>
-                  <div class="timeline-item customer"><div class="timeline-title">💬 客户批注 · 张先生</div><div class="timeline-time">今天 14:00 · 主卧衣柜向左移 30cm，书房加一张书桌</div></div>
-                  <div class="timeline-item"><div class="timeline-title">🔄 平面 V3.1 · 张三</div><div class="timeline-time">昨天 18:45 · 客厅沙发朝向调整</div></div>
-                  <div class="timeline-item"><div class="timeline-title">🔄 平面 V3.0 · 郑一（协调员整理反馈）</div><div class="timeline-time">昨天 10:00</div></div>
-                  <div class="timeline-item"><div class="timeline-title">🔄 平面 V2.0 · 张三</div><div class="timeline-time">2 天前 · 户型分区重新调整</div></div>
-                  <div class="timeline-item"><div class="timeline-title">🔄 平面 V1.0 · 张三</div><div class="timeline-time">4 天前 · 首版方案</div></div>
-                </div>
-              </div>
-            ` : ''}
+            ${body ? `<div class="ms-bd">${body}</div>` : ''}
           </div>`;
-      }).join('')}
-        <div id="ms-shop" style="margin-top:8px;"></div>
-      `;
+        }).join('');
+
+        box.querySelectorAll('[data-assign]').forEach(b => b.addEventListener('click', () => openAssignDesignerModal(b.dataset.assign)));
+        box.querySelectorAll('[data-advance]').forEach(b => b.addEventListener('click', () => { MOCK.msComplete(p.id, b.dataset.advance); toast('里程碑已推进', 'success'); msReload(); }));
+        box.querySelectorAll('[data-upload]').forEach(b => b.addEventListener('click', () => { const s = steps.find(x => x.code === b.dataset.upload); openUploadModal(s, false); }));
+        box.querySelectorAll('[data-deliver]').forEach(b => b.addEventListener('click', () => { const s = steps.find(x => x.code === b.dataset.deliver); openUploadModal(s, true); }));
+      }
+
+      // ---- 甘特图 ----
+      function renderGantt() {
+        const box = document.getElementById('ms-gantt');
+        const steps = MOCK.msWorkflow(p.id);
+        const sh = MOCK.shopState(p.id);
+        const rows = steps.slice();
+        if (sh && sh.need === true) rows.push({ code: 'ms9', name: '施工图', role: '平面 / 3D 设计师', status: sh.confirmed ? 'done' : 'active', deliverable: '施工图 DWG/PDF' });
+        const n = rows.length;
+        let start = new Date(String(p.createdAt || MOCK.today()).replace(/-/g, '/'));
+        if (isNaN(start)) start = new Date();
+        const days = p.duration || 30;
+        const end = new Date(start.getTime() + days * 86400000);
+        const fmt = d => `${d.getMonth() + 1}/${d.getDate()}`;
+        box.innerHTML = `<div class="gantt">
+          <div class="gantt-axis"><span>${fmt(start)}（立项）</span><span>工期 ${days} 天</span><span>${fmt(end)}（期望完成）</span></div>
+          ${rows.map((s, i) => {
+            const left = (i / n * 100).toFixed(2);
+            const width = (100 / n).toFixed(2);
+            let actor = s.role;
+            if ((s.type === 'design-2d' || s.type === 'design-3d') && s.designerId) actor = MOCK.getDesigner(s.designerId).name;
+            else if ((s.type === 'confirm' || s.type === 'doc')) actor = p.coord ? MOCK.getDesigner(p.coord).name : (p.coordExternal || '协调员');
+            const dayStart = new Date(start.getTime() + (i / n) * days * 86400000);
+            const dayEnd = new Date(start.getTime() + ((i + 1) / n) * days * 86400000);
+            return `<div class="g-row">
+              <div class="g-label">MS${i + 1} · ${s.name}<div class="g-sub">${actor} · ${fmt(dayStart)}–${fmt(dayEnd)}</div></div>
+              <div class="g-track"><div class="g-bar ${s.status}" style="left:${left}%;width:${width}%;">${s.status === 'done' ? '✓' : s.status === 'active' ? '进行中' : ''}</div></div>
+            </div>`;
+          }).join('')}
+        </div>`;
+      }
+
+      // ---- 视图切换 ----
+      (function setupMsView() {
+        const seg = document.getElementById('ms-view-seg');
+        seg.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+          seg.querySelectorAll('button').forEach(x => x.classList.remove('on'));
+          b.classList.add('on');
+          const flow = b.dataset.view === 'flow';
+          document.getElementById('ms-flow').style.display = flow ? '' : 'none';
+          document.getElementById('ms-shop').style.display = flow ? '' : 'none';
+          document.getElementById('ms-gantt').style.display = flow ? 'none' : '';
+          if (!flow) renderGantt();
+        }));
+      })();
+      renderFlow();
 
       // MS9 施工图阶段（客户确认后是否需要施工图）
       function renderShop() {
         const box = document.getElementById('ms-shop');
         if (!box) return;
         const st = MOCK.shopState(p.id);
-        const canDecide = MOCK.canEvaluate();               // 负责人/总监决定是否需要施工图
+        // MS8 全部确认完成前，MS9 施工图处于锁定/待开始
+        if (!MOCK.msAllDone(p.id) && st.need === null) {
+          box.innerHTML = `<div class="ms-step pending">
+            <div class="ms-hd"><div class="ms-badge">MS9</div>
+              <div style="flex:1;"><div style="font-weight:600;">⏳ 施工图</div>
+                <div class="text-sm text-secondary" style="margin-top:2px;">交付物：施工图（DWG/PDF）· 责任：<span class="ms-actor">负责人决策 → 平面 / 3D 设计师</span></div></div>
+              <div class="text-sm text-secondary">MS8 完成后进入</div>
+            </div>
+            <div class="ms-bd"><span class="ms-await">⏳ 待 MS8「最终客户确认」完成后，由负责人决定是否需要施工图</span></div>
+          </div>`;
+          return;
+        }
+        const canDecide = MOCK.canManageProject(p);          // 负责人决定是否需要施工图
         const shopDesigners = [...(p.d2d || []), ...(p.d3d || [])];
         const headBg = st.confirmed ? 'var(--success-bg)' : (st.need === true ? 'var(--brand-primary-bg)' : (st.need === false ? 'var(--bg-hover)' : 'var(--warning-bg)'));
         const headColor = st.confirmed ? 'var(--success)' : (st.need === true ? 'var(--brand-primary)' : 'var(--text-secondary)');
