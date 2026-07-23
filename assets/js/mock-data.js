@@ -896,37 +896,80 @@
   function canActMilestone(p, step) {
     p = _p(p); if (!p) return false;
     if (canManageProject(p)) return true;                       // 负责人全权
+    if (step.type === 'assign') return false;                   // 分配设计师仅负责人
     const r = currentRole();
     if (step.type === 'design-2d' || step.type === 'design-3d') // 设计节点：本人
       return r.scope === 'self' && step.designerId === r.selfId;
     return r.scope === 'coord' && p.coord === r.selfId;         // 需求/确认节点：本项目协调员
   }
-  // 初始化里程碑完成集合（存量项目按 progress 推导一次）
+  // 里程碑流程顺序（在平面/3D设计前各插入独立"分配设计师"节点）
+  const MS_FLOW = [
+    { code: 'ms1', type: 'auto' },
+    { code: 'ms2', type: 'doc' },
+    { code: 'assign-2d', type: 'assign', kind: '2d' },
+    { code: 'ms3', type: 'design-2d' },
+    { code: 'ms4', type: 'confirm' },
+    { code: 'assign-3d', type: 'assign', kind: '3d' },
+    { code: 'ms5', type: 'design-3d' },
+    { code: 'ms6', type: 'confirm' },
+    { code: 'ms7', type: 'design-3d' },
+    { code: 'ms8', type: 'confirm' }
+  ];
+  function _designerFor(p, step) {
+    if (step.type === 'assign') return (step.kind === '3d' ? (p.d3d || []) : (p.d2d || []))[0] || null;
+    if (step.type === 'design-2d') return (p.d2d || [])[0] || null;
+    if (step.type === 'design-3d') return (p.d3d || [])[0] || null;
+    return null;
+  }
+  // 初始化里程碑完成集合（存量项目按 progress 推导一次；平面/3D已完成则其前置分配节点也补为完成）
   function ensureMsFlow(p) {
     p = _p(p); if (!p) return;
     if (!Array.isArray(p.msDone)) {
       const doneCount = Math.max(1, Math.round((p.progress || 5) / 100 * MILESTONE_TEMPLATE.length));
-      p.msDone = MILESTONE_TEMPLATE.slice(0, Math.min(doneCount, MILESTONE_TEMPLATE.length)).map(m => m.code);
+      const codes = MILESTONE_TEMPLATE.slice(0, Math.min(doneCount, MILESTONE_TEMPLATE.length)).map(m => m.code);
+      if (codes.indexOf('ms3') >= 0) codes.push('assign-2d');
+      if (codes.indexOf('ms5') >= 0) codes.push('assign-3d');
+      p.msDone = codes;
     }
   }
-  // 里程碑步骤（含状态 / 责任设计师 / 待分配标记）
+  // 到达"分配设计师"节点时，若已（智能分单）分配设计师则自动完成并推进下一步；
+  // 未到达该节点前不会预先标记完成（严格按流程顺序推进）
+  function _msAutoResolve(p) {
+    ensureMsFlow(p);
+    let changed = false;
+    for (const step of MS_FLOW) {
+      if (p.msDone.indexOf(step.code) >= 0) continue;            // 已完成 → 继续
+      // 第一个未完成 = 当前活动节点
+      if (step.type === 'assign' && _designerFor(p, step)) { p.msDone.push(step.code); changed = true; continue; }
+      break;                                                     // 其余活动节点等待人工操作
+    }
+    if (changed) persist();
+    return changed;
+  }
+  // 里程碑步骤（含独立分配节点、状态、责任设计师、待分配标记）
   function msWorkflow(pid) {
     const p = getProjectRaw(pid); if (!p) return [];
     ensureMsFlow(p);
+    _msAutoResolve(p);
     const done = p.msDone || [];
-    const steps = MILESTONE_TEMPLATE.map(m => {
-      const type = _msType(m.code);
-      let designerId = null, needAssign = false;
-      if (type === 'design-2d') { designerId = (p.d2d || [])[0] || null; needAssign = !designerId; }
-      if (type === 'design-3d') { designerId = (p.d3d || [])[0] || null; needAssign = !designerId; }
-      return { code: m.code, name: m.name, role: m.role, deliverable: m.deliverable, type, done: done.indexOf(m.code) >= 0, designerId, needAssign, status: 'pending' };
+    let msNo = 0;
+    const steps = MS_FLOW.map(step => {
+      let name, deliverable, role, msNoVal = null;
+      if (step.type === 'assign') {
+        name = step.kind === '3d' ? '分配 3D 设计师' : '分配平面设计师';
+        deliverable = step.kind === '3d' ? '指派 3D 效果图设计师' : '指派平面布局设计师';
+        role = '部门负责人';
+      } else {
+        const tpl = MILESTONE_TEMPLATE.find(m => m.code === step.code) || {};
+        msNo++; msNoVal = msNo;
+        name = tpl.name; deliverable = tpl.deliverable; role = tpl.role;
+      }
+      const designerId = _designerFor(p, step);
+      const needAssign = step.type === 'assign' && !designerId;
+      return { code: step.code, kind: step.kind || null, type: step.type, name, deliverable, role, msNo: msNoVal, done: done.indexOf(step.code) >= 0, designerId, needAssign, status: 'pending' };
     });
     let activeSet = false;
-    steps.forEach(s => {
-      if (s.done) s.status = 'done';
-      else if (!activeSet) { s.status = 'active'; activeSet = true; }
-      else s.status = 'pending';
-    });
+    steps.forEach(s => { if (s.done) s.status = 'done'; else if (!activeSet) { s.status = 'active'; activeSet = true; } else s.status = 'pending'; });
     return steps;
   }
   // 推进里程碑（标记完成 → 刷新进度/阶段）
@@ -967,6 +1010,7 @@
     });
     if (typeof d.activeProjects === 'number') { d.activeProjects += 1; d.capacity = Math.min(100, d.capacity + 8); }
     addLog('分配设计师', p.name, `${label}：${nameOf(id)}（${mode}${mode === '面积' ? ' ' + area + '㎡' : ''}）`);
+    _msAutoResolve(p);   // 若当前正处于该分配节点，则自动完成并推进到设计节点
     persist();
     return p;
   }

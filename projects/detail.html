@@ -54,6 +54,8 @@
     .ms-step.pending .ms-hd { background: var(--bg-hover); }
     .ms-badge { width: 34px; height: 34px; border-radius: 50%; background: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; flex-shrink: 0; }
     .ms-step.done .ms-badge { color: var(--success); } .ms-step.active .ms-badge { color: var(--brand-primary); } .ms-step.pending .ms-badge { color: var(--text-secondary); }
+    .ms-step.ms-assign { border-style: dashed; }
+    .ms-step.ms-assign .ms-badge { background: var(--purple-bg, #f3ecfe); }
     .ms-step .ms-bd { padding: 14px 18px; border-top: 1px dashed var(--divider); }
     .ms-role-chip { font-size: 11px; padding: 1px 8px; border-radius: 6px; background: var(--bg-hover); color: var(--text-secondary); }
     .ms-actor { font-size: 11px; padding: 1px 8px; border-radius: 6px; background: var(--brand-primary-bg); color: var(--brand-primary); }
@@ -191,6 +193,7 @@
 
   <script src="../assets/js/utils.js"></script>
   <script src="../assets/js/mock-data.js"></script>
+  <script src="../assets/js/upload-field.js"></script>
   <script src="../assets/js/commission-adjust.js"></script>
   <script src="../assets/js/shell.js"></script>
   <script>
@@ -285,9 +288,9 @@
           <div>
             <h4 style="font-size:14px;margin-bottom:12px;">🎯 里程碑速览</h4>
             <div class="milestone-bar">
-              ${MOCK.msWorkflow(p.id).map((s, i) => {
+              ${MOCK.msWorkflow(p.id).filter(s => s.type !== 'assign').map(s => {
         const state = s.status === 'done' ? 'done' : s.status === 'active' ? 'active' : '';
-        return `<div class="ms-node ${state}"><div class="ms-t">MS-${i + 1}</div><div class="ms-l">${s.name}${s.needAssign && s.status !== 'pending' ? ' ⏳' : ''}</div><div class="ms-d">${s.deliverable}</div></div>`;
+        return `<div class="ms-node ${state}"><div class="ms-t">MS-${s.msNo}</div><div class="ms-l">${s.name}</div><div class="ms-d">${s.deliverable}</div></div>`;
       }).join('')}
               ${(() => { const s = MOCK.shopState(p.id); if (s.need === true) return `<div class="ms-node ${s.confirmed ? 'done' : 'active'}"><div class="ms-t">MS-9</div><div class="ms-l">施工图</div><div class="ms-d">施工图 DWG/PDF</div></div>`; return ''; })()}
             </div>
@@ -441,7 +444,8 @@
             <div class="modal-close" onclick="this.closest('.modal-mask').classList.remove('open')">✕</div>
           </div>
           <div class="modal-body">
-            <div class="form-group"><label class="form-label">${label}文件名</label><input class="form-input" id="mu-name" placeholder="例：${label}_全屋.pdf"></div>
+            <div class="form-group"><label class="form-label">${label}附件（拖拽上传，可多文件）<span style="color:var(--danger);">*</span></label>
+              <div id="mu-upload"></div></div>
             <div class="form-group"><label class="form-label">本版说明 / 变更点</label><textarea class="form-input" id="mu-note" rows="2" placeholder="首版方案 / 按客户反馈调整…"></textarea></div>
             ${complete ? '<div class="text-sm text-secondary">✅ 交付后本节点标记完成并推进到下一步。</div>' : '<div class="text-sm text-secondary">保存后记录到版本溯源，节点保持进行中。</div>'}
           </div>
@@ -449,12 +453,14 @@
             <button class="btn btn-default" onclick="this.closest('.modal-mask').classList.remove('open')">取消</button>
             <button class="btn btn-primary" id="mu-save">${complete ? '交付并推进' : '保存版本'}</button>
           </div></div>`;
+        const up = UploadField.create({ hint: `拖拽${label}到此，或点击上传` });
+        mask.querySelector('#mu-upload').appendChild(up.el);
         mask.classList.add('open');
         mask.querySelector('#mu-save').addEventListener('click', () => {
-          const name = mask.querySelector('#mu-name').value.trim();
-          if (!name) { toast('请填写文件名', 'warning'); return; }
+          const dels = up.getFiles();
+          if (!dels.length) { toast('请上传至少 1 个' + label + '附件', 'warning'); return; }
           const note = mask.querySelector('#mu-note').value.trim();
-          MOCK.addTaskVersion(p.id, step.code, { reason: note, changes: note, deliverables: [{ name, type: (name.split('.').pop() || 'pdf').toLowerCase() }] });
+          MOCK.addTaskVersion(p.id, step.code, { reason: note, changes: note, deliverables: dels });
           mask.classList.remove('open');
           if (complete) { MOCK.msComplete(p.id, step.code); toast('已交付并推进里程碑', 'success'); msReload(); }
           else { toast('已上传新版本', 'success'); renderFlow(); }
@@ -467,36 +473,43 @@
         const steps = MOCK.msWorkflow(p.id);
         const tl = MOCK.getTaskTimeline(p.id);
         box.innerHTML = steps.map((s, i) => {
+          const isAssign = s.type === 'assign';
           const icon = s.status === 'done' ? '✅' : s.status === 'active' ? '🔵' : '⏳';
-          const ev = MOCK.milestoneEval(p.id, s.code);
           const canAct = MOCK.canActMilestone(p, s);
           const canManage = MOCK.canManageProject(p);
+          const ev = isAssign ? null : MOCK.milestoneEval(p.id, s.code);
+          const badge = isAssign ? '👤' : ('MS' + s.msNo);
           // 责任人展示
           let actor = s.role;
-          if ((s.type === 'design-2d' || s.type === 'design-3d') && s.designerId) actor = MOCK.getDesigner(s.designerId).name + ' · ' + MOCK.deptShort(MOCK.getDesigner(s.designerId).dept);
+          if (isAssign && s.designerId) actor = MOCK.getDesigner(s.designerId).name + ' · ' + MOCK.deptShort(MOCK.getDesigner(s.designerId).dept);
+          else if ((s.type === 'design-2d' || s.type === 'design-3d') && s.designerId) actor = MOCK.getDesigner(s.designerId).name + ' · ' + MOCK.deptShort(MOCK.getDesigner(s.designerId).dept);
           else if (s.type === 'confirm' || s.type === 'doc') actor = p.coord ? MOCK.getDesigner(p.coord).name : (p.coordExternal || '协调员');
 
           let body = '';
           if (s.status !== 'pending') {
-            if (s.type === 'design-2d' || s.type === 'design-3d') {
-              const dLabel = s.type === 'design-3d' ? '3D 效果图设计师' : '平面设计师';
-              const upLabel = s.type === 'design-3d' ? '效果图' : '平面图';
-              if (s.needAssign) {
-                body = `<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-                  <span class="ms-await">⏳ 待分配${dLabel}</span>
-                  ${canManage ? `<button class="btn btn-primary btn-sm" data-assign="${s.type === 'design-3d' ? '3d' : '2d'}">＋ 分配设计师</button>` : '<span class="text-sm text-secondary">等待部门负责人分配设计师</span>'}
-                </div>`;
+            if (isAssign) {
+              const dLabel = s.kind === '3d' ? '3D 效果图设计师' : '平面设计师';
+              if (s.done) {
+                body = `<div class="text-sm">已指派${dLabel}：<b>${MOCK.getDesigner(s.designerId).name}</b> <span class="ms-role-chip">${MOCK.deptShort(MOCK.getDesigner(s.designerId).dept)}</span>${MOCK.currentRole && false ? '' : ''}<span class="text-secondary" style="margin-left:8px;">（智能分单/负责人指派后自动完成，进入设计）</span></div>
+                  ${canManage ? `<div style="margin-top:8px;"><button class="btn btn-default btn-sm" data-assign="${s.kind}">↺ 改派设计师</button></div>` : ''}`;
               } else {
-                const node = tl.find(n => n.code === s.code) || { versions: [] };
-                const vers = (node.versions || []).slice().reverse().map(v => `<div class="ms-ver"><span class="version-tag">${v.v}</span><div style="flex:1;"><div>${v.changes || v.reason || v.customerReq || '版本更新'}</div><div class="text-sm text-secondary">${v.completedBy || ''} ${v.completedAt || v.requestedAt || ''} · ${v.status === 'done' ? '已交付' : '进行中'}</div></div></div>`).join('');
-                body = `<div class="text-sm" style="margin-bottom:8px;">责任设计师：<b>${MOCK.getDesigner(s.designerId).name}</b> <span class="ms-role-chip">${MOCK.deptShort(MOCK.getDesigner(s.designerId).dept)}</span></div>
-                  ${s.status === 'active' ? `<div style="margin-bottom:10px;"><span class="ms-await">⏳ 待上传${upLabel}并交付客户</span></div>` : ''}
-                  ${vers ? `<div style="margin-bottom:10px;">${vers}</div>` : '<div class="text-sm text-secondary" style="margin-bottom:10px;">暂无版本记录</div>'}
-                  ${s.status === 'active' && canAct ? `<div style="display:flex;gap:8px;flex-wrap:wrap;">
-                      <button class="btn btn-default btn-sm" data-upload="${s.code}">⬆ 上传新版本</button>
-                      <button class="btn btn-primary btn-sm" data-deliver="${s.code}">✅ 交付并推进</button>
-                    </div>` : (s.status === 'active' ? `<div class="text-sm text-secondary">等待 ${MOCK.getDesigner(s.designerId).name} 上传${upLabel}</div>` : '')}`;
+                body = `<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                  <span class="ms-await">⏳ 待分配${dLabel}（分配后自动进入设计）</span>
+                  ${canManage ? `<button class="btn btn-primary btn-sm" data-assign="${s.kind}">＋ 分配设计师</button>` : '<span class="text-sm text-secondary">等待部门负责人分配设计师</span>'}
+                </div>`;
               }
+            } else if (s.type === 'design-2d' || s.type === 'design-3d') {
+              const upLabel = s.type === 'design-3d' ? '效果图' : '平面图';
+              const dObj = s.designerId ? MOCK.getDesigner(s.designerId) : null;
+              const node = tl.find(n => n.code === s.code) || { versions: [] };
+              const vers = (node.versions || []).slice().reverse().map(v => `<div class="ms-ver"><span class="version-tag">${v.v}</span><div style="flex:1;"><div>${v.changes || v.reason || v.customerReq || '版本更新'}</div><div class="text-sm text-secondary">${v.completedBy || ''} ${v.completedAt || v.requestedAt || ''} · ${v.status === 'done' ? '已交付' : '进行中'}</div></div></div>`).join('');
+              body = `<div class="text-sm" style="margin-bottom:8px;">责任设计师：<b>${dObj ? dObj.name : '—'}</b> ${dObj ? `<span class="ms-role-chip">${MOCK.deptShort(dObj.dept)}</span>` : ''}</div>
+                ${s.status === 'active' ? `<div style="margin-bottom:10px;"><span class="ms-await">⏳ 待上传${upLabel}并交付客户</span></div>` : ''}
+                ${vers ? `<div style="margin-bottom:10px;">${vers}</div>` : '<div class="text-sm text-secondary" style="margin-bottom:10px;">暂无版本记录</div>'}
+                ${s.status === 'active' && canAct ? `<div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <button class="btn btn-default btn-sm" data-upload="${s.code}">⬆ 上传新版本</button>
+                    <button class="btn btn-primary btn-sm" data-deliver="${s.code}">✅ 交付并推进</button>
+                  </div>` : (s.status === 'active' ? `<div class="text-sm text-secondary">等待 ${dObj ? dObj.name : '设计师'} 上传${upLabel}</div>` : '')}`;
             } else if (s.type === 'doc') {
               body = `<div class="text-sm" style="margin-bottom:10px;">协调员收集客户需求、图纸与偏好，产出需求文档。</div>
                 ${s.status === 'active' ? (canAct ? `<button class="btn btn-primary btn-sm" data-advance="${s.code}">✅ 完成需求文档并推进</button>` : '<span class="ms-await">⏳ 等待协调员完成需求文档</span>') : ''}`;
@@ -508,12 +521,12 @@
             }
           }
 
-          return `<div class="ms-step ${s.status}">
+          return `<div class="ms-step ${s.status}${isAssign ? ' ms-assign' : ''}">
             <div class="ms-hd">
-              <div class="ms-badge">MS${i + 1}</div>
+              <div class="ms-badge">${badge}</div>
               <div style="flex:1;">
-                <div style="font-weight:600;">${icon} ${s.name} ${s.needAssign && s.status !== 'pending' ? '<span class="tag tag-warning" style="margin-left:6px;">待分配</span>' : ''}</div>
-                <div class="text-sm text-secondary" style="margin-top:2px;">交付物：${s.deliverable} · 责任：<span class="ms-actor">${actor}</span></div>
+                <div style="font-weight:600;">${icon} ${s.name} ${isAssign ? '<span class="tag tag-purple" style="margin-left:6px;">分配节点</span>' : ''}${isAssign && s.needAssign && s.status !== 'pending' ? '<span class="tag tag-warning" style="margin-left:6px;">待分配</span>' : ''}</div>
+                <div class="text-sm text-secondary" style="margin-top:2px;">${isAssign ? '操作' : '交付物'}：${s.deliverable} · 责任：<span class="ms-actor">${actor}</span></div>
                 ${ev ? `<div class="text-sm" style="margin-top:4px;"><span class="stars">${[1, 2, 3, 4, 5].map(n => `<span class="${n <= ev.score ? 'on' : ''}">★</span>`).join('')}</span> <span style="color:var(--text-secondary);">${ev.comment} — ${ev.reviewer}</span></div>` : ''}
               </div>
               <div class="text-sm text-secondary">${s.status === 'done' ? '已完成' : s.status === 'active' ? '进行中' : '待开始'}</div>
@@ -534,7 +547,7 @@
         const steps = MOCK.msWorkflow(p.id);
         const sh = MOCK.shopState(p.id);
         const rows = steps.slice();
-        if (sh && sh.need === true) rows.push({ code: 'ms9', name: '施工图', role: '平面 / 3D 设计师', status: sh.confirmed ? 'done' : 'active', deliverable: '施工图 DWG/PDF' });
+        if (sh && sh.need === true) rows.push({ code: 'ms9', name: '施工图', role: '平面 / 3D 设计师', status: sh.confirmed ? 'done' : 'active', deliverable: '施工图 DWG/PDF', msNo: 9 });
         const n = rows.length;
         let start = new Date(String(p.createdAt || MOCK.today()).replace(/-/g, '/'));
         if (isNaN(start)) start = new Date();
@@ -547,12 +560,13 @@
             const left = (i / n * 100).toFixed(2);
             const width = (100 / n).toFixed(2);
             let actor = s.role;
-            if ((s.type === 'design-2d' || s.type === 'design-3d') && s.designerId) actor = MOCK.getDesigner(s.designerId).name;
+            if ((s.type === 'assign' || s.type === 'design-2d' || s.type === 'design-3d') && s.designerId) actor = MOCK.getDesigner(s.designerId).name;
             else if ((s.type === 'confirm' || s.type === 'doc')) actor = p.coord ? MOCK.getDesigner(p.coord).name : (p.coordExternal || '协调员');
             const dayStart = new Date(start.getTime() + (i / n) * days * 86400000);
             const dayEnd = new Date(start.getTime() + ((i + 1) / n) * days * 86400000);
+            const rowLabel = s.msNo ? ('MS' + s.msNo + ' · ' + s.name) : ('👤 ' + s.name);
             return `<div class="g-row">
-              <div class="g-label">MS${i + 1} · ${s.name}<div class="g-sub">${actor} · ${fmt(dayStart)}–${fmt(dayEnd)}</div></div>
+              <div class="g-label">${rowLabel}<div class="g-sub">${actor} · ${fmt(dayStart)}–${fmt(dayEnd)}</div></div>
               <div class="g-track"><div class="g-bar ${s.status}" style="left:${left}%;width:${width}%;">${s.status === 'done' ? '✓' : s.status === 'active' ? '进行中' : ''}</div></div>
             </div>`;
           }).join('')}
@@ -630,10 +644,11 @@
             </div>
             <div style="font-weight:600;margin-bottom:8px;">📐 施工图版本（可多版本迭代）</div>
             ${drawings}
-            <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center;">
-              <input class="form-input" id="shop-name" placeholder="施工图文件名，例：施工图_全屋.dwg" style="flex:1;min-width:200px;">
-              <input class="form-input" id="shop-note" placeholder="本版说明（可选）" style="flex:1;min-width:160px;">
-              <button class="btn btn-default" id="shop-upload">⬆ 上传新版本</button>
+            <div style="margin-top:12px;">
+              <label class="form-label">上传施工图（拖拽上传，可多文件）</label>
+              <div id="shop-upload-box"></div>
+              <input class="form-input" id="shop-note" placeholder="本版说明（可选）" style="margin-top:8px;">
+              <button class="btn btn-primary btn-sm" id="shop-upload" style="margin-top:8px;">⬆ 上传新版本</button>
             </div>
             <div style="margin-top:16px;border-top:1px solid var(--divider);padding-top:14px;">
               ${st.confirmed
@@ -659,12 +674,15 @@
         const no = box.querySelector('#shop-no'); if (no) no.addEventListener('click', () => { MOCK.setNeedShop(p.id, false); toast('已确认无需施工图，项目结束', 'success'); reload(); });
         const reopen = box.querySelector('#shop-reopen'); if (reopen) reopen.addEventListener('click', () => { MOCK.resetShop(p.id); renderShop(); });
         const sel = box.querySelector('#shop-designer'); if (sel) sel.addEventListener('change', e => { MOCK.setShopDesigner(p.id, e.target.value); toast('已指派施工图设计师', 'success'); });
+        const shopBox = box.querySelector('#shop-upload-box');
+        let shopUp = null;
+        if (shopBox && window.UploadField) { shopUp = UploadField.create({ hint: '拖拽施工图（DWG/PDF）到此，或点击上传' }); shopBox.appendChild(shopUp.el); }
         const up = box.querySelector('#shop-upload'); if (up) up.addEventListener('click', () => {
-          const name = box.querySelector('#shop-name').value.trim();
-          if (!name) { toast('请填写施工图文件名', 'warning'); return; }
-          const ext = (name.split('.').pop() || '').toLowerCase();
-          MOCK.addShopDrawing(p.id, { name, type: (ext === 'pdf' ? 'pdf' : 'dwg'), note: box.querySelector('#shop-note').value.trim() });
-          toast('已上传施工图新版本', 'success'); renderShop();
+          const files = shopUp ? shopUp.getFiles() : [];
+          if (!files.length) { toast('请先拖入或选择施工图文件', 'warning'); return; }
+          const note = box.querySelector('#shop-note').value.trim();
+          files.forEach(f => MOCK.addShopDrawing(p.id, { name: f.name, type: f.type === 'pdf' ? 'pdf' : (f.type === 'img' ? 'img' : 'dwg'), note }));
+          toast(`已上传 ${files.length} 个施工图版本`, 'success'); renderShop();
         });
         const cf = box.querySelector('#shop-confirm'); if (cf) cf.addEventListener('click', () => { MOCK.confirmShop(p.id); toast('客户已确认施工图，项目完成', 'success'); reload(); });
       }

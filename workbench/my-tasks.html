@@ -190,15 +190,8 @@
           <textarea class="textarea" id="vm-changes" rows="2" placeholder="具体修改内容，例：主卧衣柜左移 30cm；书房新增书桌"></textarea>
         </div>
         <div class="form-item" style="margin-bottom:0;">
-          <label class="form-label">产出物附件</label>
-          <div style="display:flex;gap:8px;">
-            <input class="input" id="vm-fname" placeholder="文件名，例：平面布局V4.0.dwg" style="flex:1;" />
-            <select class="input" id="vm-ftype" style="width:110px;">
-              <option value="dwg">DWG</option><option value="pdf">PDF</option><option value="img">图片</option><option value="zip">压缩包</option>
-            </select>
-            <button class="btn btn-default" id="vm-addfile" type="button">添加</button>
-          </div>
-          <div class="file-list-edit" id="vm-files"></div>
+          <label class="form-label">产出物附件（拖拽上传，可多文件）</label>
+          <div id="vm-upload"></div>
         </div>
       </div>
       <div class="modal-footer">
@@ -243,6 +236,7 @@
   <script src="../assets/js/utils.js"></script>
   <script src="../assets/js/mock-data.js"></script>
   <script src="../assets/js/order-detail.js"></script>
+  <script src="../assets/js/upload-field.js"></script>
   <script src="../assets/js/shell.js"></script>
   <script>
     (function () {
@@ -426,7 +420,13 @@
           });
         });
         list.querySelectorAll('[data-upload]').forEach(btn => {
-          btn.addEventListener('click', () => toast('上传新版本演示中（将写入版本溯源）', 'info'));
+          btn.addEventListener('click', () => {
+            const t = tasks.find(x => x.id === btn.dataset.upload);
+            const proj = t && MOCK.projectOfTask(t);
+            if (!proj) { toast('未找到关联项目，无法上传版本', 'warning'); return; }
+            const msCode = (t.role && t.role.indexOf('3D') >= 0) ? 'ms5' : 'ms3';
+            openVer(proj.id, msCode, null, '');
+          });
         });
         list.querySelectorAll('[data-reapply]').forEach(btn => {
           btn.addEventListener('click', () => toast('已提交复议，运营将重新评估该派单', 'success'));
@@ -597,15 +597,9 @@
       document.getElementById('fm-download').addEventListener('click', () => { closeModal('file-modal'); toast('下载中（演示环境为占位文件）', 'info'); });
 
       // ============ 新增 / 提交版本 ============
-      let verCtx = null, verFiles = [];
-      function renderVerFiles() {
-        document.getElementById('vm-files').innerHTML = verFiles.map((f, idx) =>
-          `<span class="file-edit-chip">${fileIcon(f.type)} ${f.name} <span class="x" data-rm="${idx}">✕</span></span>`).join('');
-        document.querySelectorAll('#vm-files [data-rm]').forEach(x => x.addEventListener('click', () => { verFiles.splice(+x.dataset.rm, 1); renderVerFiles(); }));
-      }
+      let verCtx = null, verUpload = null;
       function openVer(pid, msCode, versionId, customerReq) {
         verCtx = { pid, msCode, versionId };
-        verFiles = [];
         const fulfilling = !!versionId;
         document.getElementById('vm-title').textContent = fulfilling ? '接受客户需求 · 上传产出物' : '新增版本（设计师自建）';
         document.getElementById('vm-node').textContent = (MOCK.getTaskTimeline(pid).find(n => n.code === msCode) || {}).name || msCode;
@@ -615,23 +609,21 @@
         document.getElementById('vm-req-src').textContent = fulfilling ? '需求由客户/外部系统下发，接受后请提交产出物' : '如为设计师自建版本，请补充对应需求来源';
         document.getElementById('vm-reason').value = '';
         document.getElementById('vm-changes').value = '';
-        document.getElementById('vm-fname').value = '';
-        renderVerFiles();
+        // 每次打开重建拖拽上传区
+        const box = document.getElementById('vm-upload');
+        box.innerHTML = '';
+        verUpload = UploadField.create({ hint: '拖拽产出物（DWG/PDF/图片/ZIP）到此，或点击上传' });
+        box.appendChild(verUpload.el);
         openModal('ver-modal');
       }
-      document.getElementById('vm-addfile').addEventListener('click', () => {
-        const name = document.getElementById('vm-fname').value.trim();
-        if (!name) { toast('请填写文件名', 'warning'); return; }
-        verFiles.push({ name, type: document.getElementById('vm-ftype').value });
-        document.getElementById('vm-fname').value = '';
-        renderVerFiles();
-      });
       document.getElementById('vm-submit').addEventListener('click', () => {
         const req = document.getElementById('vm-req').value.trim();
         const changes = document.getElementById('vm-changes').value.trim();
         const reason = document.getElementById('vm-reason').value.trim();
+        const verFiles = verUpload ? verUpload.getFiles() : [];
         if (!req) { toast('请填写本次版本客户需求', 'warning'); return; }
         if (!changes) { toast('请填写本次版本更改内容', 'warning'); return; }
+        if (!verFiles.length) { toast('请上传至少 1 个产出物附件', 'warning'); return; }
         if (verCtx.versionId) {
           MOCK.completeVersion(verCtx.pid, verCtx.msCode, verCtx.versionId, { reason, changes, deliverables: verFiles });
           toast('已接受需求并提交产出物，版本已记录', 'success');
