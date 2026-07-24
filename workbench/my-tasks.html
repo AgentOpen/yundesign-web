@@ -554,6 +554,7 @@
             <div class="ver-col req">
               <div class="lbl">📩 客户需求（提出）</div>
               <div class="txt">${v.customerReq || '—'}</div>
+              ${(v.attachments || []).length ? `<div class="mat-row" style="margin-top:6px;"><span class="mat-label">参考附件：</span>${v.attachments.map(chip).join('')}</div>` : ''}
               <div class="who">👤 ${v.requestedBy || '—'} · ${v.requestedAt || ''}</div>
             </div>
             <div class="ver-arrow">→</div>
@@ -608,11 +609,22 @@
         reqEl.readOnly = fulfilling;
         document.getElementById('vm-req-src').textContent = fulfilling ? '需求由客户/外部系统下发，接受后请提交产出物' : '如为设计师自建版本，请补充对应需求来源';
         document.getElementById('vm-reason').value = '';
-        document.getElementById('vm-changes').value = '';
+        // 携带上一版本内容（可删除后再提交）
+        const node = MOCK.getTaskTimeline(pid).find(n => n.code === msCode) || { versions: [] };
+        const prev = (node.versions || []).filter(v => v.status === 'done').slice(-1)[0] || null;
+        const carry = prev ? (prev.deliverables || []).map(d => ({ name: d.name, type: d.type })) : [];
+        document.getElementById('vm-changes').value = (!fulfilling && prev) ? (prev.changes || prev.reason || '') : '';
         // 每次打开重建拖拽上传区
         const box = document.getElementById('vm-upload');
         box.innerHTML = '';
-        verUpload = UploadField.create({ hint: '拖拽产出物（DWG/PDF/图片/ZIP）到此，或点击上传' });
+        if (prev && carry.length) {
+          const tip = document.createElement('div');
+          tip.className = 'text-sm';
+          tip.style.cssText = 'background:var(--info-bg);border:1px solid #bcd0fa;color:var(--info);border-radius:8px;padding:8px 12px;margin-bottom:10px;';
+          tip.innerHTML = `已基于上一版 <b>${prev.v}</b> 带入 ${carry.length} 个文件，可删除不需要保留的文件后再上传本版。`;
+          box.appendChild(tip);
+        }
+        verUpload = UploadField.create({ hint: '拖拽产出物（DWG/PDF/图片/ZIP）到此，或点击上传', initial: carry });
         box.appendChild(verUpload.el);
         openModal('ver-modal');
       }

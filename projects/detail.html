@@ -160,8 +160,8 @@
           <div class="tab-panel" data-panel="files">
             <div class="empty" style="padding:40px 0;">
               <div class="empty-illustration" style="width:60px;height:60px;">📁</div>
-              <div class="empty-title">文件归档区</div>
-              <div class="empty-desc">跳转到 <a href="./files.html">文件归档</a> 查看完整树状目录</div>
+              <div class="empty-title">案例 / 文件</div>
+              <div class="empty-desc">项目交付物可沉淀到 <a href="./cases.html?tab=mine">案例广场 · 我的案例</a>，按空间归档产品清单 / 3D / CAD / 平面图 / 全景</div>
             </div>
           </div>
 
@@ -217,9 +217,17 @@
           <button class="btn btn-default" onclick="toast('已加入关注','success')">☆ 关注</button>
           ${MOCK.canEditProjectInfo(p) ? '<button class="btn btn-default" id="edit-info-btn">✏️ 编辑信息</button>' : ''}
           <button class="btn btn-default" onclick="toast('已订阅变更通知','success')">🔔 订阅变更</button>
+          ${MOCK.canManageProject(p) ? '<button class="btn btn-default" id="case-btn">🏛 发布/管理案例</button>' : ''}
           <button class="btn btn-primary" onclick="location.href='../ops/assign-board.html?project=${p.id}'">👥 分单 / 改派</button>
         </div>
       `;
+
+      // 发布/管理案例：项目交付物按空间沉淀为可复用案例（幂等生成关联案例）
+      const caseBtn = document.getElementById('case-btn');
+      if (caseBtn) caseBtn.addEventListener('click', () => {
+        const cs = MOCK.caseFromProject(p.id);
+        if (cs) location.href = './case-detail.html?id=' + cs.id + '&manage=1';
+      });
 
       // 协调员 / 负责人：补充/修正项目信息（紧急程度、面积、期望完成、需求）
       const editInfoBtn = document.getElementById('edit-info-btn');
@@ -434,26 +442,37 @@
         });
       }
 
-      // ---- 上传交付物 / 新版本弹窗 ----
-      function openUploadModal(step, complete) {
-        const label = step.type === 'design-3d' ? '效果图' : '平面图';
+      // 步骤产出物名称
+      function stepOutLabel(step) { return step.type === 'design-3d' ? '效果图' : (step.type === 'doc' ? '需求文档' : '平面图'); }
+      // 下载文件（演示：toast 提示）
+      function downloadFiles(files, label) {
+        if (!files || !files.length) { toast('暂无可下载文件', 'warning'); return; }
+        toast(`开始下载${label ? '「' + label + '」' : ''} ${files.length} 个文件：${files.map(f => f.name).join('、')}`, 'success');
+      }
+      // ---- 上传新版本（携带上一版本内容，可删除后再提交）----
+      function openUploadModal(step) {
+        const label = stepOutLabel(step);
+        const node = MOCK.getTaskTimeline(p.id).find(n => n.code === step.code) || { versions: [] };
+        const prev = (node.versions || []).filter(v => v.status === 'done').slice(-1)[0] || (node.versions || []).slice(-1)[0] || null;
+        const carry = prev ? (prev.deliverables || []).map(d => ({ name: d.name, type: d.type })) : [];
         let mask = document.getElementById('ms-upload-modal');
         if (!mask) { mask = document.createElement('div'); mask.className = 'modal-mask'; mask.id = 'ms-upload-modal'; document.body.appendChild(mask); mask.addEventListener('click', e => { if (e.target === mask) mask.classList.remove('open'); }); }
         mask.innerHTML = `<div class="modal modal-md"><div class="modal-header">
-            <div class="modal-title">⬆ ${complete ? '交付并推进' : '上传新版本'} · ${step.name}</div>
+            <div class="modal-title">⬆ 上传新版本 · ${step.name}</div>
             <div class="modal-close" onclick="this.closest('.modal-mask').classList.remove('open')">✕</div>
           </div>
           <div class="modal-body">
+            ${prev ? `<div class="text-sm" style="background:var(--info-bg);border:1px solid #bcd0fa;color:var(--info);border-radius:8px;padding:8px 12px;margin-bottom:12px;">已基于上一版 <b>${prev.v}</b> 带入 ${carry.length} 个文件，可删除不需要保留的文件后再上传本版。</div>` : ''}
             <div class="form-group"><label class="form-label">${label}附件（拖拽上传，可多文件）<span style="color:var(--danger);">*</span></label>
               <div id="mu-upload"></div></div>
-            <div class="form-group"><label class="form-label">本版说明 / 变更点</label><textarea class="form-input" id="mu-note" rows="2" placeholder="首版方案 / 按客户反馈调整…"></textarea></div>
-            ${complete ? '<div class="text-sm text-secondary">✅ 交付后本节点标记完成并推进到下一步。</div>' : '<div class="text-sm text-secondary">保存后记录到版本溯源，节点保持进行中。</div>'}
+            <div class="form-group"><label class="form-label">本版说明 / 变更点</label><textarea class="form-input" id="mu-note" rows="2" placeholder="首版方案 / 按客户反馈调整…">${prev ? (prev.changes || prev.reason || '') : ''}</textarea></div>
+            <div class="text-sm text-secondary">保存后记录到版本溯源，节点保持进行中；交付时再选择定稿版本推进。</div>
           </div>
           <div class="modal-footer">
             <button class="btn btn-default" onclick="this.closest('.modal-mask').classList.remove('open')">取消</button>
-            <button class="btn btn-primary" id="mu-save">${complete ? '交付并推进' : '保存版本'}</button>
+            <button class="btn btn-primary" id="mu-save">保存版本</button>
           </div></div>`;
-        const up = UploadField.create({ hint: `拖拽${label}到此，或点击上传` });
+        const up = UploadField.create({ hint: `拖拽${label}到此，或点击上传`, initial: carry });
         mask.querySelector('#mu-upload').appendChild(up.el);
         mask.classList.add('open');
         mask.querySelector('#mu-save').addEventListener('click', () => {
@@ -462,16 +481,88 @@
           const note = mask.querySelector('#mu-note').value.trim();
           MOCK.addTaskVersion(p.id, step.code, { reason: note, changes: note, deliverables: dels });
           mask.classList.remove('open');
-          if (complete) { MOCK.msComplete(p.id, step.code); toast('已交付并推进里程碑', 'success'); msReload(); }
-          else { toast('已上传新版本', 'success'); renderFlow(); }
+          toast('已上传新版本', 'success'); renderFlow();
+        });
+      }
+
+      // ---- 交付并推进（选择一个版本定稿，确认后开启下一步）----
+      function openDeliverModal(step) {
+        const label = stepOutLabel(step);
+        const node = MOCK.getTaskTimeline(p.id).find(n => n.code === step.code) || { versions: [] };
+        const dones = (node.versions || []).filter(v => v.status === 'done');
+        if (!dones.length) { toast(`请先上传至少 1 个${label}版本再交付`, 'warning'); return; }
+        const def = (node.deliveredVersion) || dones[dones.length - 1].id;
+        let mask = document.getElementById('ms-deliver-modal');
+        if (!mask) { mask = document.createElement('div'); mask.className = 'modal-mask'; mask.id = 'ms-deliver-modal'; document.body.appendChild(mask); mask.addEventListener('click', e => { if (e.target === mask) mask.classList.remove('open'); }); }
+        mask.innerHTML = `<div class="modal modal-md"><div class="modal-header">
+            <div class="modal-title">✅ 交付并推进 · ${step.name}</div>
+            <div class="modal-close" onclick="this.closest('.modal-mask').classList.remove('open')">✕</div>
+          </div>
+          <div class="modal-body">
+            <div class="text-sm text-secondary" style="margin-bottom:10px;">选择向客户交付的<b>定稿版本</b>，确认后本步骤完成并开启下一步。</div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              ${dones.slice().reverse().map(v => `<label class="dl-ver" style="display:flex;gap:10px;align-items:flex-start;border:1px solid var(--border);border-radius:8px;padding:10px 12px;cursor:pointer;">
+                  <input type="radio" name="dl-ver" value="${v.id}" ${v.id === def ? 'checked' : ''} style="margin-top:3px;">
+                  <div style="flex:1;"><div><span class="version-tag">${v.v}</span> <span class="text-sm text-secondary">${v.completedBy || ''} · ${v.completedAt || ''}</span></div>
+                    <div class="text-sm" style="margin-top:3px;">${v.changes || v.reason || '—'}</div>
+                    ${(v.deliverables || []).length ? `<div style="margin-top:6px;">${v.deliverables.map(d => `<span class="tag tag-info">${d.name}</span>`).join(' ')}</div>` : ''}
+                  </div></label>`).join('')}
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-default" onclick="this.closest('.modal-mask').classList.remove('open')">取消</button>
+            <button class="btn btn-primary" id="dl-save">交付定稿并推进 →</button>
+          </div></div>`;
+        mask.classList.add('open');
+        mask.querySelector('#dl-save').addEventListener('click', () => {
+          const vid = (mask.querySelector('input[name="dl-ver"]:checked') || {}).value;
+          if (!vid) { toast('请选择要交付的版本', 'warning'); return; }
+          MOCK.markDelivered(p.id, step.code, vid);
+          MOCK.msComplete(p.id, step.code);
+          mask.classList.remove('open');
+          toast('已交付定稿并推进到下一步，已通知协调员 / 团队', 'success'); msReload();
+        });
+      }
+
+      // ---- 登记客户变更（回退到目标设计阶段并通知团队；已结束项目亦可）----
+      function openChangeModal(targetCode, targetName) {
+        let mask = document.getElementById('ms-change-modal');
+        if (!mask) { mask = document.createElement('div'); mask.className = 'modal-mask'; mask.id = 'ms-change-modal'; document.body.appendChild(mask); mask.addEventListener('click', e => { if (e.target === mask) mask.classList.remove('open'); }); }
+        mask.innerHTML = `<div class="modal modal-md"><div class="modal-header">
+            <div class="modal-title">🔁 登记客户修改需求 · ${targetName}</div>
+            <div class="modal-close" onclick="this.closest('.modal-mask').classList.remove('open')">✕</div>
+          </div>
+          <div class="modal-body">
+            <div class="text-sm text-secondary" style="margin-bottom:10px;">登记后将回退到「${targetName}」阶段，生成一条待处理客户需求，并<b>通知对应设计师 / 协调员 / 团队</b>变更（已推进结束的项目也可发起）。</div>
+            <div class="form-group"><label class="form-label">客户修改需求 <span style="color:var(--danger);">*</span></label>
+              <textarea class="form-input" id="cg-req" rows="3" placeholder="例：主卧衣柜改为通顶；客厅电视墙换石材…"></textarea></div>
+            <div class="form-group"><label class="form-label">客户参考附件（可选，可拖拽多文件：参考图 / 标注 / PDF）</label>
+              <div id="cg-upload"></div></div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-default" onclick="this.closest('.modal-mask').classList.remove('open')">取消</button>
+            <button class="btn btn-primary" id="cg-save">提交变更并通知团队</button>
+          </div></div>`;
+        const cgUp = UploadField.create({ hint: '拖拽客户参考附件到此，或点击上传（可选）' });
+        mask.querySelector('#cg-upload').appendChild(cgUp.el);
+        mask.classList.add('open');
+        mask.querySelector('#cg-save').addEventListener('click', () => {
+          const req = mask.querySelector('#cg-req').value.trim();
+          if (!req) { toast('请填写客户修改需求', 'warning'); return; }
+          MOCK.addChangeRequest(p.id, targetCode, req, null, cgUp.getFiles());
+          mask.classList.remove('open');
+          toast('已登记客户变更，回退至对应设计阶段并通知团队', 'success'); msReload();
         });
       }
 
       // ---- 流程视图 ----
+      const CONFIRM_PREV = { ms4: 'ms3', ms6: 'ms5', ms8: 'ms7' };
       function renderFlow() {
         const box = document.getElementById('ms-flow');
         const steps = MOCK.msWorkflow(p.id);
         const tl = MOCK.getTaskTimeline(p.id);
+        const _r = MOCK.currentRole();
+        const canChange = MOCK.canManageProject(p) || (_r.scope === 'coord' && p.coord === _r.selfId);
         box.innerHTML = steps.map((s, i) => {
           const isAssign = s.type === 'assign';
           const icon = s.status === 'done' ? '✅' : s.status === 'active' ? '🔵' : '⏳';
@@ -502,20 +593,36 @@
               const upLabel = s.type === 'design-3d' ? '效果图' : '平面图';
               const dObj = s.designerId ? MOCK.getDesigner(s.designerId) : null;
               const node = tl.find(n => n.code === s.code) || { versions: [] };
-              const vers = (node.versions || []).slice().reverse().map(v => `<div class="ms-ver"><span class="version-tag">${v.v}</span><div style="flex:1;"><div>${v.changes || v.reason || v.customerReq || '版本更新'}</div><div class="text-sm text-secondary">${v.completedBy || ''} ${v.completedAt || v.requestedAt || ''} · ${v.status === 'done' ? '已交付' : '进行中'}</div></div></div>`).join('');
+              const upFiles = MOCK.msUpstreamFiles(p.id, s.code);
+              const vers = (node.versions || []).slice().reverse().map(v => `<div class="ms-ver"><span class="version-tag">${v.v}</span><div style="flex:1;"><div>${v.changes || v.reason || v.customerReq || '版本更新'}</div><div class="text-sm text-secondary">${v.completedBy || ''} ${v.completedAt || v.requestedAt || ''} · ${v.status === 'done' ? (v.id === node.deliveredVersion ? '✓ 已交付定稿' : '已交付') : '⏳ 待处理'}</div>${(v.attachments || []).length ? `<div style="margin-top:4px;"><button class="btn btn-ghost btn-xs" data-dl-att="${s.code}::${v.id}">⬇ 客户参考附件（${v.attachments.length}）</button></div>` : ''}</div></div>`).join('');
               body = `<div class="text-sm" style="margin-bottom:8px;">责任设计师：<b>${dObj ? dObj.name : '—'}</b> ${dObj ? `<span class="ms-role-chip">${MOCK.deptShort(dObj.dept)}</span>` : ''}</div>
+                ${upFiles.length ? `<div style="margin-bottom:10px;"><button class="btn btn-ghost btn-sm" data-dl-up="${s.code}">⬇ 下载前置资料（需求/平面 ${upFiles.length}）</button></div>` : ''}
                 ${s.status === 'active' ? `<div style="margin-bottom:10px;"><span class="ms-await">⏳ 待上传${upLabel}并交付客户</span></div>` : ''}
                 ${vers ? `<div style="margin-bottom:10px;">${vers}</div>` : '<div class="text-sm text-secondary" style="margin-bottom:10px;">暂无版本记录</div>'}
                 ${s.status === 'active' && canAct ? `<div style="display:flex;gap:8px;flex-wrap:wrap;">
                     <button class="btn btn-default btn-sm" data-upload="${s.code}">⬆ 上传新版本</button>
                     <button class="btn btn-primary btn-sm" data-deliver="${s.code}">✅ 交付并推进</button>
-                  </div>` : (s.status === 'active' ? `<div class="text-sm text-secondary">等待 ${dObj ? dObj.name : '设计师'} 上传${upLabel}</div>` : '')}`;
+                  </div>` : (s.status === 'active' ? `<div class="text-sm text-secondary">等待 ${dObj ? dObj.name : '设计师'} 上传${upLabel}</div>` : '')}
+                ${s.status === 'done' && canChange ? `<div style="margin-top:10px;"><button class="btn btn-ghost btn-sm" data-change="${s.code}">🔁 客户要求修改</button></div>` : ''}`;
             } else if (s.type === 'doc') {
-              body = `<div class="text-sm" style="margin-bottom:10px;">协调员收集客户需求、图纸与偏好，产出需求文档。</div>
-                ${s.status === 'active' ? (canAct ? `<button class="btn btn-primary btn-sm" data-advance="${s.code}">✅ 完成需求文档并推进</button>` : '<span class="ms-await">⏳ 等待协调员完成需求文档</span>') : ''}`;
+              const node = tl.find(n => n.code === s.code) || { versions: [], materials: [] };
+              const docFiles = MOCK.nodeFiles(node);
+              const vers = (node.versions || []).slice().reverse().map(v => `<div class="ms-ver"><span class="version-tag">${v.v}</span><div style="flex:1;"><div>${v.changes || v.reason || v.customerReq || '需求文档更新'}</div><div class="text-sm text-secondary">${v.completedBy || ''} ${v.completedAt || v.requestedAt || ''} · ${v.status === 'done' ? '已提交' : '⏳ 待处理'}</div></div></div>`).join('');
+              body = `<div class="text-sm" style="margin-bottom:10px;">协调员收集客户需求、图纸与偏好，产出需求文档，供后续设计师下载参考。</div>
+                ${docFiles.length ? `<div style="margin-bottom:10px;"><button class="btn btn-ghost btn-sm" data-dl-node="${s.code}">⬇ 下载需求文档（${docFiles.length}）</button></div>` : ''}
+                ${vers ? `<div style="margin-bottom:10px;">${vers}</div>` : ''}
+                ${s.status === 'active' && canAct ? `<div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <button class="btn btn-default btn-sm" data-upload="${s.code}">⬆ 上传需求文档</button>
+                    <button class="btn btn-primary btn-sm" data-deliver="${s.code}">✅ 完成需求收集并推进</button>
+                  </div>` : (s.status === 'active' ? '<span class="ms-await">⏳ 等待协调员完成需求文档</span>' : '')}`;
             } else if (s.type === 'confirm') {
+              const prevCode = CONFIRM_PREV[s.code];
               body = `<div class="text-sm" style="margin-bottom:10px;">协调员与客户确认阶段成果（${s.deliverable}）。</div>
-                ${s.status === 'active' ? (canAct ? `<button class="btn btn-primary btn-sm" data-advance="${s.code}">✅ 客户已确认 · 推进</button>` : '<span class="ms-await">⏳ 等待协调员 / 客户确认</span>') : ''}`;
+                ${s.status === 'active' && canAct ? `<div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <button class="btn btn-primary btn-sm" data-advance="${s.code}">✅ 客户已确认 · 推进</button>
+                    ${prevCode ? `<button class="btn btn-ghost btn-sm" data-change="${prevCode}">🔁 客户要求修改</button>` : ''}
+                  </div>` : (s.status === 'active' ? '<span class="ms-await">⏳ 等待协调员 / 客户确认</span>' : '')}
+                ${s.status === 'done' && canChange && prevCode ? `<div style="margin-top:10px;"><button class="btn btn-ghost btn-sm" data-change="${prevCode}">🔁 客户要求修改</button></div>` : ''}`;
             } else {
               body = `<div class="text-sm text-secondary">系统自动节点：CRM 立项与收款已完成。</div>`;
             }
@@ -537,8 +644,12 @@
 
         box.querySelectorAll('[data-assign]').forEach(b => b.addEventListener('click', () => openAssignDesignerModal(b.dataset.assign)));
         box.querySelectorAll('[data-advance]').forEach(b => b.addEventListener('click', () => { MOCK.msComplete(p.id, b.dataset.advance); toast('里程碑已推进', 'success'); msReload(); }));
-        box.querySelectorAll('[data-upload]').forEach(b => b.addEventListener('click', () => { const s = steps.find(x => x.code === b.dataset.upload); openUploadModal(s, false); }));
-        box.querySelectorAll('[data-deliver]').forEach(b => b.addEventListener('click', () => { const s = steps.find(x => x.code === b.dataset.deliver); openUploadModal(s, true); }));
+        box.querySelectorAll('[data-upload]').forEach(b => b.addEventListener('click', () => { const s = steps.find(x => x.code === b.dataset.upload); openUploadModal(s); }));
+        box.querySelectorAll('[data-deliver]').forEach(b => b.addEventListener('click', () => { const s = steps.find(x => x.code === b.dataset.deliver); openDeliverModal(s); }));
+        box.querySelectorAll('[data-change]').forEach(b => b.addEventListener('click', () => { const s = steps.find(x => x.code === b.dataset.change); openChangeModal(b.dataset.change, s ? s.name : '设计阶段'); }));
+        box.querySelectorAll('[data-dl-up]').forEach(b => b.addEventListener('click', () => downloadFiles(MOCK.msUpstreamFiles(p.id, b.dataset.dlUp), '前置资料')));
+        box.querySelectorAll('[data-dl-node]').forEach(b => b.addEventListener('click', () => { const n = MOCK.getTaskTimeline(p.id).find(x => x.code === b.dataset.dlNode); downloadFiles(MOCK.nodeFiles(n || {}), n ? n.name : '文件'); }));
+        box.querySelectorAll('[data-dl-att]').forEach(b => b.addEventListener('click', () => { const [c, vid] = b.dataset.dlAtt.split('::'); const n = MOCK.getTaskTimeline(p.id).find(x => x.code === c); const v = n && (n.versions || []).find(x => x.id === vid); downloadFiles(v ? v.attachments : [], '客户参考附件'); }));
       }
 
       // ---- 甘特图 ----

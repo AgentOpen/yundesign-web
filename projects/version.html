@@ -11,12 +11,21 @@
   <style>
     .layout { display: grid; grid-template-columns: 280px 1fr; gap: 16px; align-items: start; }
     @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
-    .proj-list { background: #fff; border-radius: var(--radius-lg); padding: 10px; overflow-y: auto; max-height: 680px; }
-    .proj-item { padding: 10px; border-radius: 6px; cursor: pointer; margin-bottom: 4px; border: 1px solid transparent; }
-    .proj-item:hover { background: var(--bg-hover); }
-    .proj-item.active { background: var(--brand-primary-bg); border-color: #BCD0FA; }
-    .proj-item .p-name { font-weight: 500; font-size: 13px; }
-    .proj-item .p-meta { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+    /* 左侧项目树（与「文件归档」一致） */
+    .file-tree { background: white; border: 1px solid var(--border); border-radius: 8px; padding: 8px; max-height: calc(100vh - 220px); overflow-y: auto; box-shadow: var(--shadow-card); }
+    .tree-node { border-radius: 6px; }
+    .tree-row { display: flex; align-items: center; gap: 6px; padding: 8px 8px; border-radius: 6px; cursor: pointer; }
+    .tree-row:hover { background: var(--bg-hover); }
+    .tree-row.active { background: var(--brand-primary-bg); }
+    .tree-caret { width: 14px; text-align: center; color: var(--text-secondary); font-size: 10px; transition: transform .15s; flex-shrink: 0; }
+    .tree-node.open > .tree-row .tree-caret { transform: rotate(90deg); }
+    .tree-ico { flex-shrink: 0; }
+    .tree-main { flex: 1; min-width: 0; }
+    .tree-title { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tree-sub { font-size: 11px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tree-count { font-size: 11px; background: var(--bg-hover); color: var(--text-secondary); border-radius: 8px; padding: 1px 7px; flex-shrink: 0; }
+    .tree-children { display: none; padding-left: 20px; }
+    .tree-node.open > .tree-children { display: block; }
 
     /* 客户确认版本一览 */
     .final-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
@@ -82,10 +91,7 @@
       </div>
 
       <div class="layout">
-        <div class="proj-list">
-          <div style="padding:0 6px 8px;font-weight:500;" id="proj-count">📁 项目</div>
-          <div id="proj-list"></div>
-        </div>
+        <div class="file-tree" id="proj-list"></div>
         <div>
           <div class="card" style="padding:16px;margin-bottom:12px;">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
@@ -145,18 +151,31 @@
       function fileIcon(t) { return ({ pdf: '📄', dwg: '📐', zip: '🗜️', img: '🖼️' })[t] || '📎'; }
       function starsVerCount(pid) { let c = 0; designStages(pid).forEach(n => c += n.versions.length); return c; }
 
-      // 左侧项目列表
+      // 左侧项目树（样式与「文件归档」一致）
       function renderProjects() {
-        document.getElementById('proj-count').textContent = `📁 项目（${P.length}）`;
         const box = document.getElementById('proj-list');
-        box.innerHTML = P.map(p => {
+        const totalVers = P.reduce((s, p) => s + starsVerCount(p.id), 0);
+        let html = `<div class="tree-node open" data-node="__all">
+          <div class="tree-row">
+            <span class="tree-caret">▶</span>
+            <span class="tree-ico">🗂</span>
+            <div class="tree-main"><div class="tree-title">全部项目</div><div class="tree-sub">${P.length} 个项目 · ${totalVers} 个版本</div></div>
+          </div><div class="tree-children">`;
+        P.forEach(p => {
           const cust = MOCK.getCustomer(p.customer);
-          return `<div class="proj-item ${p.id === curId ? 'active' : ''}" data-id="${p.id}">
-            <div class="p-name">${p.name}</div>
-            <div class="p-meta">${p.code} · ${cust.name} · ${starsVerCount(p.id)} 个版本</div>
+          const dsg = MOCK.names([...(p.d2d || []), ...(p.d3d || [])]) || '—';
+          html += `<div class="tree-node">
+            <div class="tree-row ${p.id === curId ? 'active' : ''}" data-id="${p.id}">
+              <span class="tree-caret" style="visibility:hidden;">▶</span>
+              <span class="tree-ico">📁</span>
+              <div class="tree-main"><div class="tree-title">${p.name}</div><div class="tree-sub">${p.code} · ${cust.name} · ${dsg}</div></div>
+              <span class="tree-count">${starsVerCount(p.id)} 版</span>
+            </div>
           </div>`;
-        }).join('');
-        box.querySelectorAll('.proj-item').forEach(el => el.addEventListener('click', () => { curId = el.dataset.id; render(); }));
+        });
+        html += `</div></div>`;
+        box.innerHTML = html;
+        box.querySelectorAll('.tree-row[data-id]').forEach(el => el.addEventListener('click', () => { curId = el.dataset.id; render(); }));
       }
 
       // 阶段内版本状态判定

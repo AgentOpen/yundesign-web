@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>案例广场 · 敬城设计云</title>
+  <link rel="stylesheet" href="../assets/css/tokens.css" />
+  <link rel="stylesheet" href="../assets/css/base.css" />
+  <link rel="stylesheet" href="../assets/css/layout.css" />
+  <link rel="stylesheet" href="../assets/css/components.css" />
+  <style>
+    .cg-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+    .cg-tab { padding: 10px 18px; font-size: 14px; font-weight: 600; color: var(--text-secondary); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+    .cg-tab:hover { color: var(--brand-primary); }
+    .cg-tab.active { color: var(--brand-primary); border-bottom-color: var(--brand-primary); }
+
+    .cg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+    .cg-card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-card); transition: transform .15s, box-shadow .15s; }
+    .cg-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-hover, 0 8px 24px rgba(15,23,42,.12)); }
+    .cg-cover { height: 168px; position: relative; overflow: hidden; }
+    .cg-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .3s; }
+    .cg-img.loaded { opacity: 1; }
+    .cg-cover::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 46px; background: linear-gradient(transparent, rgba(0,0,0,.28)); pointer-events: none; }
+    .cg-badge { position: absolute; top: 10px; padding: 3px 9px; border-radius: var(--radius-round); font-size: 11px; font-weight: 600; backdrop-filter: blur(4px); z-index: 2; }
+    .cg-badge.sp { left: 10px; background: rgba(255,255,255,.86); color: #333; }
+    .cg-badge.dl { right: 10px; color: #fff; }
+    .cg-badge.dl.vr { background: rgba(41,37,53,.78); }
+    .cg-badge.dl.img { background: rgba(37,99,120,.78); }
+    .review-flag { position: absolute; left: 10px; bottom: 10px; z-index: 2; }
+    .cg-body { padding: 12px 14px 14px; }
+    .cg-title { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cg-meta { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+    .cg-code { font-size: 11px; color: var(--text-tertiary); font-family: var(--font-mono); margin-top: 3px; }
+    .cg-soft { margin-top: 8px; font-size: 12px; color: var(--text-secondary); }
+    .cg-tags { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+    .cg-foot { display: flex; align-items: center; gap: 8px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--divider); }
+    .cg-foot .btn { flex: 0 0 auto; }
+    .cg-empty { padding: 60px 0; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="page-header">
+      <div class="page-breadcrumb">
+        <a href="../workbench/dashboard.html">工作台</a><span class="sep">/</span>
+        <span class="current" id="bc-cur">M9 · 案例广场</span>
+      </div>
+      <div class="page-title-bar">
+        <div>
+          <div class="page-title">案例广场</div>
+          <div class="page-title-desc">按项目沉淀可复用案例：风格 / 国家 / 软件 / 空间；每个空间含产品清单、3D 模型、全屋 CAD、平面图与全景（FR-M09-08 / M7 案例库）</div>
+        </div>
+        <div class="flex gap-2">
+          <button class="btn btn-primary" id="btn-publish" style="display:none;">＋ 发布案例</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="page-body">
+      <div class="cg-tabs">
+        <div class="cg-tab active" data-tab="all">🏛 案例广场</div>
+        <div class="cg-tab" data-tab="mine">👤 我的案例</div>
+      </div>
+
+      <div class="filter-bar" style="margin-bottom:16px;flex-wrap:wrap;">
+        <div class="filter-item"><span class="filter-label">风格</span><select class="filter-select" id="f-style"><option value="">全部风格</option></select></div>
+        <div class="filter-item"><span class="filter-label">空间</span><select class="filter-select" id="f-space"><option value="">全部空间</option></select></div>
+        <div class="filter-item"><span class="filter-label">国家</span><select class="filter-select" id="f-country"><option value="">全部国家</option></select></div>
+        <div class="filter-item"><span class="filter-label">预算</span><select class="filter-select" id="f-budget">
+          <option value="">全部预算</option><option value="0-30">≤30万</option><option value="30-80">30–80万</option><option value="80-150">80–150万</option><option value="150-99999">>150万</option>
+        </select></div>
+        <div class="filter-item"><span class="filter-label">软件</span><select class="filter-select" id="f-soft"><option value="">全部软件</option></select></div>
+        <div class="filter-item"><span class="filter-label">交付</span><select class="filter-select" id="f-delivery">
+          <option value="">全部交付</option><option>虚拟现实</option><option>效果图</option>
+        </select></div>
+        <div class="filter-item"><span class="filter-label">排序</span><select class="filter-select" id="f-sort">
+          <option value="new">最新</option><option value="reuse">复用最多</option><option value="area">面积</option><option value="budget">预算</option>
+        </select></div>
+        <input class="filter-search" id="f-search" placeholder="搜索案例名 / 设计师 / 编号…" style="flex:1;min-width:180px;" />
+        <button class="btn btn-default" id="btn-reset">重置</button>
+      </div>
+
+      <div class="text-sm text-secondary" id="cg-count" style="margin-bottom:10px;"></div>
+      <div class="cg-grid" id="cg-grid"></div>
+    </div>
+  </div>
+
+  <script src="../assets/js/utils.js"></script>
+  <script src="../assets/js/mock-data.js"></script>
+  <script src="../assets/js/shell.js"></script>
+  <script src="../assets/js/upload-field.js"></script>
+  <script src="../assets/js/case-edit.js"></script>
+  <script>
+    (function () {
+      let tab = getQuery('tab') || 'all';
+      const lib = MOCK.CASE_SPACE_LIB;
+
+      // 下拉数据
+      const fill = (id, arr) => { const el = document.getElementById(id); arr.forEach(x => el.insertAdjacentHTML('beforeend', `<option>${x}</option>`)); };
+      fill('f-style', MOCK.caseStyles());
+      fill('f-country', MOCK.caseCountries());
+      fill('f-soft', MOCK.caseSoftwares());
+      Object.keys(lib).forEach(k => document.getElementById('f-space').insertAdjacentHTML('beforeend', `<option value="${k}">${lib[k].icon} ${lib[k].name}</option>`));
+
+      function baseCases() { return tab === 'mine' ? MOCK.myCases() : MOCK.caseList(); }
+
+      function match(c) {
+        const st = document.getElementById('f-style').value;
+        const sp = document.getElementById('f-space').value;
+        const co = document.getElementById('f-country').value;
+        const bg = document.getElementById('f-budget').value;
+        const sf = document.getElementById('f-soft').value;
+        const dl = document.getElementById('f-delivery').value;
+        const kw = document.getElementById('f-search').value.trim().toLowerCase();
+        if (st && c.style !== st) return false;
+        if (sp && !(c.spaces || []).some(s => s.key === sp)) return false;
+        if (co && c.country !== co) return false;
+        if (sf && c.software !== sf) return false;
+        if (dl && c.delivery !== dl) return false;
+        if (bg) { const [a, b] = bg.split('-').map(Number); if (!(c.budget >= a && c.budget <= b)) return false; }
+        if (kw) {
+          const dn = MOCK.getDesigner(c.designerId).name;
+          if (!(`${c.name}${dn}${c.code}`.toLowerCase().includes(kw))) return false;
+        }
+        return true;
+      }
+      function sortCases(arr) {
+        const s = document.getElementById('f-sort').value;
+        const a = arr.slice();
+        if (s === 'reuse') a.sort((x, y) => y.reuse - x.reuse);
+        else if (s === 'area') a.sort((x, y) => y.area - x.area);
+        else if (s === 'budget') a.sort((x, y) => y.budget - x.budget);
+        else a.sort((x, y) => (y.createdAt || '').localeCompare(x.createdAt || ''));
+        return a;
+      }
+
+      function reviewTag(c) {
+        if (c.review === '已通过') return '';
+        const map = { '审核中': 'tag-warning', '草稿': 'tag' };
+        return `<span class="tag ${map[c.review] || 'tag'} review-flag">${c.review}</span>`;
+      }
+      function card(c) {
+        const dn = MOCK.getDesigner(c.designerId);
+        const no = MOCK.caseDesignerNo(c);
+        const vr = c.delivery === '虚拟现实';
+        const nSpace = MOCK.caseSpaceCount(c);
+        const mine = tab === 'mine';
+        return `<div class="cg-card">
+          <div class="cg-cover" style="background:${MOCK.caseCover(c.style)}">
+            <img class="cg-img" src="${MOCK.caseCoverImg(c)}" alt="${c.name}" loading="lazy" onload="this.classList.add('loaded')" onerror="this.style.display='none'">
+            <span class="cg-badge sp">🗂 ${nSpace} 个空间</span>
+            <span class="cg-badge dl ${vr ? 'vr' : 'img'}">${vr ? '虚拟现实' : '效果图'}</span>
+            ${mine ? reviewTag(c) : ''}
+          </div>
+          <div class="cg-body">
+            <div class="cg-title">${c.name}</div>
+            <div class="cg-meta">${dn.name}（${no}）· ${c.area}㎡ · ¥${c.budget}万</div>
+            <div class="cg-code">${c.code} · ${c.country}</div>
+            <div class="cg-soft">设计软件：<span class="tag tag-success">${c.software}</span></div>
+            <div class="cg-tags">
+              <span class="tag tag-brand">${c.style}</span>
+              ${vr ? '<span class="tag tag-purple">🕶 全屋VR全景</span>' : '<span class="tag">🖼 全屋效果图</span>'}
+              <span class="tag" style="margin-left:auto;">♻ ${c.reuse}</span>
+            </div>
+            <div class="cg-foot">
+              <button class="btn btn-default btn-sm" onclick="location.href='./case-detail.html?id=${c.id}'">详情</button>
+              ${mine
+            ? `<button class="btn btn-primary btn-sm" onclick="location.href='./case-detail.html?id=${c.id}&manage=1'">管理空间</button>`
+            : `<button class="btn btn-ghost btn-sm" onclick="toast('已复制「${c.name}」整个项目到我的案例（演示）','success')">📋 复制整个项目</button>`}
+            </div>
+          </div>
+        </div>`;
+      }
+
+      function render() {
+        document.getElementById('bc-cur').textContent = tab === 'mine' ? 'M9 · 案例广场 · 我的案例' : 'M9 · 案例广场';
+        document.getElementById('btn-publish').style.display = tab === 'mine' ? '' : 'none';
+        const list = sortCases(baseCases().filter(match));
+        document.getElementById('cg-count').textContent = `共 ${list.length} 个案例` + (tab === 'mine' ? '（含草稿 / 审核中）' : '');
+        const grid = document.getElementById('cg-grid');
+        grid.innerHTML = list.length ? list.map(card).join('')
+          : `<div class="cg-empty" style="grid-column:1/-1;"><div class="empty-title">${tab === 'mine' ? '你还没有案例，点击右上角「发布案例」创建' : '暂无符合条件的案例'}</div></div>`;
+      }
+
+      document.querySelectorAll('.cg-tab').forEach(t => t.addEventListener('click', () => {
+        document.querySelectorAll('.cg-tab').forEach(x => x.classList.remove('active'));
+        t.classList.add('active'); tab = t.dataset.tab; render();
+      }));
+      ['f-style', 'f-space', 'f-country', 'f-budget', 'f-soft', 'f-delivery', 'f-sort'].forEach(id => document.getElementById(id).addEventListener('change', render));
+      document.getElementById('f-search').addEventListener('input', debounce(render, 200));
+      document.getElementById('btn-reset').addEventListener('click', () => {
+        ['f-style', 'f-space', 'f-country', 'f-budget', 'f-soft', 'f-delivery'].forEach(id => document.getElementById(id).value = '');
+        document.getElementById('f-sort').value = 'new'; document.getElementById('f-search').value = ''; render();
+      });
+      document.getElementById('btn-publish').addEventListener('click', () => CaseEdit.openPublish(cs => location.href = './case-detail.html?id=' + cs.id + '&manage=1'));
+
+      // 初始 tab
+      if (tab === 'mine') { document.querySelectorAll('.cg-tab').forEach(x => x.classList.toggle('active', x.dataset.tab === 'mine')); }
+      render();
+    })();
+  </script>
+</body>
+</html>

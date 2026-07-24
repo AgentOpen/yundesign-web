@@ -6,3 +6,6 @@
 
 # 排除的 README
 README.md
+
+# 排除的旧设计系统目录
+old-designsystem/

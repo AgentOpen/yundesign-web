@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>案例详情 · 敬城设计云</title>
+  <link rel="stylesheet" href="../assets/css/tokens.css" />
+  <link rel="stylesheet" href="../assets/css/base.css" />
+  <link rel="stylesheet" href="../assets/css/layout.css" />
+  <link rel="stylesheet" href="../assets/css/components.css" />
+  <style>
+    .hero { display: grid; grid-template-columns: 300px 1fr; gap: 0; background: #fff; border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-card); }
+    @media (max-width: 820px) { .hero { grid-template-columns: 1fr; } }
+    .hero-cover { min-height: 200px; position: relative; overflow: hidden; }
+    .hero-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    .hero-body { padding: 22px 26px; }
+    .hero-title { font-size: 24px; font-weight: 700; }
+    .hero-meta { color: var(--text-secondary); margin-top: 6px; font-size: 14px; }
+    .hero-desc { color: var(--text-secondary); margin-top: 12px; font-size: 13px; line-height: 1.7; }
+    .hero-acts { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+
+    .sp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; margin-top: 14px; }
+    .sp-card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-card); transition: transform .15s; }
+    .sp-card:hover { transform: translateY(-2px); }
+    .sp-cover { height: 130px; position: relative; overflow: hidden; }
+    .sp-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    .sp-cover .pt { position: absolute; top: 8px; left: 8px; z-index: 2; background: rgba(255,255,255,.88); border-radius: var(--radius-round); font-size: 11px; font-weight: 700; padding: 2px 9px; color: #B45309; }
+    .sp-cover .ico { position: absolute; bottom: 8px; right: 8px; z-index: 2; width: 30px; height: 30px; border-radius: 8px; background: rgba(255,255,255,.92); display: flex; align-items: center; justify-content: center; font-size: 16px; box-shadow: 0 2px 6px rgba(0,0,0,.15); }
+    .sp-body { padding: 10px 12px 12px; }
+    .sp-name { font-weight: 600; }
+    .sp-sub { font-size: 11px; color: var(--text-secondary); margin-top: 3px; }
+    .sp-foot { display: flex; align-items: center; gap: 4px; margin-top: 10px; flex-wrap: wrap; }
+    .add-card { border: 2px dashed var(--border); border-radius: var(--radius-lg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: var(--text-secondary); cursor: pointer; min-height: 210px; }
+    .add-card:hover { border-color: var(--brand-primary); color: var(--brand-primary); background: var(--brand-primary-bg); }
+
+    /* 空间详情弹窗 */
+    .sd-hero { height: 220px; border-radius: 10px; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
+    .sd-hero img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    .sd-hero .vrbtn, .sd-hero > div { position: relative; z-index: 2; }
+    .sd-hero .vrbtn { background: var(--brand-primary); color: #fff; border: none; border-radius: var(--radius-round); padding: 10px 22px; font-size: 15px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 14px rgba(78,124,246,.4); }
+    .sd-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 40px; font-size: 14px; }
+    .sd-fields .k { color: var(--text-secondary); }
+    .sd-sec-title { font-size: 16px; font-weight: 700; margin: 22px 0 10px; }
+    .soft-note { background: var(--warning-bg); border: 1px solid #F6D68A; color: #92600A; border-radius: 8px; padding: 8px 12px; font-size: 13px; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="page-header">
+      <div class="page-breadcrumb">
+        <a href="../workbench/dashboard.html">工作台</a><span class="sep">/</span>
+        <a href="./cases.html">案例广场</a><span class="sep">/</span>
+        <span class="current" id="bc-cur">案例详情</span>
+      </div>
+    </div>
+
+    <div class="page-body">
+      <div id="hero-host"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:22px;">
+        <h3 style="font-size:18px;font-weight:700;">项目空间</h3>
+        <span class="text-sm text-secondary" id="sp-count"></span>
+      </div>
+      <div class="sp-grid" id="sp-grid"></div>
+    </div>
+  </div>
+
+  <!-- 空间详情弹窗 -->
+  <div class="modal-mask" id="space-modal">
+    <div class="modal modal-lg">
+      <div class="modal-header"><div class="modal-title" id="sd-title">空间详情</div><div class="modal-close" onclick="closeModal('space-modal')">✕</div></div>
+      <div class="modal-body" id="sd-body"></div>
+    </div>
+  </div>
+
+  <script src="../assets/js/utils.js"></script>
+  <script src="../assets/js/mock-data.js"></script>
+  <script src="../assets/js/shell.js"></script>
+  <script src="../assets/js/upload-field.js"></script>
+  <script src="../assets/js/case-edit.js"></script>
+  <script>
+    (function () {
+      const id = getQuery('id');
+      const manageReq = getQuery('manage') === '1';
+      const cs = MOCK.getCase(id);
+      if (!cs) { document.getElementById('hero-host').innerHTML = '<div class="empty" style="padding:60px 0;"><div class="empty-title">案例不存在或已删除</div></div>'; return; }
+      const canManage = MOCK.canManageCase(cs);
+      const manage = manageReq && canManage;
+
+      function fileIcon(t) { return ({ pdf: '📄', dwg: '📐', zip: '🗜️', img: '🖼️', '720': '🕶' })[t] || '📎'; }
+      function dl(name) { toast('下载 ' + name + '（演示占位文件）', 'success'); }
+      window.__dl = dl;
+
+      function renderHero() {
+        const dn = MOCK.getDesigner(cs.designerId);
+        const no = MOCK.caseDesignerNo(cs);
+        const vr = cs.delivery === '虚拟现实';
+        document.getElementById('bc-cur').textContent = cs.name;
+        const pubBtn = manage
+          ? (cs.public
+            ? `<button class="btn btn-default" id="btn-pub">已公开 · 取消公开</button>`
+            : `<button class="btn btn-primary" id="btn-pub">🚀 发布到案例广场</button>`)
+          : '';
+        document.getElementById('hero-host').innerHTML = `<div class="hero">
+          <div class="hero-cover" style="background:${MOCK.caseCover(cs.style)}"><img src="${MOCK.caseCoverImg(cs)}" alt="${cs.name}" onerror="this.style.display='none'"></div>
+          <div class="hero-body">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <div class="hero-title">${cs.name}</div>
+              <span class="tag ${vr ? 'tag-purple' : ''}">${vr ? '🕶 虚拟现实' : '🖼 效果图'}</span>
+              ${cs.public ? '<span class="tag tag-success">已上架</span>' : `<span class="tag tag-warning">${cs.review}</span>`}
+            </div>
+            <div class="hero-meta">${dn.name}（${no}）· ${cs.style} · ${cs.area}㎡ · ¥${cs.budget}万 · ${cs.country}</div>
+            <div class="hero-desc">整套项目级交付资料：方案提案、全屋漫游与全屋选品清单。进入下方空间查看各空间的产品、模型与图纸。编号 ${cs.code} · 设计软件 ${cs.software} · 复用 ${cs.reuse} 次 · 复用积分价 ${cs.points} 分。</div>
+            <div class="hero-acts">
+              <button class="btn btn-primary" onclick="toast('打开总 PPT 设计提案（演示）','info')">📑 总PPT设计提案</button>
+              <button class="btn btn-default" onclick="toast('打开全屋效果图 / VR 漫游（演示）','info')">${vr ? '🕶 全屋VR全景' : '🖼 全屋效果图'}</button>
+              <button class="btn btn-default" onclick="toast('已导出全屋产品清单 BOM（演示）','success')">🧾 导出全屋产品清单</button>
+              ${manage ? '' : `<button class="btn btn-ghost" onclick="toast('已复制整个项目到我的案例（演示）','success')">📋 复制整个项目</button>`}
+              ${pubBtn}
+            </div>
+          </div>
+        </div>`;
+        if (manage) {
+          const pb = document.getElementById('btn-pub');
+          if (pb) pb.addEventListener('click', () => { MOCK.setCasePublic(cs.id, !cs.public); toast(cs.public ? '已发布到案例广场' : '已取消公开', 'success'); render(); });
+        }
+      }
+
+      function spCard(sp) {
+        const idx = (cs.spaces || []).indexOf(sp);
+        return `<div class="sp-card">
+          <div class="sp-cover" style="background:${MOCK.caseCover(cs.style)}">
+            <img src="${MOCK.spaceImg(cs, sp, idx)}" alt="${sp.name}" loading="lazy" onerror="this.style.display='none'">
+            <span class="pt">◆ ${sp.points}</span>
+            <span class="ico">${sp.icon}</span>
+          </div>
+          <div class="sp-body">
+            <div class="sp-name">${sp.name} <span class="text-sm text-secondary">${sp.area}㎡</span></div>
+            <div class="sp-sub">产品清单 · 3D模型 · CAD图纸${sp.hasVR ? ' · 720°' : ''}</div>
+            <div class="sp-foot">
+              <button class="btn btn-xs btn-default" data-detail="${sp.key}">详情</button>
+              <button class="btn btn-xs btn-text" onclick="toast('进入 ${sp.name} VR 全景（演示）','info')">VR</button>
+              <button class="btn btn-xs btn-text" onclick="toast('对比 ${sp.name} 方案版本（演示）','info')">对比</button>
+              ${manage
+            ? `<button class="btn btn-xs btn-primary" data-edit="${sp.key}" style="margin-left:auto;">编辑</button>`
+            : `<button class="btn btn-xs btn-primary" onclick="toast('已复用 ${sp.name}（演示）','success')" style="margin-left:auto;">复用</button>`}
+            </div>
+          </div>
+        </div>`;
+      }
+
+      function renderSpaces() {
+        document.getElementById('sp-count').textContent = `共 ${MOCK.caseSpaceCount(cs)} 个空间`;
+        const grid = document.getElementById('sp-grid');
+        let html = (cs.spaces || []).map(spCard).join('');
+        if (manage) html += `<div class="add-card" id="add-space"><div style="font-size:30px;">＋</div><div>添加空间并上传交付物</div></div>`;
+        if (!html) html = '<div class="empty" style="grid-column:1/-1;padding:50px 0;"><div class="empty-title">该案例暂无空间</div></div>';
+        grid.innerHTML = html;
+        grid.querySelectorAll('[data-detail]').forEach(b => b.addEventListener('click', () => openSpace(b.dataset.detail)));
+        grid.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => CaseEdit.openSpace(cs.id, b.dataset.edit, render)));
+        const add = document.getElementById('add-space');
+        if (add) add.addEventListener('click', () => CaseEdit.openSpace(cs.id, null, render));
+      }
+
+      function tbl(head, rows) {
+        return `<table class="data-table"><thead><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>`;
+      }
+      function openSpace(key) {
+        const sp = (cs.spaces || []).find(s => s.key === key); if (!sp) return;
+        const dn = MOCK.getDesigner(cs.designerId);
+        document.getElementById('sd-title').textContent = `${cs.name} · ${sp.name}`;
+        const prodRows = (sp.products || []).map(p => `<tr><td>${p.name}</td><td>${p.sku}</td><td>${p.cat}</td><td>${p.qty}</td><td><a href="javascript:;" onclick="__dl('${p.name}')">下载</a></td></tr>`).join('') || '<tr><td colspan="5" class="text-placeholder">暂无产品</td></tr>';
+        const modelRows = (sp.models || []).map(f => `<tr><td>${f.name}</td><td>${f.format}</td><td>${f.size || '—'}</td><td><a href="javascript:;" onclick="__dl('${f.name}')">下载</a></td></tr>`).join('') || '<tr><td colspan="4" class="text-placeholder">暂无模型</td></tr>';
+        const cadRows = [...(sp.cad || []), ...(sp.floorplan || [])].map(f => `<tr><td>${f.name}</td><td>${f.format || 'DWG'}</td><td><a href="javascript:;" onclick="__dl('${f.name}')">下载</a></td></tr>`).join('') || '<tr><td colspan="3" class="text-placeholder">暂无图纸</td></tr>';
+        document.getElementById('sd-body').innerHTML = `
+          <div class="sd-hero" style="background:${MOCK.caseCover(cs.style)}">
+            <img src="${MOCK.spaceImg(cs, sp, (cs.spaces || []).indexOf(sp))}" alt="${sp.name}" onerror="this.style.display='none'">
+            ${sp.hasVR ? `<button class="vrbtn" onclick="toast('进入 ${sp.name} VR 全景（演示）','info')">▶ 进入 VR 全景</button>` : `<div style="color:#fff;font-weight:600;text-shadow:0 1px 3px rgba(0,0,0,.5);">🖼 ${sp.name} 高清效果图（演示）</div>`}
+          </div>
+          <div class="sd-fields">
+            <div><span class="k">案例名称：</span>${cs.name} · ${sp.name}</div>
+            <div><span class="k">设计师：</span>${dn.name}（${MOCK.caseDesignerNo(cs)}）</div>
+            <div><span class="k">风格：</span>${cs.style}</div>
+            <div><span class="k">空间：</span>${sp.name}</div>
+            <div><span class="k">面积：</span>${sp.area}㎡</div>
+            <div><span class="k">预算：</span>¥${cs.budget}万</div>
+            <div><span class="k">国家：</span>${cs.country}</div>
+            <div><span class="k">创建时间：</span>${cs.createdAt}</div>
+            <div><span class="k">复用次数：</span>${cs.reuse} 次</div>
+            <div><span class="k">案例编号：</span>${cs.code}-${sp.key}</div>
+            <div><span class="k">复用积分价：</span>${sp.points} 分</div>
+            <div><span class="k">审核状态：</span>${cs.review}</div>
+          </div>
+
+          <div class="sd-sec-title">🧾 产品清单</div>
+          ${tbl(['产品名', 'SKU', '品类', '数量', '操作'], prodRows)}
+
+          <div class="sd-sec-title">🧊 3D 模型文件</div>
+          ${tbl(['文件名', '格式', '大小', '操作'], modelRows)}
+          <div class="soft-note">⚠ 本案例源文件为 ${cs.software}（.${softExt(cs.software)}）格式，复用前请确认已安装 ${cs.software}，其他软件无法直接编辑；另附 FBX 通用导出。</div>
+
+          <div class="sd-sec-title">📐 全屋 CAD 图纸 & 本空间平面图</div>
+          ${tbl(['文件名', '格式', '操作'], cadRows)}
+
+          <div class="sd-sec-title">🎁 客户交付方案 ${sp.hasVR ? '（本案例提供全屋 VR 全景）' : ''}</div>
+          <div class="flex gap-2" style="flex-wrap:wrap;">
+            <button class="btn btn-default" onclick="toast('打开 PPT 设计提案（演示）','info')">📑 PPT设计提案</button>
+            <button class="btn btn-primary" onclick="toast('进入全屋 VR / 效果图（演示）','info')">${sp.hasVR ? '🕶 进入全屋VR全景' : '🖼 查看全屋效果图'}</button>
+            <button class="btn btn-default" onclick="toast('已导出选品清单 BOM（演示）','success')">🧾 导出选品清单(BOM)</button>
+          </div>`;
+        openModal('space-modal');
+      }
+      function softExt(s) { return ({ '3DMax': 'max', 'SketchUp草图大师': 'skp', '三维家': '3d', '酷家乐': 'kjl' })[s] || 'max'; }
+
+      function render() { renderHero(); renderSpaces(); }
+      render();
+    })();
+  </script>
+</body>
+</html>

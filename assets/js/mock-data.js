@@ -304,7 +304,7 @@
   }
 
   // ===================== 持久化（localStorage）=====================
-  const STATE_VERSION = 12;   // 基础数据结构变更时递增，自动失效旧缓存
+  const STATE_VERSION = 14;   // 基础数据结构变更时递增，自动失效旧缓存
   const LS_KEY = 'yd_demo_state';
 
   function replaceArr(target, src) { if (Array.isArray(src)) { target.length = 0; src.forEach(x => target.push(x)); } }
@@ -313,7 +313,7 @@
     try {
       localStorage.setItem(LS_KEY, JSON.stringify({
         version: STATE_VERSION,
-        DESIGNERS, PROJECTS, DESIGN_ORDERS, MY_TASKS, AUDIT_LOGS, MILESTONE_EVALS, PROFILES, TASK_TIMELINES, TIMESHEETS, ASSIGN_RULES, COMMISSIONS
+        DESIGNERS, PROJECTS, DESIGN_ORDERS, MY_TASKS, AUDIT_LOGS, MILESTONE_EVALS, PROFILES, TASK_TIMELINES, TIMESHEETS, ASSIGN_RULES, COMMISSIONS, CASES
       }));
     } catch (e) { /* 隐私模式等忽略 */ }
   }
@@ -336,6 +336,7 @@
       if (snap.ASSIGN_RULES) replaceArr(ASSIGN_RULES, snap.ASSIGN_RULES);
       if (snap.PROFILES) { Object.keys(snap.PROFILES).forEach(k => { PROFILES[k] = snap.PROFILES[k]; }); }
       if (snap.TASK_TIMELINES) { Object.keys(TASK_TIMELINES).forEach(k => delete TASK_TIMELINES[k]); Object.keys(snap.TASK_TIMELINES).forEach(k => { TASK_TIMELINES[k] = snap.TASK_TIMELINES[k]; }); }
+      if (snap.CASES) { replaceArr(CASES, snap.CASES); _caseSeq = CASES.reduce((m, c) => Math.max(m, parseInt(String(c.id).replace(/\D/g, ''), 10) || 0), 0); }
     } catch (e) { /* ignore */ }
   }
 
@@ -734,6 +735,59 @@
   function acceptRequirement(pid, msCode, versionId) {
     const node = getTaskTimeline(pid).find(n => n.code === msCode); if (!node) return;
     const ver = node.versions.find(v => v.id === versionId); if (ver) { ver.status = 'accepted'; persist(); }
+  }
+  // 节点全部文件（前置资料 materials + 各版本已交付产出物）
+  function nodeFiles(node) {
+    const out = [];
+    (node.materials || []).forEach(m => out.push(Object.assign({ from: node.name }, m)));
+    (node.versions || []).forEach(v => (v.deliverables || []).forEach(d => out.push(Object.assign({ from: node.name + ' ' + v.v }, d))));
+    return out;
+  }
+  // 某步骤的前置可下载资料（需求文档 / 已定稿平面等），供后续设计师下载
+  function msUpstreamFiles(pid, msCode) {
+    const tl = getTaskTimeline(pid);
+    const order = ['ms1', 'ms2', 'ms3', 'ms4', 'ms5', 'ms6', 'ms7', 'ms8'];
+    const idx = order.indexOf(msCode);
+    const out = [];
+    ['ms2', 'ms3', 'ms5'].forEach(c => {           // 需求文档 + 前置设计定稿
+      if (order.indexOf(c) < idx) {
+        const n = tl.find(x => x.code === c);
+        if (n) nodeFiles(n).forEach(f => out.push(f));
+      }
+    });
+    return out;
+  }
+  // 记录本步骤交付所选定的版本（定稿）
+  function markDelivered(pid, msCode, versionId) {
+    const node = getTaskTimeline(pid).find(n => n.code === msCode); if (!node) return;
+    node.deliveredVersion = versionId;
+    const v = (node.versions || []).find(x => x.id === versionId);
+    if (v) node.completedAt = v.completedAt || nowStr();
+    persist();
+  }
+  // 登记客户变更/修改需求（任意阶段，含已推进结束的项目）——
+  // 在目标设计节点追加一条“待处理”客户需求版本，回退里程碑至该节点并通知团队
+  function addChangeRequest(pid, msCode, req, by, attachments) {
+    const node = getTaskTimeline(pid).find(n => n.code === msCode); if (!node) return null;
+    const atts = attachments || [];
+    const ver = mkVer(nextVer(node), 'pending', { customerReq: req, requestedBy: by || (currentRole().name + '（代客户）'), requestedAt: nowStr(), attachments: atts });
+    node.versions.push(ver);
+    node.status = 'active';
+    const p = getProjectRaw(pid);
+    if (p) {
+      ensureMsFlow(p);
+      const tmpl = MILESTONE_TEMPLATE.map(m => m.code);
+      const ci = tmpl.indexOf(msCode);
+      if (ci >= 0) p.msDone = (p.msDone || []).filter(c => { const i = tmpl.indexOf(c); return i < 0 ? true : i < ci; });
+      if (p.status === '已完成') p.status = '进行中';
+      if ((p.progress || 0) > 85) p.progress = 85;
+      p.changesCount = (p.changesCount || 0) + 1;
+      // 重置施工图确认（若已完结，因设计变更需重新走后续）
+      if (p.shopConfirmed) { p.shopConfirmed = false; }
+    }
+    addLog('客户变更', (p ? p.name : pid) + ' · ' + node.name, `新增修改需求：${req}${atts.length ? `（含 ${atts.length} 个参考附件）` : ''}；已回退至该阶段并通知设计师 / 协调员 / 团队`);
+    persist();
+    return ver;
   }
 
   // ===== 工时逻辑 =====
@@ -1156,8 +1210,219 @@
     persist();
   }
 
+  // ===================== 案例广场（独立演示数据集）=====================
+  const CASE_SPACE_LIB = {
+    living: { name: '客厅', icon: '🛋', cats: ['沙发', '茶几', '电视柜', '地毯', '吊灯'] },
+    dining: { name: '餐厅', icon: '🍽', cats: ['餐桌', '餐椅', '餐边柜', '吊灯'] },
+    master: { name: '主卧', icon: '🛏', cats: ['双人床', '床头柜', '衣柜', '床头灯'] },
+    second: { name: '次卧', icon: '🛌', cats: ['床', '衣柜', '书桌'] },
+    kids: { name: '儿童房', icon: '🧸', cats: ['儿童床', '书桌', '储物柜'] },
+    study: { name: '书房', icon: '📚', cats: ['书桌', '书柜', '座椅'] },
+    kitchen: { name: '厨房', icon: '🍳', cats: ['地柜', '吊柜', '中岛', '水槽'] },
+    bath: { name: '卫生间', icon: '🛁', cats: ['浴室柜', '马桶', '花洒', '镜柜'] },
+    balcony: { name: '阳台', icon: '🪴', cats: ['休闲椅', '绿植架', '洗衣柜'] },
+    cloak: { name: '衣帽间', icon: '👔', cats: ['开放衣柜', '岛台', '穿衣镜'] }
+  };
+  const SOFT_MODEL = {
+    '3DMax': { ext: 'max', label: '3DMax' }, 'SketchUp草图大师': { ext: 'skp', label: 'SketchUp' },
+    '三维家': { ext: '3d', label: '三维家' }, '酷家乐': { ext: 'kjl', label: '酷家乐' }
+  };
+  // 风格 → 封面渐变（页面据此渲染，无需外部图片）
+  const CASE_GRAD = {
+    '现代简约': 'linear-gradient(135deg,#c7cdd6 0%,#e9edf2 55%,#f7f8fa 100%)',
+    '新中式': 'linear-gradient(135deg,#8d6f56 0%,#c9b299 55%,#efe6da 100%)',
+    '北欧': 'linear-gradient(135deg,#a9c3cf 0%,#dfe9ec 55%,#f6f9fa 100%)',
+    '轻奢': 'linear-gradient(135deg,#6d5a7e 0%,#b6a0c4 55%,#efe8f3 100%)',
+    '工业风': 'linear-gradient(135deg,#4a4a4f 0%,#7d7d84 55%,#cfd0d4 100%)',
+    '日式': 'linear-gradient(135deg,#b79b6e 0%,#ddccb0 55%,#f3ecdd 100%)',
+    '美式乡村': 'linear-gradient(135deg,#8a6d4b 0%,#c2a882 55%,#eee2cf 100%)'
+  };
+  function caseCover(style) { return CASE_GRAD[style] || 'linear-gradient(135deg,#c7cdd6 0%,#eef1f5 100%)'; }
+  // ---- 真实素材图（zhimo-img → assets/case-img），按空间/风格确定性取图 ----
+  const CASE_IMG_BASE = '../assets/case-img/';
+  const CASE_IMG_GROUPS = {
+    living: ['意式轻奢客餐厅 大平层客餐厅 横厅客餐厅 高级灰客餐厅.jpeg', '现代意式横厅 现代意式 现代简约 意式大横厅 现代大横厅 样板间.jpeg', '现代中古家居客厅 中古风客厅 横厅客厅 横厅书房 沙发茶几组合 中古风书柜.jpeg', '原木奶油风家居客厅.jpeg', '电视背景墙 家居.png', '极简奶油阳台 休闲阳台 置物柜 客厅阳台.jpeg'],
+    dining: ['现代中古家居餐厅 现代中古家居餐厅 餐厅 奶油风餐厅 法式餐厅 餐边柜.jpeg', '奶油风家居餐厅 酒柜餐边柜 备餐柜.jpeg', '法式奶油餐边柜 酒柜餐边柜 餐边柜摆件 酒柜摆件.jpeg', '现代简约餐边柜 轻奢餐边柜 餐边柜酒柜 餐边柜摆件.jpeg', '现代极简餐边柜 意式餐边柜 餐边柜酒柜 餐边柜摆件.jpeg', '中古餐边柜 中古侘寂风餐边柜 酒柜餐边柜 茶水柜餐边柜 冰箱 厨房电器.jpeg', '现代简约酒柜 餐边柜 橱柜.jpeg'],
+    bedroom: ['现代简约衣柜 开放式衣柜 卧室衣柜.jpeg', '现代极简衣柜 现代简约衣柜 现代衣柜 平开门衣柜 到顶式衣柜.jpeg', '法式奶油衣柜 法式奶油风衣柜 主卧衣柜 卧室衣柜 开放衣柜 玻璃衣柜.jpeg', '奶油风衣柜 卧室衣柜.jpeg', '法式侘寂衣柜 主卧衣柜 卧室衣柜 成品衣柜.jpeg', '原木风衣柜 衣柜木材 开放式衣柜.jpeg'],
+    study: ['现代书房.png', '现代书房 现代书房.jpeg', '意式极简开放式书房 现代书柜.jpeg', '现代简约书柜 书籍组合 书柜摆件 中古风书柜.jpeg', '现代书柜 客厅书柜 书房书柜 开放书柜.jpeg', '中古风开放式书房 书柜.jpeg', '侘寂风书柜 装饰摆件 书房背景墙.jpeg'],
+    office: ['现代办公室 办公室 办公家具 文件柜 书柜 办公区.jpeg', '现代意式经理办公室 意式办公桌椅 老板椅 办公椅 意式书柜 办公地毯.jpeg', '现代简约文件柜 办公室文件柜.jpeg', '现代文件柜 办公柜 装饰柜 文件柜.jpeg', '现代文件柜 资料柜 档案柜 铁皮柜 办公文件柜.jpeg'],
+    entry: ['现代简约玄关 入户鞋柜 餐边柜.jpeg', '现代简约玄关 玄关柜 鞋柜.jpeg', '现代玄关柜 端景柜玄关柜 功能性玄关柜.jpeg', '现代玄关鞋柜 换鞋凳 边柜 装饰柜.jpeg', '新中式玄关 新中式玄关隔断 中古风玄关隔断.jpeg', '意式轻奢鞋柜.jpeg'],
+    product: ['现代轻奢书柜 餐边柜 装饰架 置物架 书架.jpeg', '现代简约储物柜 现代意式书柜 书架.jpeg', '轻奢餐边柜 餐边柜.jpeg', '极简餐边柜.jpeg', '极简储物柜 书柜.jpeg', '奶油风书桌 衣柜 衣柜门 柜门 书桌椅 洞洞板书桌.jpeg', '现代木饰面 护墙板 墙饰板 木饰面背景墙.jpeg']
+  };
+  const _ALL_IMGS = [].concat(CASE_IMG_GROUPS.living, CASE_IMG_GROUPS.dining, CASE_IMG_GROUPS.bedroom, CASE_IMG_GROUPS.study, CASE_IMG_GROUPS.office, CASE_IMG_GROUPS.entry, CASE_IMG_GROUPS.product);
+  const _SPACE_KW = { '客厅': 'living room', '卧室': 'bedroom', '主卧': 'master bedroom', '次卧': 'bedroom', '厨房': 'kitchen', '餐厅': 'dining room', '书房': 'study', '儿童房': 'bedroom', '玄关': 'entryway', '衣帽间': 'bedroom closet', '阳台': 'living balcony', '茶室': 'study tea room', '卫生间': 'bathroom', '前台': 'office', '会议室': 'office', '经理室': 'office', '开放区': 'office' };
+  const _STYLE_KW = { '北欧': 'nordic', '现代简约': 'modern minimalist', '新中式': 'chinese style', '轻奢': 'luxury', '工业风': 'industrial', '日式': 'japanese', '美式': 'american', '美式乡村': 'american', '法式': 'french', '侘寂': 'wabi sabi', '极简': 'minimalist', '原木': 'wood' };
+  function _imgPool(space, style) {
+    const raw = [space || '', style || '', _SPACE_KW[space] || '', _STYLE_KW[style] || ''].join(' ').toLowerCase();
+    const has = keys => keys.some(k => raw.indexOf(k) >= 0);
+    if (has(['客厅', 'living', 'sofa', '沙发', '横厅', '阳台', 'balcony'])) return CASE_IMG_GROUPS.living;
+    if (has(['餐', '厨', 'kitchen', 'dining', '酒柜', '餐边', 'sideboard'])) return CASE_IMG_GROUPS.dining;
+    if (has(['卧', 'bed', '衣柜', '衣帽', 'wardrobe', 'closet'])) return CASE_IMG_GROUPS.bedroom;
+    if (has(['书', 'study', '茶室', '书房', 'book', 'shelf'])) return CASE_IMG_GROUPS.study;
+    if (has(['办公', 'office', '会议', '前台', '文件柜'])) return CASE_IMG_GROUPS.office;
+    if (has(['玄关', 'entry', 'foyer', 'hall', '鞋柜', 'screen'])) return CASE_IMG_GROUPS.entry;
+    return _ALL_IMGS;
+  }
+  function caseImg(space, style, seed) {
+    const pool = _imgPool(space, style);
+    const n = Math.abs(parseInt(seed, 10) || 1);
+    return CASE_IMG_BASE + encodeURIComponent(pool[n % pool.length]);
+  }
+  function _caseNum(cs) { return parseInt(String(cs.id).replace(/\D/g, ''), 10) || 1; }
+  function caseHeroSpaceName(cs) { const s = cs.spaces || []; const liv = s.find(x => x.name === '客厅'); return (liv || s[0] || { name: '' }).name; }
+  function caseCoverImg(cs) { return caseImg(caseHeroSpaceName(cs), cs.style, _caseNum(cs) * 13 + 1); }
+  function spaceImg(cs, sp, idx) { return caseImg(sp.name, cs.style, _caseNum(cs) * 20 + (idx || 0) * 3 + 2); }
+  let _skuSeq = 199;
+  function _mkProducts(style, key) {
+    const def = CASE_SPACE_LIB[key];
+    return def.cats.map(cat => ({ name: style + cat, sku: 'SKU-' + (_skuSeq += 7), cat: cat, qty: (cat === '餐椅' ? 6 : (cat === '床头柜' || cat === '座椅' ? 2 : 1)) }));
+  }
+  function _mkModels(caseName, spaceName, software) {
+    const m = SOFT_MODEL[software] || SOFT_MODEL['3DMax'];
+    const base = 30 + (spaceName.charCodeAt(0) % 5) * 6;
+    return [
+      { name: `${caseName} · ${spaceName}.${m.ext}`, format: m.label, size: base + 'MB' },
+      { name: `${caseName} · ${spaceName}_导出.fbx`, format: 'FBX（通用导出）', size: Math.round(base * 0.6) + 'MB' }
+    ];
+  }
+  function _mkCad(spaceName) {
+    return [
+      { name: '平面布局图.dwg', format: 'DWG' },
+      { name: `${spaceName}立面图.dwg`, format: 'DWG' },
+      { name: '节点大样图.dwg', format: 'DWG' }
+    ];
+  }
+  const CASE_META = [
+    { name: '滨海现代别墅全案', designer: 'u001', style: '现代简约', country: '美国', cc: 'USA', area: 320, budget: 120, software: '3DMax', delivery: '虚拟现实', reuse: 56, points: 400, review: '已通过', date: '2026-05-20', spaces: ['living', 'dining', 'master', 'kitchen', 'bath', 'balcony'] },
+    { name: '新中式叠墅样板间', designer: 'u012', style: '新中式', country: '马来西亚', cc: 'MYS', area: 260, budget: 98, software: '3DMax', delivery: '虚拟现实', reuse: 39, points: 360, review: '已通过', date: '2026-05-12', spaces: ['living', 'dining', 'master', 'study', 'bath'] },
+    { name: '北欧极简三居', designer: 'u002', style: '北欧', country: '欧美', cc: 'EUR', area: 140, budget: 42, software: 'SketchUp草图大师', delivery: '效果图', reuse: 47, points: 300, review: '已通过', date: '2026-04-28', spaces: ['living', 'master', 'kids', 'kitchen'] },
+    { name: '轻奢平层公寓', designer: 'u008', style: '轻奢', country: '新加坡', cc: 'SGP', area: 180, budget: 75, software: '三维家', delivery: '虚拟现实', reuse: 31, points: 340, review: '已通过', date: '2026-04-15', spaces: ['living', 'dining', 'master', 'cloak', 'bath'] },
+    { name: '工业风 Loft 复式', designer: 'u010', style: '工业风', country: '中国', cc: 'CHN', area: 200, budget: 60, software: '酷家乐', delivery: '效果图', reuse: 22, points: 260, review: '已通过', date: '2026-04-02', spaces: ['living', 'study', 'master', 'kitchen'] },
+    { name: '日式禅意小宅', designer: 'u001', style: '日式', country: '中国', cc: 'CHN', area: 90, budget: 30, software: 'SketchUp草图大师', delivery: '效果图', reuse: 28, points: 240, review: '已通过', date: '2026-03-20', spaces: ['living', 'master', 'bath'] },
+    { name: '美式乡村大宅', designer: 'u003', style: '美式乡村', country: '美国', cc: 'USA', area: 280, budget: 95, software: '3DMax', delivery: '虚拟现实', reuse: 34, points: 380, review: '已通过', date: '2026-03-08', spaces: ['living', 'dining', 'master', 'kids', 'kitchen', 'balcony'] },
+    { name: '现代简约两居', designer: 'u002', style: '现代简约', country: '中国', cc: 'CHN', area: 96, budget: 28, software: '酷家乐', delivery: '效果图', reuse: 19, points: 220, review: '已通过', date: '2026-02-26', spaces: ['living', 'master', 'kitchen'] },
+    { name: '新中式禅境四居', designer: 'u012', style: '新中式', country: '马来西亚', cc: 'MYS', area: 220, budget: 88, software: '3DMax', delivery: '虚拟现实', reuse: 26, points: 340, review: '已通过', date: '2026-02-10', spaces: ['living', 'dining', 'master', 'study', 'bath'] },
+    { name: '北欧原木亲子宅', designer: 'u008', style: '北欧', country: '新加坡', cc: 'SGP', area: 120, budget: 38, software: 'SketchUp草图大师', delivery: '效果图', reuse: 15, points: 260, review: '审核中', date: '2026-01-28', spaces: ['living', 'master', 'kids'] },
+    { name: '迪拜奢华平层', designer: 'u003', style: '轻奢', country: '阿联酋', cc: 'ARE', area: 360, budget: 180, software: '3DMax', delivery: '虚拟现实', reuse: 12, points: 420, review: '已通过', date: '2026-01-12', spaces: ['living', 'dining', 'master', 'cloak', 'bath', 'balcony'] },
+    { name: '现代简约单身公寓', designer: 'u001', style: '现代简约', country: '中国', cc: 'CHN', area: 65, budget: 18, software: '酷家乐', delivery: '效果图', reuse: 9, points: 180, review: '草稿', date: '2026-07-18', spaces: ['living', 'master'] },
+    { name: '品牌旗舰全案样板间', designer: 'u017', style: '轻奢', country: '中国', cc: 'CHN', area: 400, budget: 150, software: '3DMax', delivery: '虚拟现实', reuse: 44, points: 420, review: '已通过', date: '2026-06-01', spaces: ['living', 'dining', 'master', 'study', 'cloak'] },
+    { name: '平面二部·新中式复式样板', designer: 'u012', style: '新中式', country: '中国', cc: 'CHN', area: 190, budget: 72, software: '三维家', delivery: '效果图', reuse: 21, points: 300, review: '审核中', date: '2026-07-10', spaces: ['living', 'study', 'master'] }
+  ];
+  function _expandCase(meta, idx) {
+    const dNo = String(meta.designer).replace(/\D/g, '');
+    const code = `${dNo}-${meta.cc}-${String(1001 + idx).slice(-4)}`;
+    const n = meta.spaces.length;
+    const hasVR = meta.delivery === '虚拟现实';
+    const spaces = meta.spaces.map(key => {
+      const def = CASE_SPACE_LIB[key];
+      const area = Math.max(8, Math.round(meta.area / n));
+      return {
+        key, name: def.name, icon: def.icon, area, points: meta.points, hasVR,
+        products: _mkProducts(meta.style, key),
+        models: _mkModels(meta.name, def.name, meta.software),
+        cad: _mkCad(def.name),
+        floorplan: [{ name: `${def.name}平面图.dwg`, format: 'DWG' }],
+        panorama: hasVR ? [{ name: `${def.name}720°全景`, type: '720' }] : []
+      };
+    });
+    return {
+      id: 'c' + String(idx + 1).padStart(3, '0'), code, projectId: null,
+      name: meta.name, designerId: meta.designer, style: meta.style,
+      country: meta.country, area: meta.area, budget: meta.budget, software: meta.software,
+      delivery: meta.delivery, reuse: meta.reuse, points: meta.points, review: meta.review,
+      createdAt: meta.date, public: meta.review === '已通过', spaces
+    };
+  }
+  const CASES = CASE_META.map(_expandCase);
+  let _caseSeq = CASES.length;
+  function getCase(id) { return CASES.find(c => c.id === id) || null; }
+  function caseList() { return CASES.filter(c => c.public); }            // 案例广场 = 已通过公开
+  // 我的案例 = 当前角色/账号上传（创作）的案例；案例广场 = 全公司公开案例
+  function myCases() {
+    const id = currentRole().selfId;
+    return CASES.filter(c => c.designerId === id || c._by === id);
+  }
+  function caseDesignerNo(cs) { return String(cs.designerId || '').replace(/\D/g, ''); }
+  function caseStyles() { return [...new Set(CASES.map(c => c.style))]; }
+  function caseCountries() { return [...new Set(CASES.map(c => c.country))]; }
+  function caseSoftwares() { return [...new Set(CASES.map(c => c.software))]; }
+  function caseSpaceCount(cs) { return (cs.spaces || []).length; }
+  // 发布/新建案例（当前设计师所有），返回草稿案例
+  function publishCase(o) {
+    o = o || {};
+    const id = 'c' + String(++_caseSeq).padStart(3, '0');
+    const self = currentRole().selfId;
+    const cs = {
+      id, code: `${String(self).replace(/\D/g, '')}-${o.cc || 'CHN'}-${String(1001 + _caseSeq).slice(-4)}`,
+      projectId: o.projectId || null, name: o.name || '未命名案例', designerId: self, _by: self,
+      style: o.style || '现代简约', country: o.country || '中国', area: Number(o.area) || 0,
+      budget: Number(o.budget) || 0, software: o.software || '3DMax', delivery: o.delivery || '效果图',
+      reuse: 0, points: Number(o.points) || 200, review: '草稿', createdAt: today(), public: false, spaces: []
+    };
+    CASES.unshift(cs);
+    addLog('案例发布', cs.name, `${currentRole().name} 新建案例草稿 ${cs.code}`);
+    persist(); return cs;
+  }
+  // 项目 → 关联案例（里程碑「发布/管理案例」用；幂等）
+  function caseFromProject(pid) {
+    const p = getProjectRaw(pid); if (!p) return null;
+    let cs = CASES.find(c => c.projectId === pid);
+    if (cs) return cs;
+    const owner = (p.d3d && p.d3d[0]) || (p.d2d && p.d2d[0]) || currentRole().selfId;
+    const id = 'c' + String(++_caseSeq).padStart(3, '0');
+    cs = {
+      id, code: (p.code || p.orderCode || id) + '-CASE', projectId: pid, name: p.name, designerId: owner, _by: owner,
+      style: p.style || '现代简约', country: p.region || p.country || '中国', area: Number(p.area) || 0,
+      budget: Number(p.budget) || 0, software: (p.software || '3DMax'), delivery: '虚拟现实',
+      reuse: 0, points: 300, review: '草稿', createdAt: today(), public: false, spaces: []
+    };
+    CASES.unshift(cs);
+    addLog('案例发布', cs.name, `由项目 ${p.code || pid} 生成案例草稿`);
+    persist(); return cs;
+  }
+  // 新增 / 更新空间（含分空间上传的产品清单 / 3D / CAD / 平面图 / 全景）
+  function saveCaseSpace(caseId, o) {
+    const cs = getCase(caseId); if (!cs) return null;
+    o = o || {};
+    const hasVR = cs.delivery === '虚拟现实';
+    let sp = o.key ? (cs.spaces || []).find(s => s.key === o.key) : null;
+    if (!sp) {
+      sp = { key: o.key || ('sp' + Date.now().toString().slice(-6)), name: o.name || '新空间', icon: o.icon || '🏠', area: Number(o.area) || 0, points: cs.points, hasVR, products: [], models: [], cad: [], floorplan: [], panorama: [] };
+      cs.spaces = cs.spaces || []; cs.spaces.push(sp);
+    }
+    if (o.name) sp.name = o.name; if (o.icon) sp.icon = o.icon; if (o.area != null) sp.area = Number(o.area) || 0;
+    if (o.products) sp.products = o.products;
+    if (o.models) sp.models = o.models;
+    if (o.cad) sp.cad = o.cad;
+    if (o.floorplan) sp.floorplan = o.floorplan;
+    if (o.panorama) sp.panorama = o.panorama;
+    addLog('案例发布', cs.name + ' · ' + sp.name, `${currentRole().name} 上传/更新空间交付物（产品${(sp.products || []).length}·3D${(sp.models || []).length}·CAD${(sp.cad || []).length}）`);
+    persist(); return sp;
+  }
+  function updateCase(caseId, patch) {
+    const cs = getCase(caseId); if (!cs) return null;
+    Object.assign(cs, patch || {});
+    if (patch && patch.review) cs.public = (patch.review === '已通过');
+    persist(); return cs;
+  }
+  function setCasePublic(caseId, pub) {
+    const cs = getCase(caseId); if (!cs) return null;
+    cs.public = !!pub; cs.review = pub ? '已通过' : (cs.review === '已通过' ? '审核中' : cs.review);
+    addLog('案例发布', cs.name, `${currentRole().name} ${pub ? '发布到案例广场' : '取消公开'}`);
+    persist(); return cs;
+  }
+  function canManageCase(cs) {
+    if (!cs) return false;
+    const r = currentRole();
+    if (r.scope === 'all') return true;
+    if (r.scope === 'dept') return DESIGNERS.some(d => d.id === cs.designerId && d.dept === r.dept);
+    return cs.designerId === r.selfId || cs._by === r.selfId;
+  }
+
   // Export
   global.MOCK = {
+    CASES, getCase, caseList, myCases, caseCover, caseImg, caseCoverImg, spaceImg, caseDesignerNo, caseStyles, caseCountries, caseSoftwares, caseSpaceCount,
+    publishCase, caseFromProject, saveCaseSpace, updateCase, setCasePublic, canManageCase, CASE_SPACE_LIB,
     DEPARTMENTS, DESIGNERS, CUSTOMERS, PROJECTS, DESIGN_ORDERS, TODOS,
     MY_TASKS, COORD_TASKS, myCoordTasks, VERSIONS, COMMISSIONS, MILESTONE_TEMPLATE, AUDIT_LOGS, MILESTONE_EVALS,
     CURRENT_USER,
@@ -1166,6 +1431,7 @@
     getProfile, saveProfile, ASSIGN_RULES, designerReadiness, getAssignRules, saveAssignRules, scoreDesigner,
     // 我的任务 · 里程碑/版本时间轴
     myTaskProjects, getTaskTimeline, addTaskVersion, completeVersion, acceptRequirement,
+    nodeFiles, msUpstreamFiles, markDelivered, addChangeRequest,
     // 工时填报 & 项目评价待办
     TIMESHEETS, projectHours, projectTimesheets, weekTimesheetHours, designerWeekHours, addTimesheet, approveTimesheet, rejectTimesheet,
     stageBaseline, stageActualHours, isProjectSettled, pendingEvalProjects,
