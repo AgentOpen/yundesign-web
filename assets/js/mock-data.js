@@ -304,7 +304,7 @@
   }
 
   // ===================== 持久化（localStorage）=====================
-  const STATE_VERSION = 14;   // 基础数据结构变更时递增，自动失效旧缓存
+  const STATE_VERSION = 16;   // 基础数据结构变更时递增，自动失效旧缓存
   const LS_KEY = 'yd_demo_state';
 
   function replaceArr(target, src) { if (Array.isArray(src)) { target.length = 0; src.forEach(x => target.push(x)); } }
@@ -1285,13 +1285,6 @@
       { name: `${caseName} · ${spaceName}_导出.fbx`, format: 'FBX（通用导出）', size: Math.round(base * 0.6) + 'MB' }
     ];
   }
-  function _mkCad(spaceName) {
-    return [
-      { name: '平面布局图.dwg', format: 'DWG' },
-      { name: `${spaceName}立面图.dwg`, format: 'DWG' },
-      { name: '节点大样图.dwg', format: 'DWG' }
-    ];
-  }
   const CASE_META = [
     { name: '滨海现代别墅全案', designer: 'u001', style: '现代简约', country: '美国', cc: 'USA', area: 320, budget: 120, software: '3DMax', delivery: '虚拟现实', reuse: 56, points: 400, review: '已通过', date: '2026-05-20', spaces: ['living', 'dining', 'master', 'kitchen', 'bath', 'balcony'] },
     { name: '新中式叠墅样板间', designer: 'u012', style: '新中式', country: '马来西亚', cc: 'MYS', area: 260, budget: 98, software: '3DMax', delivery: '虚拟现实', reuse: 39, points: 360, review: '已通过', date: '2026-05-12', spaces: ['living', 'dining', 'master', 'study', 'bath'] },
@@ -1320,8 +1313,6 @@
         key, name: def.name, icon: def.icon, area, points: meta.points, hasVR,
         products: _mkProducts(meta.style, key),
         models: _mkModels(meta.name, def.name, meta.software),
-        cad: _mkCad(def.name),
-        floorplan: [{ name: `${def.name}平面图.dwg`, format: 'DWG' }],
         panorama: hasVR ? [{ name: `${def.name}720°全景`, type: '720' }] : []
       };
     });
@@ -1330,7 +1321,8 @@
       name: meta.name, designerId: meta.designer, style: meta.style,
       country: meta.country, area: meta.area, budget: meta.budget, software: meta.software,
       delivery: meta.delivery, reuse: meta.reuse, points: meta.points, review: meta.review,
-      createdAt: meta.date, public: meta.review === '已通过', spaces
+      createdAt: meta.date, public: meta.review === '已通过',
+      cadFile: { name: `${meta.name}_全屋CAD.dwg`, format: 'DWG' }, spaces
     };
   }
   const CASES = CASE_META.map(_expandCase);
@@ -1380,14 +1372,18 @@
     addLog('案例发布', cs.name, `由项目 ${p.code || pid} 生成案例草稿`);
     persist(); return cs;
   }
-  // 新增 / 更新空间（含分空间上传的产品清单 / 3D / CAD / 平面图 / 全景）
+  // 仅查找项目关联案例（不自动创建）
+  function projectCase(pid) { return CASES.find(c => c.projectId === pid) || null; }
+  // 确保项目关联案例存在（设计师按空间上传时调用；等价于 caseFromProject 但语义更清晰）
+  function ensureProjectCase(pid) { return caseFromProject(pid); }
+  // 新增 / 更新空间（含分空间上传的产品清单 / 3D / CAD / 平面图 / 全景 / 效果图）
   function saveCaseSpace(caseId, o) {
     const cs = getCase(caseId); if (!cs) return null;
     o = o || {};
     const hasVR = cs.delivery === '虚拟现实';
     let sp = o.key ? (cs.spaces || []).find(s => s.key === o.key) : null;
     if (!sp) {
-      sp = { key: o.key || ('sp' + Date.now().toString().slice(-6)), name: o.name || '新空间', icon: o.icon || '🏠', area: Number(o.area) || 0, points: cs.points, hasVR, products: [], models: [], cad: [], floorplan: [], panorama: [] };
+      sp = { key: o.key || ('sp' + Date.now().toString().slice(-6)), name: o.name || '新空间', icon: o.icon || '🏠', area: Number(o.area) || 0, points: cs.points, hasVR, products: [], models: [], cad: [], floorplan: [], renders: [], productFiles: [], panorama: [] };
       cs.spaces = cs.spaces || []; cs.spaces.push(sp);
     }
     if (o.name) sp.name = o.name; if (o.icon) sp.icon = o.icon; if (o.area != null) sp.area = Number(o.area) || 0;
@@ -1395,8 +1391,10 @@
     if (o.models) sp.models = o.models;
     if (o.cad) sp.cad = o.cad;
     if (o.floorplan) sp.floorplan = o.floorplan;
+    if (o.renders) sp.renders = o.renders;
+    if (o.productFiles) sp.productFiles = o.productFiles;
     if (o.panorama) sp.panorama = o.panorama;
-    addLog('案例发布', cs.name + ' · ' + sp.name, `${currentRole().name} 上传/更新空间交付物（产品${(sp.products || []).length}·3D${(sp.models || []).length}·CAD${(sp.cad || []).length}）`);
+    addLog('案例发布', cs.name + ' · ' + sp.name, `${currentRole().name} 上传/更新空间交付物（平面${(sp.floorplan || []).length}·模型${(sp.models || []).length}·效果图${(sp.renders || []).length}·全景${(sp.panorama || []).length}）`);
     persist(); return sp;
   }
   function updateCase(caseId, patch) {
@@ -1422,7 +1420,7 @@
   // Export
   global.MOCK = {
     CASES, getCase, caseList, myCases, caseCover, caseImg, caseCoverImg, spaceImg, caseDesignerNo, caseStyles, caseCountries, caseSoftwares, caseSpaceCount,
-    publishCase, caseFromProject, saveCaseSpace, updateCase, setCasePublic, canManageCase, CASE_SPACE_LIB,
+    publishCase, caseFromProject, projectCase, ensureProjectCase, saveCaseSpace, updateCase, setCasePublic, canManageCase, CASE_SPACE_LIB,
     DEPARTMENTS, DESIGNERS, CUSTOMERS, PROJECTS, DESIGN_ORDERS, TODOS,
     MY_TASKS, COORD_TASKS, myCoordTasks, VERSIONS, COMMISSIONS, MILESTONE_TEMPLATE, AUDIT_LOGS, MILESTONE_EVALS,
     CURRENT_USER,

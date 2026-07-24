@@ -81,10 +81,14 @@
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;">
-          <div><div class="cs-sec-hd"><b>🧊 3D 模型文件</b><span class="text-sm text-secondary">产品清单的 3D（.max/.skp/.fbx）</span></div><div id="cs-up-model"></div></div>
-          <div><div class="cs-sec-hd"><b>📐 全屋 CAD 文件</b><span class="text-sm text-secondary">平面布局 / 立面 / 节点大样（.dwg）</span></div><div id="cs-up-cad"></div></div>
-          <div><div class="cs-sec-hd"><b>🗺 本空间平面图</b></div><div id="cs-up-floor"></div></div>
-          <div><div class="cs-sec-hd"><b>🌐 本空间全景 / 效果图</b><span class="text-sm text-secondary">${cs.delivery === '虚拟现实' ? '720° 全景' : '高清效果图'}</span></div><div id="cs-up-pano"></div></div>
+          <div><div class="cs-sec-hd"><b>🗺 本空间平面图</b><span class="text-sm text-secondary">平面图 / 布局图（.dwg/.pdf/图片）</span></div><div id="cs-up-floor"></div></div>
+          <div><div class="cs-sec-hd"><b>🧊 产品 3D 模型</b><span class="text-sm text-secondary">产品清单的 3D（.max/.skp/.fbx）</span></div><div id="cs-up-model"></div></div>
+          <div><div class="cs-sec-hd"><b>🖼 空间效果图</b><span class="text-sm text-secondary">效果图（图片 / PDF）</span></div><div id="cs-up-render"></div></div>
+          <div><div class="cs-sec-hd"><b>🌐 720° 全景 / VR</b><span class="text-sm text-secondary">${cs.delivery === '虚拟现实' ? '720° 全景 / VR' : '高清效果图'}</span></div><div id="cs-up-pano"></div></div>
+        </div>
+        <div style="margin-top:14px;">
+          <div class="cs-sec-hd"><b>📐 全屋 CAD 文件</b><span class="text-sm text-secondary">整套项目共用一份全屋 CAD（.dwg，仅需上传一个）· 也支持拖入整个文件夹</span></div>
+          <div id="cs-up-cad"></div>
         </div>
       </div>
       <div class="modal-footer">
@@ -116,13 +120,15 @@
     m.querySelector('#cs-add-prod').addEventListener('click', () => prodBody.appendChild(prodRow({ qty: 1 })));
 
     // 上传区
-    const upModel = UploadField.create({ hint: '拖拽 3D 模型（.max/.skp/.fbx）', initial: sp ? (sp.models || []).map(f => ({ name: f.name, type: 'zip' })) : [] });
-    const upCad = UploadField.create({ hint: '拖拽 CAD（.dwg）', initial: sp ? (sp.cad || []).map(f => ({ name: f.name, type: 'dwg' })) : [] });
-    const upFloor = UploadField.create({ hint: '拖拽本空间平面图', initial: sp ? (sp.floorplan || []).map(f => ({ name: f.name, type: 'dwg' })) : [] });
-    const upPano = UploadField.create({ hint: '拖拽全景 / 效果图', initial: sp ? (sp.panorama || []).map(f => ({ name: f.name, type: 'img' })) : [] });
-    m.querySelector('#cs-up-model').appendChild(upModel.el);
-    m.querySelector('#cs-up-cad').appendChild(upCad.el);
+    const upFloor = UploadField.create({ hint: '拖拽本空间平面图（.dwg/.pdf/图片）', initial: sp ? (sp.floorplan || []).map(f => ({ name: f.name, type: f.type || 'dwg' })) : [] });
+    const upModel = UploadField.create({ hint: '拖拽 3D 模型（.max/.skp/.fbx）', initial: sp ? (sp.models || []).map(f => ({ name: f.name, type: 'model' })) : [] });
+    const upRender = UploadField.create({ hint: '拖拽效果图（图片 / PDF）', initial: sp ? (sp.renders || []).map(f => ({ name: f.name, type: f.type || 'img' })) : [] });
+    const upCad = UploadField.create({ hint: '拖拽全屋 CAD（.dwg，仅上传一个）', initial: cs.cadFile ? [{ name: cs.cadFile.name, type: 'dwg' }] : [] });
+    const upPano = UploadField.create({ hint: '拖拽全景 / VR', initial: sp ? (sp.panorama || []).map(f => ({ name: f.name, type: 'img' })) : [] });
     m.querySelector('#cs-up-floor').appendChild(upFloor.el);
+    m.querySelector('#cs-up-model').appendChild(upModel.el);
+    m.querySelector('#cs-up-render').appendChild(upRender.el);
+    m.querySelector('#cs-up-cad').appendChild(upCad.el);
     m.querySelector('#cs-up-pano').appendChild(upPano.el);
 
     m.querySelector('#cs-save').addEventListener('click', () => {
@@ -142,11 +148,14 @@
       MOCK.saveCaseSpace(caseId, {
         key: sp ? sp.key : key, name, icon, area: m.querySelector('#cs-area').value,
         products,
+        floorplan: upFloor.getFiles().map(f => ({ name: f.name, format: fmtOf(f.name), type: f.type })),
         models: upModel.getFiles().map(f => ({ name: f.name, format: fmtOf(f.name) })),
-        cad: upCad.getFiles().map(f => ({ name: f.name, format: 'DWG' })),
-        floorplan: upFloor.getFiles().map(f => ({ name: f.name, format: fmtOf(f.name) })),
+        renders: upRender.getFiles().map(f => ({ name: f.name, type: f.type || 'img' })),
         panorama: upPano.getFiles().map(f => ({ name: f.name, type: cs.delivery === '虚拟现实' ? '720' : 'img' }))
       });
+      // 全屋 CAD 为案例级（整套共用一份），保存到案例
+      const cadFiles = upCad.getFiles();
+      if (cadFiles.length) MOCK.updateCase(caseId, { cadFile: { name: cadFiles[cadFiles.length - 1].name, format: 'DWG' } });
       m.classList.remove('open');
       toast('空间已保存', 'success');
       if (onSaved) onSaved();

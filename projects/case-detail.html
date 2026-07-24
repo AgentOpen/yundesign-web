@@ -42,6 +42,12 @@
     .sd-fields .k { color: var(--text-secondary); }
     .sd-sec-title { font-size: 16px; font-weight: 700; margin: 22px 0 10px; }
     .soft-note { background: var(--warning-bg); border: 1px solid #F6D68A; color: #92600A; border-radius: 8px; padding: 8px 12px; font-size: 13px; margin-top: 8px; }
+    /* 弹窗头部与关闭按钮（修复右上角 X 异常） */
+    #space-modal .modal, #vr-modal .modal { display: flex; flex-direction: column; max-height: 88vh; }
+    #space-modal .modal-header, #vr-modal .modal-header { position: sticky; top: 0; z-index: 5; background: #fff; border-bottom: 1px solid var(--divider); border-radius: var(--radius-xl) var(--radius-xl) 0 0; }
+    #space-modal .modal-close, #vr-modal .modal-close { width: 30px; height: 30px; border-radius: 8px; background: transparent; border: none; color: var(--text-secondary); font-size: 16px; line-height: 1; }
+    #space-modal .modal-close:hover, #vr-modal .modal-close:hover { background: var(--bg-hover); color: var(--text-primary); }
+    #vr-frame { flex: 1; width: 100%; border: none; border-radius: 0 0 var(--radius-xl) var(--radius-xl); background: #0b1220; }
   </style>
 </head>
 <body>
@@ -72,6 +78,14 @@
     </div>
   </div>
 
+  <!-- VR 全景弹窗 -->
+  <div class="modal-mask" id="vr-modal">
+    <div class="modal modal-xl" style="height:84vh;">
+      <div class="modal-header"><div class="modal-title" id="vr-title">VR 全景</div><div class="modal-close" onclick="closeVR()">✕</div></div>
+      <iframe id="vr-frame" allow="fullscreen; accelerometer; gyroscope; xr-spatial-tracking"></iframe>
+    </div>
+  </div>
+
   <script src="../assets/js/utils.js"></script>
   <script src="../assets/js/mock-data.js"></script>
   <script src="../assets/js/shell.js"></script>
@@ -89,6 +103,15 @@
       function fileIcon(t) { return ({ pdf: '📄', dwg: '📐', zip: '🗜️', img: '🖼️', '720': '🕶' })[t] || '📎'; }
       function dl(name) { toast('下载 ' + name + '（演示占位文件）', 'success'); }
       window.__dl = dl;
+
+      // VR 全景（演示数据来自参考站案例全景）
+      const VR_URL = 'https://img.gbuilderchina.com/panorama/direct-86c6862f-b698-4fd0-893c-355d0ba0e4a4/tour.html';
+      window.openVR = function (title) {
+        document.getElementById('vr-title').textContent = '🕶 VR 全景 · ' + (title || cs.name);
+        document.getElementById('vr-frame').src = VR_URL;
+        openModal('vr-modal');
+      };
+      window.closeVR = function () { document.getElementById('vr-frame').src = ''; closeModal('vr-modal'); };
 
       function renderHero() {
         const dn = MOCK.getDesigner(cs.designerId);
@@ -112,7 +135,7 @@
             <div class="hero-desc">整套项目级交付资料：方案提案、全屋漫游与全屋选品清单。进入下方空间查看各空间的产品、模型与图纸。编号 ${cs.code} · 设计软件 ${cs.software} · 复用 ${cs.reuse} 次 · 复用积分价 ${cs.points} 分。</div>
             <div class="hero-acts">
               <button class="btn btn-primary" onclick="toast('打开总 PPT 设计提案（演示）','info')">📑 总PPT设计提案</button>
-              <button class="btn btn-default" onclick="toast('打开全屋效果图 / VR 漫游（演示）','info')">${vr ? '🕶 全屋VR全景' : '🖼 全屋效果图'}</button>
+              <button class="btn btn-default" onclick="${vr ? `openVR('${cs.name.replace(/'/g, '')}')` : "toast('打开全屋效果图（演示）','info')"}">${vr ? '🕶 全屋VR全景' : '🖼 全屋效果图'}</button>
               <button class="btn btn-default" onclick="toast('已导出全屋产品清单 BOM（演示）','success')">🧾 导出全屋产品清单</button>
               ${manage ? '' : `<button class="btn btn-ghost" onclick="toast('已复制整个项目到我的案例（演示）','success')">📋 复制整个项目</button>`}
               ${pubBtn}
@@ -135,11 +158,10 @@
           </div>
           <div class="sp-body">
             <div class="sp-name">${sp.name} <span class="text-sm text-secondary">${sp.area}㎡</span></div>
-            <div class="sp-sub">产品清单 · 3D模型 · CAD图纸${sp.hasVR ? ' · 720°' : ''}</div>
+            <div class="sp-sub">${[((sp.products || []).length || (sp.productFiles || []).length) ? '产品清单' : '', (sp.models || []).length ? '3D模型' : '', (sp.floorplan || []).length ? '平面图' : '', (sp.renders || []).length ? '效果图' : '', sp.hasVR ? '720°' : ''].filter(Boolean).join(' · ') || '产品清单 · 3D模型 · CAD'}</div>
             <div class="sp-foot">
               <button class="btn btn-xs btn-default" data-detail="${sp.key}">详情</button>
-              <button class="btn btn-xs btn-text" onclick="toast('进入 ${sp.name} VR 全景（演示）','info')">VR</button>
-              <button class="btn btn-xs btn-text" onclick="toast('对比 ${sp.name} 方案版本（演示）','info')">对比</button>
+              ${sp.hasVR ? `<button class="btn btn-xs btn-text" onclick="openVR('${(cs.name + ' · ' + sp.name).replace(/'/g, '')}')">VR</button>` : ''}
               ${manage
             ? `<button class="btn btn-xs btn-primary" data-edit="${sp.key}" style="margin-left:auto;">编辑</button>`
             : `<button class="btn btn-xs btn-primary" onclick="toast('已复用 ${sp.name}（演示）','success')" style="margin-left:auto;">复用</button>`}
@@ -168,13 +190,19 @@
         const sp = (cs.spaces || []).find(s => s.key === key); if (!sp) return;
         const dn = MOCK.getDesigner(cs.designerId);
         document.getElementById('sd-title').textContent = `${cs.name} · ${sp.name}`;
-        const prodRows = (sp.products || []).map(p => `<tr><td>${p.name}</td><td>${p.sku}</td><td>${p.cat}</td><td>${p.qty}</td><td><a href="javascript:;" onclick="__dl('${p.name}')">下载</a></td></tr>`).join('') || '<tr><td colspan="5" class="text-placeholder">暂无产品</td></tr>';
-        const modelRows = (sp.models || []).map(f => `<tr><td>${f.name}</td><td>${f.format}</td><td>${f.size || '—'}</td><td><a href="javascript:;" onclick="__dl('${f.name}')">下载</a></td></tr>`).join('') || '<tr><td colspan="4" class="text-placeholder">暂无模型</td></tr>';
-        const cadRows = [...(sp.cad || []), ...(sp.floorplan || [])].map(f => `<tr><td>${f.name}</td><td>${f.format || 'DWG'}</td><td><a href="javascript:;" onclick="__dl('${f.name}')">下载</a></td></tr>`).join('') || '<tr><td colspan="3" class="text-placeholder">暂无图纸</td></tr>';
+        const prodRows = (sp.products || []).map(p => `<tr><td>${p.name}</td><td>${p.sku}</td><td>${p.cat}</td><td>${p.qty}</td><td><a href="javascript:;" onclick="__dl('${p.name}')">下载</a></td></tr>`).join('');
+        const prodFileRows = (sp.productFiles || []).map(f => `<tr><td>${f.name}</td><td>产品清单</td><td>—</td><td>1</td><td><a href="javascript:;" onclick="__dl('${f.name.replace(/'/g, '')}')">下载</a></td></tr>`).join('');
+        const allProdRows = (prodRows + prodFileRows) || '<tr><td colspan="5" class="text-placeholder">暂无产品</td></tr>';
+        const modelRows = (sp.models || []).map(f => `<tr><td>${f.name}</td><td>${f.format || '模型'}</td><td>${f.size || '—'}</td><td><a href="javascript:;" onclick="__dl('${f.name.replace(/'/g, '')}')">下载</a></td></tr>`).join('') || '<tr><td colspan="4" class="text-placeholder">暂无模型</td></tr>';
+        const renderRows = (sp.renders || []).map(f => `<tr><td>${f.name}</td><td>${f.type === 'img' ? '效果图' : (f.format || '效果图')}</td><td><a href="javascript:;" onclick="__dl('${f.name.replace(/'/g, '')}')">下载</a></td></tr>`).join('');
+        const cad = cs.cadFile || { name: `${cs.name}_全屋CAD.dwg`, format: 'DWG' };
+        const cadRows = `<tr><td>${cad.name}</td><td>${cad.format || 'DWG'}</td><td>全屋 CAD（整套共用）</td><td><a href="javascript:;" onclick="__dl('${cad.name.replace(/'/g, '')}')">下载</a></td></tr>`
+          + (sp.floorplan || []).map(f => `<tr><td>${f.name}</td><td>${f.format || 'DWG'}</td><td>本空间平面图</td><td><a href="javascript:;" onclick="__dl('${f.name.replace(/'/g, '')}')">下载</a></td></tr>`).join('');
+        const spTitle = (cs.name + ' · ' + sp.name).replace(/'/g, '');
         document.getElementById('sd-body').innerHTML = `
           <div class="sd-hero" style="background:${MOCK.caseCover(cs.style)}">
             <img src="${MOCK.spaceImg(cs, sp, (cs.spaces || []).indexOf(sp))}" alt="${sp.name}" onerror="this.style.display='none'">
-            ${sp.hasVR ? `<button class="vrbtn" onclick="toast('进入 ${sp.name} VR 全景（演示）','info')">▶ 进入 VR 全景</button>` : `<div style="color:#fff;font-weight:600;text-shadow:0 1px 3px rgba(0,0,0,.5);">🖼 ${sp.name} 高清效果图（演示）</div>`}
+            ${sp.hasVR ? `<button class="vrbtn" onclick="openVR('${spTitle}')">▶ 进入 VR 全景</button>` : `<div style="color:#fff;font-weight:600;text-shadow:0 1px 3px rgba(0,0,0,.5);">🖼 ${sp.name} 高清效果图（演示）</div>`}
           </div>
           <div class="sd-fields">
             <div><span class="k">案例名称：</span>${cs.name} · ${sp.name}</div>
@@ -192,19 +220,21 @@
           </div>
 
           <div class="sd-sec-title">🧾 产品清单</div>
-          ${tbl(['产品名', 'SKU', '品类', '数量', '操作'], prodRows)}
+          ${tbl(['产品名', 'SKU', '品类', '数量', '操作'], allProdRows)}
 
           <div class="sd-sec-title">🧊 3D 模型文件</div>
           ${tbl(['文件名', '格式', '大小', '操作'], modelRows)}
           <div class="soft-note">⚠ 本案例源文件为 ${cs.software}（.${softExt(cs.software)}）格式，复用前请确认已安装 ${cs.software}，其他软件无法直接编辑；另附 FBX 通用导出。</div>
 
-          <div class="sd-sec-title">📐 全屋 CAD 图纸 & 本空间平面图</div>
-          ${tbl(['文件名', '格式', '操作'], cadRows)}
+          ${renderRows ? `<div class="sd-sec-title">🖼 空间效果图</div>${tbl(['文件名', '类型', '操作'], renderRows)}` : ''}
+
+          <div class="sd-sec-title">📐 全屋 CAD 图纸 & 本空间平面图 <span style="font-size:12px;font-weight:400;color:var(--text-secondary);">（全屋 CAD 整套共用一份 + 本空间平面图）</span></div>
+          ${tbl(['文件名', '格式', '说明', '操作'], cadRows)}
 
           <div class="sd-sec-title">🎁 客户交付方案 ${sp.hasVR ? '（本案例提供全屋 VR 全景）' : ''}</div>
           <div class="flex gap-2" style="flex-wrap:wrap;">
             <button class="btn btn-default" onclick="toast('打开 PPT 设计提案（演示）','info')">📑 PPT设计提案</button>
-            <button class="btn btn-primary" onclick="toast('进入全屋 VR / 效果图（演示）','info')">${sp.hasVR ? '🕶 进入全屋VR全景' : '🖼 查看全屋效果图'}</button>
+            <button class="btn btn-primary" onclick="${sp.hasVR ? `openVR('${spTitle}')` : "toast('查看全屋效果图（演示）','info')"}">${sp.hasVR ? '🕶 进入全屋VR全景' : '🖼 查看全屋效果图'}</button>
             <button class="btn btn-default" onclick="toast('已导出选品清单 BOM（演示）','success')">🧾 导出选品清单(BOM)</button>
           </div>`;
         openModal('space-modal');

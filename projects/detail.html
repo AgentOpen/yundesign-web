@@ -156,13 +156,9 @@
             </table>
           </div>
 
-          <!-- Files -->
+          <!-- Files = 我的案例 · 案例详情（按空间归档设计师上传的交付物） -->
           <div class="tab-panel" data-panel="files">
-            <div class="empty" style="padding:40px 0;">
-              <div class="empty-illustration" style="width:60px;height:60px;">📁</div>
-              <div class="empty-title">案例 / 文件</div>
-              <div class="empty-desc">项目交付物可沉淀到 <a href="./cases.html?tab=mine">案例广场 · 我的案例</a>，按空间归档产品清单 / 3D / CAD / 平面图 / 全景</div>
-            </div>
+            <div id="files-host"></div>
           </div>
 
           <!-- Log -->
@@ -194,6 +190,7 @@
   <script src="../assets/js/utils.js"></script>
   <script src="../assets/js/mock-data.js"></script>
   <script src="../assets/js/upload-field.js"></script>
+  <script src="../assets/js/space-upload.js"></script>
   <script src="../assets/js/commission-adjust.js"></script>
   <script src="../assets/js/shell.js"></script>
   <script>
@@ -600,7 +597,7 @@
                 ${s.status === 'active' ? `<div style="margin-bottom:10px;"><span class="ms-await">⏳ 待上传${upLabel}并交付客户</span></div>` : ''}
                 ${vers ? `<div style="margin-bottom:10px;">${vers}</div>` : '<div class="text-sm text-secondary" style="margin-bottom:10px;">暂无版本记录</div>'}
                 ${s.status === 'active' && canAct ? `<div style="display:flex;gap:8px;flex-wrap:wrap;">
-                    <button class="btn btn-default btn-sm" data-upload="${s.code}">⬆ 上传新版本</button>
+                    <button class="btn btn-default btn-sm" data-space-upload="${s.code}">📁 按空间上传新版本</button>
                     <button class="btn btn-primary btn-sm" data-deliver="${s.code}">✅ 交付并推进</button>
                   </div>` : (s.status === 'active' ? `<div class="text-sm text-secondary">等待 ${dObj ? dObj.name : '设计师'} 上传${upLabel}</div>` : '')}
                 ${s.status === 'done' && canChange ? `<div style="margin-top:10px;"><button class="btn btn-ghost btn-sm" data-change="${s.code}">🔁 客户要求修改</button></div>` : ''}`;
@@ -645,6 +642,10 @@
         box.querySelectorAll('[data-assign]').forEach(b => b.addEventListener('click', () => openAssignDesignerModal(b.dataset.assign)));
         box.querySelectorAll('[data-advance]').forEach(b => b.addEventListener('click', () => { MOCK.msComplete(p.id, b.dataset.advance); toast('里程碑已推进', 'success'); msReload(); }));
         box.querySelectorAll('[data-upload]').forEach(b => b.addEventListener('click', () => { const s = steps.find(x => x.code === b.dataset.upload); openUploadModal(s); }));
+        box.querySelectorAll('[data-space-upload]').forEach(b => b.addEventListener('click', () => {
+          const s = steps.find(x => x.code === b.dataset.spaceUpload);
+          SpaceUpload.open({ pid: p.id, stepCode: s.code, stepName: s.name, mode: s.type === 'design-3d' ? '3d' : '2d', onSaved: () => { renderFlow(); if (window.renderFilesTab) renderFilesTab(); } });
+        }));
         box.querySelectorAll('[data-deliver]').forEach(b => b.addEventListener('click', () => { const s = steps.find(x => x.code === b.dataset.deliver); openDeliverModal(s); }));
         box.querySelectorAll('[data-change]').forEach(b => b.addEventListener('click', () => { const s = steps.find(x => x.code === b.dataset.change); openChangeModal(b.dataset.change, s ? s.name : '设计阶段'); }));
         box.querySelectorAll('[data-dl-up]').forEach(b => b.addEventListener('click', () => downloadFiles(MOCK.msUpstreamFiles(p.id, b.dataset.dlUp), '前置资料')));
@@ -698,6 +699,63 @@
         }));
       })();
       renderFlow();
+
+      // ---- 文件 Tab = 我的案例 · 案例详情（按空间归档设计师上传的交付物）----
+      function ensureFilesStyle() {
+        if (document.getElementById('files-tab-style')) return;
+        const s = document.createElement('style'); s.id = 'files-tab-style';
+        s.textContent = `.files-sp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;}
+          .files-sp-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow-card);cursor:pointer;transition:transform .15s;}
+          .files-sp-card:hover{transform:translateY(-2px);}
+          .files-sp-cover{height:120px;position:relative;overflow:hidden;}
+          .files-sp-cover img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+          .files-sp-ic{position:absolute;bottom:8px;right:8px;z-index:2;width:30px;height:30px;border-radius:8px;background:rgba(255,255,255,.92);display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 2px 6px rgba(0,0,0,.15);}
+          .files-sp-bd{padding:10px 12px;}`;
+        document.head.appendChild(s);
+      }
+      function spaceFileCard(cs, sp, i) {
+        const counts = [
+          (sp.floorplan || []).length ? `平面图 ${sp.floorplan.length}` : '',
+          (sp.models || []).length ? `模型 ${sp.models.length}` : '',
+          (sp.renders || []).length ? `效果图 ${sp.renders.length}` : '',
+          (sp.panorama || []).length ? `全景 ${sp.panorama.length}` : '',
+          ((sp.products || []).length || (sp.productFiles || []).length) ? `产品 ${(sp.products || []).length || (sp.productFiles || []).length}` : ''
+        ].filter(Boolean).join(' · ') || '暂无资料';
+        return `<div class="files-sp-card" onclick="location.href='./case-detail.html?id=${cs.id}'">
+          <div class="files-sp-cover" style="background:${MOCK.caseCover(cs.style)}"><img src="${MOCK.spaceImg(cs, sp, i)}" alt="${sp.name}" loading="lazy" onerror="this.style.display='none'"><span class="files-sp-ic">${sp.icon || '🏠'}</span></div>
+          <div class="files-sp-bd"><div style="font-weight:600;">${sp.name} <span class="text-sm text-secondary">${sp.area ? sp.area + '㎡' : ''}</span></div><div class="text-sm text-secondary" style="margin-top:2px;">${counts}</div></div>
+        </div>`;
+      }
+      function renderFilesTab() {
+        const host = document.getElementById('files-host'); if (!host) return;
+        ensureFilesStyle();
+        const cs = MOCK.projectCase(p.id);
+        const canManage = MOCK.canManageProject(p);
+        if (!cs || !(cs.spaces || []).length) {
+          host.innerHTML = `<div class="empty" style="padding:40px 0;">
+            <div class="empty-illustration" style="width:60px;height:60px;">📁</div>
+            <div class="empty-title">尚未沉淀空间资料</div>
+            <div class="empty-desc">设计师在「🎯 里程碑 &amp; 甘特」各设计阶段 <b>按空间上传</b>（一个文件夹 = 一个空间）后，交付物将自动归档到本项目案例，并在此按空间展示（= 我的案例 · 案例详情）。</div>
+            ${canManage ? `<div style="margin-top:12px;"><button class="btn btn-primary" id="files-gen">🏛 生成 / 管理案例</button></div>` : ''}
+          </div>`;
+          const g = document.getElementById('files-gen');
+          if (g) g.addEventListener('click', () => { const c = MOCK.caseFromProject(p.id); if (c) location.href = './case-detail.html?id=' + c.id + '&manage=1'; });
+          return;
+        }
+        const cad = cs.cadFile;
+        host.innerHTML = `
+          <div class="flex" style="justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+            <div><div style="font-weight:700;font-size:16px;">🏛 ${cs.name} · 案例空间</div>
+              <div class="text-sm text-secondary">按空间归档设计师上传的交付物（与「我的案例 · 案例详情」一致）· 共 ${cs.spaces.length} 个空间${cad ? ` · 全屋CAD：${cad.name}` : ''}</div></div>
+            <div class="flex gap-2">
+              ${cad ? `<button class="btn btn-default btn-sm" onclick="toast('下载 ${cad.name}（演示）','success')">⬇ 全屋CAD</button>` : ''}
+              <button class="btn btn-primary btn-sm" onclick="location.href='./case-detail.html?id=${cs.id}${canManage ? '&manage=1' : ''}'">打开完整案例详情 →</button>
+            </div>
+          </div>
+          <div class="files-sp-grid">${cs.spaces.map((sp, i) => spaceFileCard(cs, sp, i)).join('')}</div>`;
+      }
+      window.renderFilesTab = renderFilesTab;
+      renderFilesTab();
 
       // MS9 施工图阶段（客户确认后是否需要施工图）
       function renderShop() {
