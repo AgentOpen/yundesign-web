@@ -75,10 +75,11 @@
       .uf-chips { display: flex; flex-wrap: wrap; gap: 6px; }
       .uf-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--info-bg); color: var(--info); border-radius: 6px; padding: 3px 8px; font-size: 12px; }
       .uf-chip .x { cursor: pointer; font-weight: 700; margin-left: 2px; }
-      .uf-tree { border: 1px solid var(--divider); border-radius: 8px; padding: 6px 8px; background: var(--bg-page); }
-      .uf-dir { font-size: 12px; font-weight: 600; color: var(--text-primary); padding: 3px 0; }
-      .uf-row { display: flex; align-items: center; justify-content: space-between; font-size: 12px; padding: 2px 0; color: var(--text-secondary); }
-      .uf-row .uf-x { cursor: pointer; font-weight: 700; color: var(--text-placeholder); padding: 0 4px; }
+      .uf-tree { border: 1px solid var(--divider); border-radius: 8px; padding: 8px 10px; background: var(--bg-page); }
+      .uf-row { display: flex; align-items: center; justify-content: space-between; font-size: 13px; padding: 2px 0; color: var(--text-primary); }
+      .uf-row .uf-line { display: flex; align-items: center; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .uf-row .uf-pre { font-family: Consolas, Menlo, Monaco, "Courier New", monospace; white-space: pre; color: var(--text-placeholder); flex: none; }
+      .uf-row .uf-x { cursor: pointer; font-weight: 700; color: var(--text-placeholder); padding: 0 4px; flex: none; }
       .uf-row .uf-x:hover { color: var(--danger); }
     `;
     document.head.appendChild(s);
@@ -98,15 +99,27 @@
     });
     return root;
   }
-  function renderNode(node, depth) {
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  // 生成 ├── / └── / │ 结构；同层先文件后文件夹
+  function renderTree(files) {
+    const root = buildTree(files);
     let h = '';
-    node.order.forEach(d => {
-      h += `<div class="uf-dir" style="padding-left:${depth * 14}px;">📁 ${d}</div>`;
-      h += renderNode(node.dirs[d], depth + 1);
-    });
-    node.files.forEach(f => {
-      h += `<div class="uf-row" style="padding-left:${depth * 14 + 4}px;"><span>${ICON[f.type] || '📎'} ${f.name}</span><span class="uf-x" data-id="${f._id}">×</span></div>`;
-    });
+    function walk(node, prefix) {
+      const entries = [];
+      node.files.forEach(f => entries.push({ dir: false, file: f }));
+      node.order.forEach(d => entries.push({ dir: true, name: d, node: node.dirs[d] }));
+      entries.forEach((e, i) => {
+        const last = i === entries.length - 1;
+        const branch = prefix + (last ? '└── ' : '├── ');
+        if (e.dir) {
+          h += `<div class="uf-row"><span class="uf-line"><span class="uf-pre">${branch}</span>📂 ${esc(e.name)}/</span></div>`;
+          walk(e.node, prefix + (last ? '    ' : '│   '));
+        } else {
+          h += `<div class="uf-row"><span class="uf-line"><span class="uf-pre">${branch}</span>${ICON[e.file.type] || '📎'} ${esc(e.file.name)}</span><span class="uf-x" data-id="${e.file._id}">×</span></div>`;
+        }
+      });
+    }
+    walk(root, '');
     return h;
   }
 
@@ -132,7 +145,7 @@
       if (!files.length) { list.innerHTML = '<span class="text-placeholder text-sm">尚未添加附件</span>'; return; }
       const hasFolders = files.some(f => (f.path || '').indexOf('/') >= 0);
       if (hasFolders) {
-        list.innerHTML = `<div class="uf-tree">${renderNode(buildTree(files), 0)}</div>`;
+        list.innerHTML = `<div class="uf-tree">${renderTree(files)}</div>`;
       } else {
         list.innerHTML = `<div class="uf-chips">${files.map(f => `<span class="uf-chip">${ICON[f.type] || '📎'} ${f.name}<span class="x" data-id="${f._id}">×</span></span>`).join('')}</div>`;
       }
